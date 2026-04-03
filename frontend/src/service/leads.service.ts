@@ -1,0 +1,40 @@
+import { api } from './api';
+
+export const scrapMapData = async (data: {
+	business: string;
+	location: string;
+	page?: number;
+	latitude?: number;
+	longitude?: number;
+}) => {
+	const response = await api.post<ILeadScrapResult[]>(
+		'/api/leads/scrap-map-data',
+		data,
+	);
+	return response.data;
+};
+
+export const bulkCreateLeads = async (data: IBulkCreateLeadsBody) => {
+	const response = await api.post<IApiResponse>('/api/leads/bulk', data);
+	return response.data;
+};
+
+export const getLeads = async (leadCategory?: string) => {
+	const url = leadCategory
+		? `/api/leads?limit=1000&leadCategory=${leadCategory}`
+		: '/api/leads?limit=1000';
+	const response = await api.get<IApiResponse<ILead[]>>(url);
+	return response.data;
+};
+
+export const deleteLeads = async (leadId: string) => {
+	const url = `/api/leads/${leadId}`;
+	const response = await api.delete<IApiResponse<null>>(url);
+	return response.data;
+};
+
+export const deleteBulkLeads = async (leadIds: string[]) => {
+	const url = `/api/leads/bulk/delete`;
+	const response = await api.post<IApiResponse<null>>(url, { ids: leadIds });
+	return response.data;
+};

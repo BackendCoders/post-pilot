@@ -1,0 +1,202 @@
+{
+  "info": {
+    "name": "Lead Generation API",
+    "_postman_id": "8f0d1854-6fd2-4d10-b3d9-bf4a7f0fd4a1",
+    "description": "Postman collection for testing lead CRUD and bulk insert APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "leadId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Lead",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": \"{{userId}}\",\n  \"position\": 1,\n  \"title\": \"Restaurant Owner\",\n  \"address\": \"MG Road, Bengaluru\",\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946,\n  \"rating\": 4.4,\n  \"ratingCount\": 180,\n  \"category\": \"Restaurant\",\n  \"googleMapUrl\": \"https://maps.google.com/example\",\n  \"status\": \"new\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/leads",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "leads"
+          ]
+        }
+      }
+    },
+    {
+      "name": "List Leads",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/leads?page=1&limit=10&status=new",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "leads"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "status",
+              "value": "new"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Lead By Id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/leads/{{leadId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "leads",
+            "{{leadId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Lead",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"contacted\",\n  \"rating\": 4.8,\n  \"ratingCount\": 220\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/leads/{{leadId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "leads",
+            "{{leadId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Lead",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/leads/{{leadId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "leads",
+            "{{leadId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Bulk Create Leads",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": \"{{userId}}\",\n  \"leads\": [\n    {\n      \"pos\": 1,\n      \"titile\": \"Dentist\",\n      \"address\": \"Brigade Road, Bengaluru\",\n      \"lat\": 12.9718,\n      \"lng\": 77.6012,\n      \"rating\": 4.6,\n      \"ratingcount\": 340,\n      \"gmapurl\": \"https://maps.google.com/example-1\"\n    },\n    {\n      \"pos\": 2,\n      \"title\": \"Cafe Owner\",\n      \"address\": \"Church Street, Bengaluru\",\n      \"lat\": 12.975,\n      \"lng\": 77.605,\n      \"rating\": 4.2,\n      \"ratingcount\": 120,\n      \"gmapurl\": \"https://maps.google.com/example-2\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/leads/bulk",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "leads",
+            "bulk"
+          ]
+        }
+      }
+    }
+  ]
+}
