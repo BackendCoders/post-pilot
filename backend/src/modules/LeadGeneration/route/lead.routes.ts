@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate, validateRequest } from '../../../middleware';
 import {
   bulkCreateLeads,
+  bulkUpdateLeads,
   createLead,
   deleteLead,
   deleteLeadBulk,
@@ -85,6 +86,7 @@ const bulkLeadItemSchema = z
     phone: z.string().optional(),
     website: z.string().optional(),
     thumbnailUrl: z.string().optional(),
+    publicId: z.string().optional(),
     lat: z.number().optional(),
     latitude: z.number().optional(),
     lng: z.number().optional(),
@@ -106,6 +108,13 @@ const bulkCreateLeadSchema = z.object({
   body: z.object({
     user: objectId,
     leads: z.array(bulkLeadItemSchema).min(1, 'At least one lead is required'),
+  }),
+});
+
+const bulkUpdateLeadSchema = z.object({
+  body: z.object({
+    ids: z.array(objectId).min(1, 'At least one lead id is required'),
+    status: statusEnum,
   }),
 });
 
@@ -133,6 +142,12 @@ router.post(
 
 router.post('/', validateRequest(createLeadSchema), createLead);
 router.post('/bulk', validateRequest(bulkCreateLeadSchema), bulkCreateLeads);
+router.patch('/bulk', validateRequest(bulkUpdateLeadSchema), bulkUpdateLeads);
+router.patch(
+  '/bulk/status',
+  validateRequest(bulkUpdateLeadSchema),
+  bulkUpdateLeads
+);
 router.get('/', validateRequest(listLeadSchema), listLeads);
 router.get('/:id', validateRequest(leadIdSchema), getLead);
 router.patch('/:id', validateRequest(updateLeadSchema), updateLead);

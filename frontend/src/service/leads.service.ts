@@ -19,11 +19,21 @@ export const bulkCreateLeads = async (data: IBulkCreateLeadsBody) => {
 	return response.data;
 };
 
+export const bulkUpdateLeads = async (data: IBulkUpdateBody) => {
+	const response = await api.patch<IApiResponse>('/api/leads/bulk/status', data);
+	return response.data;
+};
+
 export const getLeads = async (leadCategory?: string) => {
 	const url = leadCategory
 		? `/api/leads?limit=1000&leadCategory=${leadCategory}`
 		: '/api/leads?limit=1000';
 	const response = await api.get<IApiResponse<ILead[]>>(url);
+	return response.data;
+};
+
+export const getLeadById = async (leadId: string) => {
+	const response = await api.get<IApiResponse<ILead>>(`/api/leads/${leadId}`);
 	return response.data;
 };
 

@@ -12,7 +12,7 @@ import ProfilePage from './pages/profile';
 import ConsolePage from './pages/console';
 import SEORocketPage from './pages/seo-rocket';
 import LeadGeneratorPage from './pages/lead-generator';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import LoginScreen from './pages/auth';
 import SignUpScreen from './pages/signup';
 import Protected from './components/Protected';
@@ -20,7 +20,11 @@ import DashboardLayout from './components/dashboardLayout';
 
 import DashboardHome from './pages/dashboard';
 import SavedLead from './pages/dashboard/lead-generation/savedLeads';
+import ProcessedLeads from './pages/dashboard/lead-generation/processedLeads';
+import ConvertedLeads from './pages/dashboard/lead-generation/convertedLeads';
+import RejectedLeads from './pages/dashboard/lead-generation/RejectedLeads';
 import MessageTemplate from '@/pages/dashboard/lead-generation/MessageTemplate';
+import LeadBriefAnalysisPage from '@/pages/dashboard/lead-generation/briefAnalysis';
 
 const router = createBrowserRouter([
 	{
@@ -90,7 +94,14 @@ const router = createBrowserRouter([
 							{ path: 'overview', element: <LeadGeneratorPage />, index: true },
 							{ path: 'scrape', element: <LeadGeneratorPage /> },
 							{ path: 'manage-saved-leads', element: <SavedLead /> },
+							{ path: 'manage-processed-leads', element: <ProcessedLeads /> },
+							{ path: 'manage-complete-leads', element: <ConvertedLeads /> },
+							{ path: 'manage-rejected-leads', element: <RejectedLeads /> },
 							{ path: 'template', element: <MessageTemplate /> },
+							{
+								path: 'brief-analysis/:leadId',
+								element: <LeadBriefAnalysisPage />,
+							},
 						],
 					},
 				],

@@ -4,6 +4,8 @@ import {
 	useScrapMapData,
 	useBulkCreateLeads,
 	useLeads,
+	useScrapedLeadsState,
+	useScrapedLeadsStateActions,
 } from '@/query/leads.query';
 import {
 	useCreateLeadCategory,
@@ -27,9 +29,6 @@ import { toast } from 'sonner';
 import SaveLeadsDialog from './CategoryDialog';
 
 export default function LeadGeneratorPage() {
-	const [business, setBusiness] = useState('');
-	const [location, setLocation] = useState('');
-	const [leads, setLeads] = useState<ILeadScrapResult[]>([]);
 	const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
 		new Set(),
 	);
@@ -38,17 +37,24 @@ export default function LeadGeneratorPage() {
 	const [newCategoryTitle, setNewCategoryTitle] = useState('');
 	const [newCategoryDescription, setNewCategoryDescription] = useState('');
 
-	const [page, setPage] = useState(1);
-	const [avgLat, setAvgLat] = useState<number | null>(null);
-	const [avgLng, setAvgLng] = useState<number | null>(null);
-
 	const { data: user } = useAuth();
+	const { data: scrapedLeadsState } = useScrapedLeadsState();
+	const { setState: setScrapedLeadsState, resetState: resetScrapedLeadsState } =
+		useScrapedLeadsStateActions();
 	const { data: savedLeadsResponse } = useLeads();
 	const { data: leadCategoriesResponse } = useGetLeadCategory();
 	const { mutate: scrapData, isPending: isScraping } = useScrapMapData();
 	const { mutate: bulkCreate, isPending: isSaving } = useBulkCreateLeads();
 	const { mutate: createCategory, isPending: isCreatingCategory } =
 		useCreateLeadCategory();
+
+	const business = scrapedLeadsState?.business ?? '';
+	const location = scrapedLeadsState?.location ?? '';
+	const leads = scrapedLeadsState?.leads ?? [];
+	const page = scrapedLeadsState?.page ?? 1;
+	const avgLat = scrapedLeadsState?.avgLat ?? null;
+	const avgLng = scrapedLeadsState?.avgLng ?? null;
+	const hasResults = leads.length > 0;
 
 	const savedTitles = new Set(
 		(savedLeadsResponse?.data || []).map((lead) => lead.title),
@@ -86,28 +92,48 @@ export default function LeadGeneratorPage() {
 
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!business.trim() || !location.trim()) {
+		const queryBusiness = business.trim();
+		const queryLocation = location.trim();
+
+		if (!queryBusiness || !queryLocation) {
 			toast.error('Business and Location are required.');
 			return;
 		}
 
-		setLeads([]);
 		setSelectedIndices(new Set());
-		setPage(1);
-		setAvgLat(null);
-		setAvgLng(null);
+		setScrapedLeadsState((prev) => ({
+			...prev,
+			business: queryBusiness,
+			location: queryLocation,
+			leads: [],
+			page: 1,
+			avgLat: null,
+			avgLng: null,
+		}));
 
 		scrapData(
-			{ business, location, page: 1 },
+			{ business: queryBusiness, location: queryLocation, page: 1 },
 			{
 				onSuccess: (data: ILeadScrapResult[]) => {
-					setLeads(data);
+					let nextAvgLat: number | null = null;
+					let nextAvgLng: number | null = null;
+
 					if (data.length > 0) {
 						const sumLat = data.reduce((acc, curr) => acc + curr.latitude, 0);
 						const sumLng = data.reduce((acc, curr) => acc + curr.longitude, 0);
-						setAvgLat(Number((sumLat / data.length).toFixed(4)));
-						setAvgLng(Number((sumLng / data.length).toFixed(4)));
+						nextAvgLat = Number((sumLat / data.length).toFixed(4));
+						nextAvgLng = Number((sumLng / data.length).toFixed(4));
 					}
+
+					setScrapedLeadsState((prev) => ({
+						...prev,
+						business: queryBusiness,
+						location: queryLocation,
+						leads: data,
+						page: 1,
+						avgLat: nextAvgLat,
+						avgLng: nextAvgLng,
+					}));
 				},
 			},
 		);
@@ -128,8 +154,11 @@ export default function LeadGeneratorPage() {
 			},
 			{
 				onSuccess: (data: ILeadScrapResult[]) => {
-					setLeads((prev) => [...prev, ...data]);
-					setPage(nextPage);
+					setScrapedLeadsState((prev) => ({
+						...prev,
+						leads: [...prev.leads, ...data],
+						page: nextPage,
+					}));
 				},
 			},
 		);
@@ -231,6 +260,12 @@ export default function LeadGeneratorPage() {
 		);
 	};
 
+	const handleClearResults = () => {
+		setSelectedIndices(new Set());
+		closeSaveDialog();
+		resetScrapedLeadsState();
+	};
+
 	return (
 		<div className='flex flex-1 flex-col h-full w-full bg-background overflow-hidden'>
 			<div className='p-6 border-b border-border bg-card/50'>
@@ -261,7 +296,12 @@ export default function LeadGeneratorPage() {
 								placeholder='e.g., "restros", "dentists", "plumbers"'
 								className='flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground/50'
 								value={business}
-								onChange={(e) => setBusiness(e.target.value)}
+								onChange={(e) =>
+									setScrapedLeadsState((prev) => ({
+										...prev,
+										business: e.target.value,
+									}))
+								}
 							/>
 						</div>
 
@@ -272,7 +312,12 @@ export default function LeadGeneratorPage() {
 								placeholder='e.g., "new-york", "london", "10012"'
 								className='flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground/50'
 								value={location}
-								onChange={(e) => setLocation(e.target.value)}
+								onChange={(e) =>
+									setScrapedLeadsState((prev) => ({
+										...prev,
+										location: e.target.value,
+									}))
+								}
 							/>
 						</div>
 
@@ -287,9 +332,20 @@ export default function LeadGeneratorPage() {
 									Scraping...
 								</>
 							) : (
-								'Start Mining'
+								<span>Start Mining</span>
 							)}
 						</button>
+
+						{hasResults && (
+							<button
+								disabled={isScraping}
+								type='button'
+								onClick={handleClearResults}
+								className='bg-secondary text-secondary-foreground hover:bg-secondary/80 px-6 py-2.5 rounded-lg text-sm font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+							>
+								Clear Results
+							</button>
+						)}
 					</form>
 				</div>
 			</div>

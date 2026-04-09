@@ -118,3 +118,8 @@ interface IBulkCreateLeadsBody {
 	leads: IBulkLeadInput[];
 	user?: string;
 }
+
+interface IBulkUpdateBody {
+	ids: string[];
+	status: string;
+}

@@ -3,7 +3,7 @@ import mongoose, { Schema, Types } from 'mongoose';
 export const LEAD_STATUSES = [
   'new',
   'saved',
-  'contacted',
+  'processed',
   'converted',
   'rejected',
 ] as const;
@@ -17,6 +17,7 @@ export interface ILead {
   thumbnailUrl?: string;
   title?: string;
   address?: string;
+  publicId?: string;
   latitude?: number;
   longitude?: number;
   rating?: number;
@@ -78,6 +79,7 @@ const leadSchema = new Schema<ILead>(
       trim: true,
       default: null,
     },
+    publicId: String,
     googleMapUrl: {
       type: String,
       trim: true,
@@ -86,7 +88,7 @@ const leadSchema = new Schema<ILead>(
     status: {
       type: String,
       enum: LEAD_STATUSES,
-      default: 'new',
+      default: 'saved',
       index: true,
     },
   },

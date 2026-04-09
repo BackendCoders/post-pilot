@@ -179,3 +179,47 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+@layer components {
+	.toast-googly {
+		background:
+			radial-gradient(circle at 100% 0%, hsl(0 0% 100% / 0.12), transparent 40%),
+			var(--popover);
+		border-color: color-mix(in oklch, var(--border) 70%, transparent);
+		box-shadow:
+			0 12px 28px -12px hsl(0 0% 0% / 0.35),
+			0 0 0 1px hsl(0 0% 100% / 0.06) inset;
+	}
+
+	.toast-googly-success {
+		border-left: 4px solid oklch(0.72 0.2 151);
+		background:
+			linear-gradient(100deg, oklch(0.94 0.06 151 / 0.4), transparent 42%),
+			var(--popover);
+	}
+
+	.toast-googly-error {
+		border-left: 4px solid oklch(0.63 0.21 25.3);
+		background:
+			linear-gradient(100deg, oklch(0.89 0.06 25.3 / 0.35), transparent 42%),
+			var(--popover);
+	}
+
+	.toast-googly-warning {
+		border-left: 4px solid oklch(0.79 0.16 82);
+		background:
+			linear-gradient(100deg, oklch(0.95 0.06 82 / 0.4), transparent 42%),
+			var(--popover);
+	}
+
+	.toast-googly-info {
+		border-left: 4px solid var(--primary);
+		background:
+			linear-gradient(
+				100deg,
+				oklch(0.94 0.06 259.8145 / 0.35),
+				transparent 42%
+			),
+			var(--popover);
+	}
+}
