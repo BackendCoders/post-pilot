@@ -10,6 +10,26 @@ export interface IUser {
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
+  avatar: string;
+  phoneNumber: string;
+  companyName: string;
+  companySize: '1-10' | '11-50' | '51-200' | '201-500' | '500+' | '';
+  jobTitle: string;
+  website: string;
+  linkedinUrl: string;
+  timezone: string;
+  language: 'en' | 'es' | 'fr' | 'de' | 'pt' | 'zh' | 'ja' | '';
+  emailNotifications: boolean;
+  subscriptionPlan: 'free' | 'pro' | 'enterprise';
+  emailVerified: boolean;
+  twoFactorEnabled: boolean;
+  whatsappConnected: boolean;
+  whatsappConnectedAt?: Date;
+  whatsappPhoneNumber: string;
+  loginCount: number;
+  lastActiveAt?: Date;
+  deactiveReason: string;
+  deletedAt?: Date;
 }
 
 export interface IAuthRequest {

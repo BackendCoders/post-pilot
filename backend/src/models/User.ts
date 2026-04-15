@@ -24,7 +24,7 @@ const userSchema = new Schema<IUserDocument>(
       type: String,
       required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters long'],
-      select: false, // Don't include password in queries by default
+      select: false,
     },
     userName: {
       type: String,
@@ -42,6 +42,91 @@ const userSchema = new Schema<IUserDocument>(
       default: true,
     },
     lastLogin: {
+      type: Date,
+    },
+    avatar: {
+      type: String,
+      default: '',
+    },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    companyName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    companySize: {
+      type: String,
+      enum: ['1-10', '11-50', '51-200', '201-500', '500+', ''],
+      default: '',
+    },
+    jobTitle: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    website: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    linkedinUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    timezone: {
+      type: String,
+      default: 'UTC',
+    },
+    language: {
+      type: String,
+      enum: ['en', 'es', 'fr', 'de', 'pt', 'zh', 'ja', ''],
+      default: 'en',
+    },
+    emailNotifications: {
+      type: Boolean,
+      default: true,
+    },
+    subscriptionPlan: {
+      type: String,
+      enum: ['free', 'pro', 'enterprise'],
+      default: 'free',
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    whatsappConnected: {
+      type: Boolean,
+      default: false,
+    },
+    whatsappConnectedAt: {
+      type: Date,
+    },
+    whatsappPhoneNumber: {
+      type: String,
+      default: '',
+    },
+    loginCount: {
+      type: Number,
+      default: 0,
+    },
+    lastActiveAt: {
+      type: Date,
+    },
+    deactiveReason: {
+      type: String,
+      default: '',
+    },
+    deletedAt: {
       type: Date,
     },
   },
