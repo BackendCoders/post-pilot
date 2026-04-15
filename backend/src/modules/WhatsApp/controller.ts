@@ -17,7 +17,7 @@ const getUserIdFromToken = (token: string): string | null => {
 export const getQRCode = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const token = req.query.token as string;
-    logger.info('QR endpoint called', { hasToken: !!token });
+    console.log('QR endpoint called', { hasToken: !!token });
 
     if (!token) {
       logger.warn('No token provided');
@@ -48,7 +48,7 @@ export const getQRCode = asyncHandler(
 
     try {
       logger.info('Starting WhatsApp connection for user', { userId });
-      
+
       await whatsappService.startConnection(userId, (qrCode) => {
         logger.info('QR code received', { qrLength: qrCode.length });
         if (!qrSent) {

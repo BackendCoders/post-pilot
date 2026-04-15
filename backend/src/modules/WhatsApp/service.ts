@@ -3,6 +3,7 @@ import { Boom } from '@hapi/boom';
 import * as fs from 'fs';
 import * as path from 'path';
 import User from '../../models/User';
+import { logger } from '../../utils/logger';
 
 const SESSION_DIR = './whatsapp-sessions';
 
@@ -43,8 +44,11 @@ class WhatsAppService {
 
     const existingSocket = this.sockets.get(userId);
     if (existingSocket) {
+      logger.info('Socket already exists for user', { userId });
       return;
     }
+
+    logger.info('Creating new WhatsApp socket', { userId, sessionDir: this.getSessionDir(userId) });
 
     const { state, saveCreds } = await useMultiFileAuthState(this.getSessionDir(userId));
 
@@ -55,34 +59,58 @@ class WhatsAppService {
 
     this.sockets.set(userId, sock);
 
+    // Listen to ALL events and log them
     sock.ev.on('creds.update', async () => {
+      logger.info('Creds update event fired');
       await saveCreds();
     });
 
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect } = update;
+    sock.ev.on('connection.update', (update) => {
+      logger.info('Connection update', { 
+        connection: update.connection, 
+        qr: update.qr ? 'QR present' : 'No QR',
+        received: update
+      });
+
+      const { connection, lastDisconnect, qr } = update;
+
+      // QR might be in connection.update
+      if (qr) {
+        logger.info('QR found in connection.update');
+        onQR(qr);
+      }
 
       if (connection === 'open') {
         const phoneNumber = sock.user?.id?.split(':')[0] || '';
-        await User.findByIdAndUpdate(userId, {
+        logger.info('WhatsApp connected', { phoneNumber });
+        User.findByIdAndUpdate(userId, {
           whatsappConnected: true,
           whatsappConnectedAt: new Date(),
           whatsappPhoneNumber: phoneNumber,
-        });
+        }).catch(err => logger.error('Failed to update user', { err }));
       }
 
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-        if (!shouldReconnect) {
-          await this.handleLogout(userId);
+        logger.info('Connection closed', { statusCode, shouldReconnect: statusCode !== DisconnectReason.loggedOut });
+        
+        if (statusCode !== DisconnectReason.loggedOut) {
+          this.handleLogout(userId).catch(err => logger.error('Logout failed', { err }));
         }
       }
     });
 
-    // Handle QR code generation - cast to any to bypass strict typing
-    (sock.ev as any).on('qr', (qr: string) => {
+    // Log all events for debugging
+    const events = ['qr', 'messaging', 'chat', 'contacts', 'presences', 'chats'];
+    events.forEach(event => {
+      sock.ev.on(event, (...args) => {
+        logger.info(`Event: ${event}`, { args });
+      });
+    });
+
+    // Handle QR code generation
+    sock.ev.on('qr' as any, (qr: string) => {
+      logger.info('QR event fired', { qrLength: qr?.length });
       onQR(qr);
     });
   }
@@ -92,8 +120,8 @@ class WhatsAppService {
     if (sock) {
       try {
         await sock.logout();
-      } catch {
-        // Ignore errors during logout
+      } catch (err) {
+        logger.error('Logout error', { err });
       }
       sock.end(undefined);
       this.sockets.delete(userId);
