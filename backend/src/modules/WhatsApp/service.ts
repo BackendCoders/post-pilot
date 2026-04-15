@@ -100,7 +100,9 @@ class WhatsAppService {
 
     (sock.ev as any).on('qr', (qr: string) => {
       logger.info('QR event fired', { qrLength: qr?.length });
-      onQR(qr);
+      // Baileys returns base64 PNG, wrap in data URL for browser
+      const qrDataUrl = qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`;
+      onQR(qrDataUrl);
     });
   }
 
