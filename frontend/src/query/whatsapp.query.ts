@@ -16,7 +16,7 @@ interface QREvent {
 export const useWhatsAppStatus = () => {
   return useQuery<WhatsAppStatus>({
     queryKey: ['whatsapp', 'status'],
-    queryFn: () => api.get('/whatsapp/status').then(res => res.data.data),
+    queryFn: () => api.get('/api/whatsapp/status').then(res => res.data.data),
     refetchInterval: 30000,
   });
 };
@@ -24,7 +24,7 @@ export const useWhatsAppStatus = () => {
 export const useWhatsAppLogout = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post('/whatsapp/logout'),
+    mutationFn: () => api.post('/api/whatsapp/logout'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'status'] });
     },
@@ -35,7 +35,7 @@ export const useWhatsAppQR = () => {
   return useMutation<void, Error, (event: QREvent) => void>({
     mutationFn: async (onQR) => {
       return new Promise<void>((resolve, reject) => {
-        const eventSource = new EventSource('/api/whatsapp/qr', {
+        const eventSource = new EventSource('http://localhost:5000/api/whatsapp/qr', {
           withCredentials: true,
         });
 
