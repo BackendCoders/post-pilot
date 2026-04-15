@@ -59,7 +59,6 @@ class WhatsAppService {
 
     this.sockets.set(userId, sock);
 
-    // Listen to ALL events and log them
     sock.ev.on('creds.update', async () => {
       logger.info('Creds update event fired');
       await saveCreds();
@@ -74,7 +73,6 @@ class WhatsAppService {
 
       const { connection, lastDisconnect, qr } = update;
 
-      // QR might be in connection.update
       if (qr) {
         logger.info('QR found in connection.update');
         onQR(qr);
@@ -100,16 +98,7 @@ class WhatsAppService {
       }
     });
 
-    // Log all events for debugging
-    const events = ['qr', 'messaging', 'chat', 'contacts', 'presences', 'chats'];
-    events.forEach(event => {
-      sock.ev.on(event, (...args) => {
-        logger.info(`Event: ${event}`, { args });
-      });
-    });
-
-    // Handle QR code generation
-    sock.ev.on('qr' as any, (qr: string) => {
+    (sock.ev as any).on('qr', (qr: string) => {
       logger.info('QR event fired', { qrLength: qr?.length });
       onQR(qr);
     });
