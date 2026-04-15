@@ -8,6 +8,7 @@ import {
 	updateMessageById,
 	deteteMessageById,
 } from '@/service/messageTemplate';
+import { useAuth } from './auth.query';
 
 const getErrorMessage = (err: unknown) => {
 	if (isAxiosError<IApiResponse>(err)) {
@@ -50,6 +51,7 @@ export const useCreateMessageTemplate = function () {
 
 export const useUpdateMessageTemplate = function () {
 	const queryClient = useQueryClient();
+	const { data: authUserData } = useAuth();
 	return useMutation({
 		mutationFn: ({
 			id,
@@ -57,7 +59,7 @@ export const useUpdateMessageTemplate = function () {
 		}: {
 			id: string;
 			data: Partial<IMessageTemplate>;
-		}) => updateMessageById(id, data),
+		}) => updateMessageById(id, { ...data, user: authUserData?.id }),
 		onSuccess: () => {
 			toast.success('Message template updated successfully!');
 			queryClient.invalidateQueries({ queryKey: ['messageTemplates'] });

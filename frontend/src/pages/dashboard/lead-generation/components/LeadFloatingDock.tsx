@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Download, Trash, X } from 'lucide-react';
+import { Download, Plane, Trash, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ type Props = {
 	onMoveToStatus: (
 		status: 'saved' | 'processed' | 'converted' | 'rejected',
 	) => void;
+	onReach: () => void;
 };
 
 /**
@@ -25,6 +26,7 @@ export default function LeadFloatingDock({
 	onClear,
 	onDelete,
 	onMoveToStatus,
+	onReach,
 }: Props) {
 	if (selectedCount <= 0) return null;
 
@@ -66,6 +68,12 @@ export default function LeadFloatingDock({
 						icon={<Download size={16} />}
 					>
 						Export
+					</ActionButton>
+					<ActionButton
+						onClick={onReach}
+						icon={<Plane />}
+					>
+						Reach
 					</ActionButton>
 
 					<div className='h-4 w-px bg-border mx-1' />

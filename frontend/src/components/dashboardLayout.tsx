@@ -20,6 +20,7 @@ import {
 	PersonStanding,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/query/auth.query';
 
 /**
  * M3 DESIGN SYSTEM COMPONENTS
@@ -127,6 +128,7 @@ export default function GoogleModernLayout() {
 	const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 	const [openMenus, setOpenMenus] = useState<string[]>(['post-pilot']);
 	const navigate = useNavigate();
+	const { data: user } = useAuth();
 
 	// Dynamic Breadcrumb Logic
 	const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -285,31 +287,34 @@ export default function GoogleModernLayout() {
 					})}
 				</nav>
 
-				{/* BOTTOM UTILS */}
+{/* BOTTOM UTILS */}
 				<div
 					className={cn(
 						'p-4 border-t border-border/50 space-y-2',
 						isSidebarCollapsed && 'px-2',
 					)}
 				>
-					<div
+					<button
+						onClick={() => navigate('/dashboard/profile')}
 						className={cn(
-							'flex items-center p-2 rounded-2xl hover:bg-muted transition-all cursor-pointer',
+							'flex items-center p-2 rounded-2xl hover:bg-muted transition-all cursor-pointer w-full',
 							isSidebarCollapsed ? 'justify-center' : 'gap-3',
 						)}
 					>
 						<div className='w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white text-xs font-bold shadow-inner'>
-							AD
+							{user?.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
 						</div>
 						{!isSidebarCollapsed && (
-							<div className='flex flex-col flex-1 overflow-hidden'>
-								<span className='text-sm font-bold truncate'>Admin User</span>
+							<div className='flex flex-col flex-1 overflow-hidden text-left'>
+								<span className='text-sm font-bold truncate'>
+									{user?.userName || 'User'}
+								</span>
 								<span className='text-xs text-muted-foreground truncate'>
-									admin@google.com
+									{user?.email || 'user@example.com'}
 								</span>
 							</div>
 						)}
-					</div>
+					</button>
 				</div>
 			</aside>
 

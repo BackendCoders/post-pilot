@@ -120,8 +120,10 @@ export const login = asyncHandler(
       return;
     }
 
-    // Update last login
+    // Update last login and activity
     user.lastLogin = new Date();
+    user.lastActiveAt = new Date();
+    user.loginCount = (user.loginCount || 0) + 1;
     await user.save();
 
     // Generate tokens
@@ -270,6 +272,21 @@ export const getMe = asyncHandler(
         userName: user.userName,
         role: user.role,
         isActive: user.isActive,
+        avatar: user.avatar,
+        phoneNumber: user.phoneNumber,
+        companyName: user.companyName,
+        companySize: user.companySize,
+        jobTitle: user.jobTitle,
+        website: user.website,
+        linkedinUrl: user.linkedinUrl,
+        timezone: user.timezone,
+        language: user.language,
+        emailNotifications: user.emailNotifications,
+        subscriptionPlan: user.subscriptionPlan,
+        emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+        loginCount: user.loginCount,
+        lastActiveAt: user.lastActiveAt,
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

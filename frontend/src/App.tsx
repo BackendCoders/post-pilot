@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DarkModeProvider } from './context/DarkModeContext';
 
 import HomePage from './pages/home/page';
-import ProfilePage from './pages/profile';
+// import ProfilePage from './pages/profile';
 import ConsolePage from './pages/console';
 import SEORocketPage from './pages/seo-rocket';
 import LeadGeneratorPage from './pages/lead-generator';
@@ -25,6 +25,7 @@ import ConvertedLeads from './pages/dashboard/lead-generation/convertedLeads';
 import RejectedLeads from './pages/dashboard/lead-generation/RejectedLeads';
 import MessageTemplate from '@/pages/dashboard/lead-generation/MessageTemplate';
 import LeadBriefAnalysisPage from '@/pages/dashboard/lead-generation/briefAnalysis';
+import ProfilePage from '@/pages/dashboard/profile';
 
 const router = createBrowserRouter([
 	{
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
 					</Protected>
 				),
 				children: [
+					{ path: 'profile', element: <ProfilePage /> },
 					{
 						index: true,
 						element: (

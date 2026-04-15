@@ -49,3 +49,61 @@ export const refresh = async function (refreshToken: string | null = null) {
 
 	return res.data.data;
 };
+
+export const updateProfile = async function ({
+	userName,
+	email,
+	avatar,
+	phoneNumber,
+	companyName,
+	companySize,
+	jobTitle,
+	website,
+	linkedinUrl,
+	timezone,
+	language,
+	emailNotifications,
+}: {
+	userName?: string;
+	email?: string;
+	avatar?: string;
+	phoneNumber?: string;
+	companyName?: string;
+	companySize?: string;
+	jobTitle?: string;
+	website?: string;
+	linkedinUrl?: string;
+	timezone?: string;
+	language?: string;
+	emailNotifications?: boolean;
+}) {
+	const res = await api.put<IApiResponse>('/api/users/profile', {
+		userName,
+		email,
+		avatar,
+		phoneNumber,
+		companyName,
+		companySize,
+		jobTitle,
+		website,
+		linkedinUrl,
+		timezone,
+		language,
+		emailNotifications,
+	});
+	return res.data;
+};
+
+export const changePassword = async function ({
+	currentPassword,
+	newPassword,
+}: {
+	currentPassword: string;
+	newPassword: string;
+}) {
+	const res = await api.put<IApiResponse>('/api/users/change-password', {
+		currentPassword,
+		newPassword,
+	});
+	return res.data;
+};

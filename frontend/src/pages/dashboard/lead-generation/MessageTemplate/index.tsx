@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Plus, Pencil, Trash2, X, Info } from 'lucide-react';
 import {
 	useCreateMessageTemplate,
@@ -6,18 +6,52 @@ import {
 	useMessageTemplates,
 	useUpdateMessageTemplate,
 } from '@/query/messageTemplate.query';
+import { useAuth } from '@/query/auth.query';
 
-const KEYWORDS = [
-	'phone',
-	'website',
-	'title',
-	'address',
-	'latitude',
-	'longitude',
-	'rating',
-	'ratingCount',
-	'category',
-];
+const KEYWORD_GROUPS = {
+	LEAD: {
+		label: 'Lead Info',
+		keywords: [
+			{ key: 'title', desc: 'Business name' },
+			{ key: 'phone', desc: 'Phone number' },
+			{ key: 'website', desc: 'Website URL' },
+			{ key: 'address', desc: 'Full address' },
+			{ key: 'googleMapUrl', desc: 'Google Maps link' },
+			{ key: 'rating', desc: 'Star rating' },
+			{ key: 'ratingCount', desc: 'Number of reviews' },
+			{ key: 'position', desc: 'Listing position' },
+		],
+	},
+	USER: {
+		label: 'Your Profile',
+		keywords: [
+			{ key: 'userName', desc: 'Your name' },
+			{ key: 'userEmail', desc: 'Your email' },
+		],
+	},
+	DATE: {
+		label: 'Date & Time',
+		keywords: [
+			{ key: 'date', desc: 'Current date' },
+			{ key: 'time', desc: 'Current time' },
+			{ key: 'day', desc: 'Day of week' },
+			{ key: 'month', desc: 'Current month' },
+			{ key: 'year', desc: 'Current year' },
+		],
+	},
+	// UTILITY: {
+	// 	label: 'Utility',
+	// 	keywords: [
+	// 		{ key: 'index', desc: 'Lead index number' },
+	// 		{ key: 'totalLeads', desc: 'Total leads count' },
+	// 		{ key: 'unsubscribeUrl', desc: 'Unsubscribe link' },
+	// 	],
+	// },
+};
+
+// const ALL_KEYWORDS = Object.values(KEYWORD_GROUPS).flatMap((g) =>
+// 	g.keywords.map((k) => k.key)
+// );
 
 const templateStruct: IMessageTemplate = {
 	title: '',
@@ -29,14 +63,37 @@ export default function TemplateManager() {
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [currentTemplate, setCurrentTemplate] =
 		useState<IMessageTemplate>(templateStruct);
+	const [cursorPos, setCursorPos] = useState(0);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const { data: templatesResponse, isFetching: loadingTemplate } =
 		useMessageTemplates();
+	const { data: authUser } = useAuth();
 	const { mutate: createMessageTemplate } = useCreateMessageTemplate();
 	const { mutate: updateMessageTemplate } = useUpdateMessageTemplate();
 	const { mutate: deleteMessageTemplate } = useDeleteMessageTemplate();
 
-	// console.log(templates);
+	const insertAtCursor = (keyword: string) => {
+		const textarea = textareaRef.current;
+		if (!textarea) return;
+
+		const start = textarea.selectionStart;
+		const end = textarea.selectionEnd;
+		const content = currentTemplate.content || '';
+		const before = content.slice(0, start);
+		const after = content.slice(end);
+		const inserted = `{{${keyword}}}`;
+
+		const newContent = before + inserted + after;
+		setCurrentTemplate((p) => ({ ...p, content: newContent }));
+
+		requestAnimationFrame(() => {
+			textarea.focus();
+			const newPos = start + inserted.length;
+			textarea.setSelectionRange(newPos, newPos);
+		});
+	};
+
 	const templates = templatesResponse?.data;
 
 	const formatContent = (text: string) => {
@@ -46,20 +103,80 @@ export default function TemplateManager() {
 					Preview will appear here...
 				</span>
 			);
-		const parts = text.split(/(%[\w]+%)/g);
-		return parts.map((part, i) => {
-			if (part.startsWith('%') && part.endsWith('%')) {
-				return (
-					<span
-						key={i}
-						className='inline-block px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-bold text-[0.8rem] border border-primary/20 mx-0.5'
-					>
-						{part.replace(/%/g, '')}
-					</span>
-				);
-			}
-			return <span key={i}>{part}</span>;
+		const lines = text.split('\n');
+		return lines.map((line, lineIndex) => {
+			const parts = line.split(/(\{\{[\w]+\}\})/g);
+			return (
+				<span key={lineIndex}>
+					{parts.map((part, partIndex) => {
+						if (part.startsWith('{{') && part.endsWith('}}')) {
+							return (
+								<span
+									key={partIndex}
+									className='inline-block px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-bold text-[0.8rem] border border-primary/20 mx-0.5'
+								>
+									{part}
+								</span>
+							);
+						}
+						return <span key={partIndex}>{part}</span>;
+					})}
+					{lineIndex < lines.length - 1 && <br />}
+				</span>
+			);
 		});
+	};
+
+	const resolveTemplate = useMemo(() => {
+		const now = new Date();
+		const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+			month: 'long',
+			day: 'numeric',
+			year: 'numeric',
+		});
+		const TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true,
+		});
+
+		return (template: string) => {
+			if (!template) return '';
+
+			const availableReplacements: Record<string, string> = {
+				userName: authUser?.userName || '',
+				userEmail: authUser?.email || '',
+				date: DATE_FORMATTER.format(now),
+				time: TIME_FORMATTER.format(now),
+				day: now.toLocaleDateString('en-US', { weekday: 'long' }),
+				month: now.toLocaleDateString('en-US', { month: 'long' }),
+				year: now.getFullYear().toString(),
+			};
+
+			return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+				if (availableReplacements[key] !== undefined) {
+					return availableReplacements[key];
+				}
+				return match;
+			});
+		};
+	}, [authUser]);
+
+	const renderPreview = (text: string) => {
+		if (!text)
+			return (
+				<span className='text-muted-foreground italic text-sm'>
+					Preview will appear here...
+				</span>
+			);
+		const resolved = resolveTemplate(text);
+		const lines = resolved.split('\n');
+		return lines.map((line, lineIndex) => (
+			<span key={lineIndex}>
+				{line}
+				{lineIndex < lines.length - 1 && <br />}
+			</span>
+		));
 	};
 
 	const handleSave = () => {
@@ -152,7 +269,7 @@ export default function TemplateManager() {
 								</div>
 
 								<div className='flex-1 bg-muted/30 rounded-xl p-4 mb-4 border border-border/50 overflow-hidden'>
-									<p className='text-sm leading-relaxed line-clamp-4'>
+									<p className='text-sm leading-relaxed whitespace-pre-wrap'>
 										{formatContent(t.content)}
 									</p>
 								</div>
@@ -200,14 +317,26 @@ export default function TemplateManager() {
 										Message Body
 									</label>
 									<textarea
+										ref={textareaRef}
 										className='w-full bg-background border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 min-h-30 font-mono leading-relaxed max-h-56'
 										placeholder='Type your message...'
 										value={currentTemplate.content}
-										onChange={(e) =>
-											setCurrentTemplate({
-												...currentTemplate,
+										onChange={(e) => {
+											setCursorPos(e.target.selectionStart);
+											setCurrentTemplate((p) => ({
+												...p,
 												content: e.target.value,
-											})
+											}));
+										}}
+										onSelect={(e) =>
+											setCursorPos(
+												(e.target as HTMLTextAreaElement).selectionStart,
+											)
+										}
+										onClick={(e) =>
+											setCursorPos(
+												(e.target as HTMLTextAreaElement).selectionStart,
+											)
 										}
 									/>
 
@@ -215,21 +344,28 @@ export default function TemplateManager() {
 										<p className='text-[10px] font-bold text-muted-foreground mb-2 px-1 uppercase'>
 											Insert Dynamic Variable
 										</p>
-										<div className='flex flex-wrap gap-1.5'>
-											{KEYWORDS.map((key) => (
-												<button
-													key={key}
-													onClick={() =>
-														setCurrentTemplate((p) => ({
-															...p,
-															content: (p.content || '') + `%${key}%`,
-														}))
-													}
-													className='text-[11px] font-medium px-2.5 py-1 rounded-md border border-border bg-muted/50 hover:bg-primary/5 hover:border-primary/50 hover:text-primary transition-all active:scale-95'
-												>
-													{key}
-												</button>
-											))}
+										<div className='space-y-3'>
+											{Object.entries(KEYWORD_GROUPS).map(
+												([groupKey, group]) => (
+													<div key={groupKey}>
+														<p className='text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5'>
+															{group.label}
+														</p>
+														<div className='flex flex-wrap gap-1.5'>
+															{group.keywords.map((kw) => (
+																<button
+																	key={kw.key}
+																	onClick={() => insertAtCursor(kw.key)}
+																	title={kw.desc}
+																	className='text-[11px] font-medium px-2.5 py-1 rounded-md border border-border bg-muted/50 hover:bg-primary/5 hover:border-primary/50 hover:text-primary transition-all active:scale-95'
+																>
+																	{kw.key}
+																</button>
+															))}
+														</div>
+													</div>
+												),
+											)}
 										</div>
 									</div>
 								</div>
@@ -238,8 +374,8 @@ export default function TemplateManager() {
 									<p className='text-[10px] font-bold text-muted-foreground mb-2 uppercase flex items-center gap-1'>
 										<Info size={12} /> Preview
 									</p>
-									<div className='text-sm leading-relaxed'>
-										{formatContent(currentTemplate.content || '')}
+									<div className='text-sm leading-relaxed whitespace-pre-wrap'>
+										{renderPreview(currentTemplate.content || '')}
 									</div>
 								</div>
 

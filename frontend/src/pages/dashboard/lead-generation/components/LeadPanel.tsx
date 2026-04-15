@@ -25,6 +25,7 @@ import LeadKanbanBoard from './LeadKanbanBoard';
 import LeadListView from './LeadListView';
 import LeadFloatingDock from './LeadFloatingDock';
 import LeadDetailsPanel from './LeadDetailsPanel';
+import ReachDialog from './ReachDialog';
 
 export type LeadPanelSection = 'saved' | 'processed' | 'converted' | 'rejected';
 
@@ -46,6 +47,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 	>('all');
 	const [isWorkspaceSidebarCollapsed, setIsWorkspaceSidebarCollapsed] =
 		useState(false);
+	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
 
 	const { data: categoriesResponse, isLoading: isLoadingCategories } =
 		useGetLeadCategory();
@@ -65,6 +67,8 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 		if (typeof leadCategoryValue === 'string') return leadCategoryValue;
 		return leadCategoryValue._id || '';
 	}, []);
+
+	console.log({ selectedCategoryId });
 
 	useEffect(() => {
 		setSelectedCategoryId(searchParams.get('category') || '');
@@ -434,7 +438,9 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 					<div
 						className={cn(
 							'mb-4 flex items-center',
-							isWorkspaceSidebarCollapsed ? 'justify-center' : 'justify-between',
+							isWorkspaceSidebarCollapsed
+								? 'justify-center'
+								: 'justify-between',
 						)}
 					>
 						{!isWorkspaceSidebarCollapsed && (
@@ -507,19 +513,19 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 											setSelectedLeadIds(new Set());
 											updateCategoryInUrl(cat._id);
 										}}
-									className={cn(
-										'w-full flex items-center rounded-[12px] text-sm transition-all active:scale-95 group',
-										isWorkspaceSidebarCollapsed
-											? 'justify-center px-2 py-2.5'
-											: 'gap-3 px-4 py-2.5',
-										selectedCategoryId === cat._id
-											? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-medium'
-											: 'text-muted-foreground hover:bg-muted',
-									)}
-									title={cat.title}
-								>
-									<Folder
-										size={16}
+										className={cn(
+											'w-full flex items-center rounded-[12px] text-sm transition-all active:scale-95 group',
+											isWorkspaceSidebarCollapsed
+												? 'justify-center px-2 py-2.5'
+												: 'gap-3 px-4 py-2.5',
+											selectedCategoryId === cat._id
+												? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-medium'
+												: 'text-muted-foreground hover:bg-muted',
+										)}
+										title={cat.title}
+									>
+										<Folder
+											size={16}
 											className={cn(
 												selectedCategoryId === cat._id
 													? 'text-white'
@@ -695,6 +701,16 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 							? moveSelectedVisibleToStatus
 							: moveSelectedToStatus
 					}
+					onReach={() => setIsReachDialogOpen(true)}
+				/>
+
+				<ReachDialog
+					isOpen={isReachDialogOpen}
+					// category={}
+					onClose={() => setIsReachDialogOpen(false)}
+					selectedLeads={leads.filter(
+						(lead) => lead._id && selectedLeadIds.has(lead._id),
+					)}
 				/>
 			</main>
 		</div>

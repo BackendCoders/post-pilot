@@ -107,7 +107,20 @@ export const deleteUser = asyncHandler(
 
 export const updateProfile = asyncHandler(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { userName, email } = req.body;
+    const {
+      userName,
+      email,
+      avatar,
+      phoneNumber,
+      companyName,
+      companySize,
+      jobTitle,
+      website,
+      linkedinUrl,
+      timezone,
+      language,
+      emailNotifications,
+    } = req.body;
     const userId = req.user!.userId;
 
     const user = await User.findById(userId);
@@ -132,6 +145,16 @@ export const updateProfile = asyncHandler(
 
     if (userName !== undefined) user.userName = userName;
     if (email !== undefined) user.email = email;
+    if (avatar !== undefined) user.avatar = avatar;
+    if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
+    if (companyName !== undefined) user.companyName = companyName;
+    if (companySize !== undefined) user.companySize = companySize;
+    if (jobTitle !== undefined) user.jobTitle = jobTitle;
+    if (website !== undefined) user.website = website;
+    if (linkedinUrl !== undefined) user.linkedinUrl = linkedinUrl;
+    if (timezone !== undefined) user.timezone = timezone;
+    if (language !== undefined) user.language = language;
+    if (emailNotifications !== undefined) user.emailNotifications = emailNotifications;
 
     await user.save();
 
@@ -141,6 +164,21 @@ export const updateProfile = asyncHandler(
         id: user._id,
         email: user.email,
         userName: user.userName,
+        avatar: user.avatar,
+        phoneNumber: user.phoneNumber,
+        companyName: user.companyName,
+        companySize: user.companySize,
+        jobTitle: user.jobTitle,
+        website: user.website,
+        linkedinUrl: user.linkedinUrl,
+        timezone: user.timezone,
+        language: user.language,
+        emailNotifications: user.emailNotifications,
+        subscriptionPlan: user.subscriptionPlan,
+        emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+        loginCount: user.loginCount,
+        lastActiveAt: user.lastActiveAt,
         role: user.role,
         isActive: user.isActive,
         lastLogin: user.lastLogin,

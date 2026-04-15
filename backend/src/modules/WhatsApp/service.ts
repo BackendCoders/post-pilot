@@ -1,11 +1,17 @@
-import makeWASocket, { DisconnectReason, useMultiFileAuthState, WAVersion } from 'baileys';
+import makeWASocket, { DisconnectReason, useMultiFileAuthState } from 'baileys';
 import { Boom } from '@hapi/boom';
 import * as fs from 'fs';
 import * as path from 'path';
 import User from '../../models/User';
-import { IWhatsAppSession } from './types';
 
 const SESSION_DIR = './whatsapp-sessions';
+
+interface WhatsAppSession {
+  userId: string;
+  phoneNumber?: string;
+  isConnected: boolean;
+  connectedAt?: Date;
+}
 
 class WhatsAppService {
   private sockets: Map<string, ReturnType<typeof makeWASocket>> = new Map();
@@ -21,7 +27,7 @@ class WhatsAppService {
     }
   }
 
-  async getStatus(userId: string): Promise<IWhatsAppSession> {
+  async getStatus(userId: string): Promise<WhatsAppSession> {
     const user = await User.findById(userId).select('whatsappConnected whatsappConnectedAt whatsappPhoneNumber');
 
     return {
@@ -32,12 +38,12 @@ class WhatsAppService {
     };
   }
 
-  async startConnection(userId: string, onQR: (qr: string) => void): Promise<ReturnType<typeof makeWASocket>> {
+  async startConnection(userId: string, onQR: (qr: string) => void): Promise<void> {
     this.ensureSessionDir(userId);
 
     const existingSocket = this.sockets.get(userId);
     if (existingSocket) {
-      return existingSocket;
+      return;
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(this.getSessionDir(userId));
@@ -45,7 +51,6 @@ class WhatsAppService {
     const sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      version: [2, 3000, 101590] as WAVersion,
     });
 
     this.sockets.set(userId, sock);
@@ -76,11 +81,10 @@ class WhatsAppService {
       }
     });
 
-    sock.ev.on('qr', (qr) => {
+    // Handle QR code generation - cast to any to bypass strict typing
+    (sock.ev as any).on('qr', (qr: string) => {
       onQR(qr);
     });
-
-    return sock;
   }
 
   async logout(userId: string): Promise<void> {
@@ -89,6 +93,7 @@ class WhatsAppService {
       try {
         await sock.logout();
       } catch {
+        // Ignore errors during logout
       }
       sock.end(undefined);
       this.sockets.delete(userId);
