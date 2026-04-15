@@ -35,12 +35,17 @@ export const useWhatsAppQR = () => {
   return useMutation<void, Error, (event: QREvent) => void>({
     mutationFn: async (onQR) => {
       const token = localStorage.getItem('JWT_TOKEN');
+      console.log('Connecting to QR endpoint...');
+      
       return new Promise<void>((resolve, reject) => {
-        const eventSource = new EventSource(`http://localhost:5000/api/whatsapp/qr?token=${token}`, {
-          withCredentials: true,
-        });
+        const eventSource = new EventSource(`http://localhost:5000/api/whatsapp/qr?token=${token}`);
+
+        eventSource.onopen = () => {
+          console.log('SSE connection opened');
+        };
 
         eventSource.onmessage = (event) => {
+          console.log('SSE message received:', event.data);
           try {
             const data = JSON.parse(event.data) as QREvent;
             onQR(data);
@@ -52,12 +57,13 @@ export const useWhatsAppQR = () => {
                 resolve();
               }
             }
-          } catch {
-            // Ignore parse errors
+          } catch (err) {
+            console.error('Failed to parse SSE data:', err);
           }
         };
 
-        eventSource.onerror = () => {
+        eventSource.onerror = (error) => {
+          console.error('SSE error:', error);
           eventSource.close();
           reject(new Error('Connection lost'));
         };

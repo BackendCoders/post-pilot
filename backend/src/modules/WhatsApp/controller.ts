@@ -2,12 +2,14 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { whatsappService } from './service';
 import { JWTUtils } from '../../utils/jwt';
+import { logger } from '../../utils/logger';
 
 const getUserIdFromToken = (token: string): string | null => {
   try {
     const decoded = JWTUtils.verifyAccessToken(token);
     return decoded.userId?.toString() || null;
-  } catch {
+  } catch (error) {
+    logger.error('Token verification failed', { error });
     return null;
   }
 };
@@ -15,13 +17,19 @@ const getUserIdFromToken = (token: string): string | null => {
 export const getQRCode = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const token = req.query.token as string;
+    logger.info('QR endpoint called', { hasToken: !!token });
+
     if (!token) {
+      logger.warn('No token provided');
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
     const userId = getUserIdFromToken(token);
+    logger.info('Token decoded', { userId });
+
     if (!userId) {
+      logger.warn('Invalid token');
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
@@ -39,7 +47,10 @@ export const getQRCode = asyncHandler(
     };
 
     try {
+      logger.info('Starting WhatsApp connection for user', { userId });
+      
       await whatsappService.startConnection(userId, (qrCode) => {
+        logger.info('QR code received', { qrLength: qrCode.length });
         if (!qrSent) {
           qrSent = true;
           res.write(`data: ${JSON.stringify({ qr: qrCode })}\n\n`);
@@ -51,9 +62,11 @@ export const getQRCode = asyncHandler(
       });
 
       req.on('close', () => {
+        logger.info('Client disconnected');
         cleanup();
       });
     } catch (error) {
+      logger.error('Failed to start connection', { error });
       cleanup();
       res.write(
         `data: ${JSON.stringify({ error: 'Failed to start connection' })}\n\n`
