@@ -106,7 +106,7 @@ class WhatsAppService {
       });
 
       // Handle errors
-      sock.ev.on('CB:error', (error: any) => {
+      (sock.ev as any).on('CB:error', (error: any) => {
         logger.error('WhatsApp error', { error });
         onError('WhatsApp error: ' + JSON.stringify(error));
       });
