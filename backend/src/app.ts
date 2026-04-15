@@ -16,6 +16,7 @@ import socialRoutes from './routes/social';
 import graphApiRoutes from './routes/graphApi';
 import seoRoutes from './modules/SEO/route';
 import leadGenerationRoutes from './modules/LeadGeneration/route';
+import whatsappRoutes from './modules/WhatsApp';
 
 // Load environment variables
 dotenv.config({ path: '../.env' });
@@ -93,6 +94,7 @@ app.use('/api/socials', socialRoutes);
 app.use('/api/facebook', graphApiRoutes);
 app.use('/api/seo', seoRoutes);
 app.use('/api/leads', leadGenerationRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // 404 handler
 app.use(notFound);
