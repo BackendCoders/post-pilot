@@ -34,8 +34,9 @@ export const useWhatsAppLogout = () => {
 export const useWhatsAppQR = () => {
   return useMutation<void, Error, (event: QREvent) => void>({
     mutationFn: async (onQR) => {
+      const token = localStorage.getItem('JWT_TOKEN');
       return new Promise<void>((resolve, reject) => {
-        const eventSource = new EventSource('http://localhost:5000/api/whatsapp/qr', {
+        const eventSource = new EventSource(`http://localhost:5000/api/whatsapp/qr?token=${token}`, {
           withCredentials: true,
         });
 

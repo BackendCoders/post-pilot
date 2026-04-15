@@ -1,10 +1,26 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { whatsappService } from './service';
+import { JWTUtils } from '../../utils/jwt';
+
+const getUserIdFromToken = (token: string): string | null => {
+  try {
+    const decoded = JWTUtils.verifyAccessToken(token);
+    return decoded.userId?.toString() || null;
+  } catch {
+    return null;
+  }
+};
 
 export const getQRCode = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const userId = req.user?.userId?.toString();
+    const token = req.query.token as string;
+    if (!token) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const userId = getUserIdFromToken(token);
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
@@ -39,7 +55,9 @@ export const getQRCode = asyncHandler(
       });
     } catch (error) {
       cleanup();
-      res.write(`data: ${JSON.stringify({ error: 'Failed to start connection' })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ error: 'Failed to start connection' })}\n\n`
+      );
       res.end();
     }
   }
