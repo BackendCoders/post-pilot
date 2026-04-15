@@ -17,19 +17,14 @@ const getUserIdFromToken = (token: string): string | null => {
 export const getQRCode = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const token = req.query.token as string;
-    console.log('QR endpoint called', { hasToken: !!token });
 
     if (!token) {
-      logger.warn('No token provided');
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
     const userId = getUserIdFromToken(token);
-    logger.info('Token decoded', { userId });
-
     if (!userId) {
-      logger.warn('Invalid token');
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
@@ -46,20 +41,26 @@ export const getQRCode = asyncHandler(
       if (timeout) clearTimeout(timeout);
     };
 
-    try {
-      logger.info('Starting WhatsApp connection for user', { userId });
+    const sendQR = (qr: string) => {
+      if (!qrSent) {
+        qrSent = true;
+        logger.info('Sending QR to client', { qrLength: qr.length });
+        res.write(`data: ${JSON.stringify({ qr })}\n\n`);
+        timeout = setTimeout(() => {
+          res.write(`data: ${JSON.stringify({ timeout: true })}\n\n`);
+          res.end();
+        }, 60000);
+      }
+    };
 
-      await whatsappService.startConnection(userId, (qrCode) => {
-        logger.info('QR code received', { qrLength: qrCode.length });
-        if (!qrSent) {
-          qrSent = true;
-          res.write(`data: ${JSON.stringify({ qr: qrCode })}\n\n`);
-          timeout = setTimeout(() => {
-            res.write(`data: ${JSON.stringify({ timeout: true })}\n\n`);
-            res.end();
-          }, 60000);
-        }
-      });
+    const sendError = (error: string) => {
+      logger.error('WhatsApp connection error', { error });
+      res.write(`data: ${JSON.stringify({ error })}\n\n`);
+      res.end();
+    };
+
+    try {
+      await whatsappService.startConnection(userId, sendQR, sendError);
 
       req.on('close', () => {
         logger.info('Client disconnected');
@@ -68,9 +69,7 @@ export const getQRCode = asyncHandler(
     } catch (error) {
       logger.error('Failed to start connection', { error });
       cleanup();
-      res.write(
-        `data: ${JSON.stringify({ error: 'Failed to start connection' })}\n\n`
-      );
+      res.write(`data: ${JSON.stringify({ error: 'Failed to start connection' })}\n\n`);
       res.end();
     }
   }
