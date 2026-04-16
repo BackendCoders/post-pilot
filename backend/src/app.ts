@@ -17,6 +17,7 @@ import graphApiRoutes from './routes/graphApi';
 import seoRoutes from './modules/SEO/route';
 import leadGenerationRoutes from './modules/LeadGeneration/route';
 import whatsappRoutes from './modules/WhatsApp';
+import { whatsappService } from './modules/WhatsApp/service';
 
 // Load environment variables
 dotenv.config({ path: '../.env' });
@@ -25,7 +26,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Connect to database
-connectDB();
+connectDB().then(() => {
+  whatsappService.initializeSessions().catch(err => {
+    logger.error('Failed to initialize WhatsApp sessions on startup', { error: err });
+  });
+});
 
 // Security middleware
 app.use(

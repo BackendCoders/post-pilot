@@ -10,7 +10,7 @@ import { DarkModeProvider } from './context/DarkModeContext';
 import HomePage from './pages/home/page';
 // import ProfilePage from './pages/profile';
 import ConsolePage from './pages/console';
-import SEORocketPage from './pages/seo-rocket';
+import SEORocketPage from './pages/dashboard/seo-rocket';
 import LeadGeneratorPage from './pages/lead-generator';
 import { Toaster } from '@/components/ui/sonner';
 import LoginScreen from './pages/auth';

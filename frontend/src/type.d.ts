@@ -141,3 +141,40 @@ interface IBulkUpdateBody {
 	ids: string[];
 	status: string;
 }
+
+// SEO Types
+interface ISeoCountPagesResponse {
+  requestedUrl: string;
+  analyzedDomain: string;
+  totalPages: number;
+  sitemapUrls: string[];
+  categorizedUrls: {
+    blog: string[];
+    product: string[];
+    category: string[];
+    post: string[];
+    pages: string[];
+    other: string[];
+  };
+  urls: string[];
+}
+
+interface ISeoScrapeResponse {
+  success: boolean;
+  mode: 'page' | 'site';
+  requestedUrl: string;
+  normalizedUrl: string;
+  data: ScrapedPageData | SiteScrapeResult;
+  message: string;
+}
+
+interface ISeoBulkScrapeResponse {
+  success: boolean;
+  requestedCount: number;
+  scrapedCount: number;
+  failedCount: number;
+  data: ScrapedPageData[];
+  message: string;
+}
+
+export * from './types/seo.types';

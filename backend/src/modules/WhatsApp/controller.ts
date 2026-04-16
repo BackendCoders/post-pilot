@@ -4,73 +4,25 @@ import { whatsappService } from './service';
 import { JWTUtils } from '../../utils/jwt';
 import { logger } from '../../utils/logger';
 
-const getUserIdFromToken = (token: string): string | null => {
-  try {
-    const decoded = JWTUtils.verifyAccessToken(token);
-    return decoded.userId?.toString() || null;
-  } catch (error) {
-    logger.error('Token verification failed', { error });
-    return null;
-  }
-};
+// Removed unused Token verification helper
 
-export const getQRCode = asyncHandler(
+export const startConnection = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const token = req.query.token as string;
+    const userId = req.user?.userId?.toString();
 
-    if (!token) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    const userId = getUserIdFromToken(token);
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-
-    let qrSent = false;
-    let timeout: NodeJS.Timeout;
-
-    const cleanup = () => {
-      if (timeout) clearTimeout(timeout);
-    };
-
-    const sendQR = (qr: string) => {
-      if (!qrSent) {
-        qrSent = true;
-        logger.info('Sending QR to client', { qrLength: qr.length });
-        res.write(`data: ${JSON.stringify({ qr })}\n\n`);
-        timeout = setTimeout(() => {
-          res.write(`data: ${JSON.stringify({ timeout: true })}\n\n`);
-          res.end();
-        }, 60000);
-      }
-    };
-
-    const sendError = (error: string) => {
-      logger.error('WhatsApp connection error', { error });
-      res.write(`data: ${JSON.stringify({ error })}\n\n`);
-      res.end();
-    };
-
     try {
-      await whatsappService.startConnection(userId, sendQR, sendError);
-
-      req.on('close', () => {
-        logger.info('Client disconnected');
-        cleanup();
-      });
+      await whatsappService.startConnection(userId);
+      res.json({ success: true, message: 'Connection initialization started' });
     } catch (error) {
       logger.error('Failed to start connection', { error });
-      cleanup();
-      res.write(`data: ${JSON.stringify({ error: 'Failed to start connection' })}\n\n`);
-      res.end();
+      res
+        .status(500)
+        .json({ success: false, error: 'Failed to start connection' });
     }
   }
 );
@@ -87,7 +39,8 @@ export const getStatus = asyncHandler(
     res.json({
       success: true,
       data: {
-        connected: status.isConnected,
+        state: status.state,
+        qr: status.qr,
         phoneNumber: status.phoneNumber,
         connectedAt: status.connectedAt?.toISOString(),
       },
@@ -118,5 +71,84 @@ export const deleteSession = asyncHandler(
 
     await whatsappService.logout(userId);
     res.json({ success: true, message: 'Session deleted successfully' });
+  }
+);
+
+export const checkAuth = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId?.toString();
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const isConnected = await whatsappService.checkIsConnected(userId);
+    res.json({ success: true, isConnected });
+  }
+);
+
+export const sendSingleMessage = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId?.toString();
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const { phoneNumber, message } = req.body;
+    if (!phoneNumber || !message) {
+      res.status(400).json({
+        success: false,
+        error: 'phoneNumber and message are required',
+      });
+      return;
+    }
+
+    try {
+      await whatsappService.sendMessage(userId, phoneNumber, message);
+      res.json({ success: true, message: 'Message sent successfully' });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to send message',
+      });
+    }
+  }
+);
+
+export const sendBulkMessage = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId?.toString();
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const { phoneNumbers, message } = req.body;
+    if (!phoneNumbers || !Array.isArray(phoneNumbers) || !message) {
+      res.status(400).json({
+        success: false,
+        error: 'phoneNumbers (array) and message are required',
+      });
+      return;
+    }
+
+    try {
+      const results = await whatsappService.sendBulkMessage(
+        userId,
+        phoneNumbers,
+        message
+      );
+      res.json({
+        success: true,
+        data: results,
+        message: 'Bulk messaging completed',
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to send bulk message',
+      });
+    }
   }
 );

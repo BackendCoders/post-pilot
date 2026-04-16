@@ -1,20 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
 	User,
 	Lock,
 	Calendar,
 	Mail,
-	Briefcase,
 	Globe,
 	Settings,
 	Building,
-	Link as LinkIcon,
 	MessageCircle,
+	ChevronRight,
 } from 'lucide-react';
-import { useAuth, useUpdateProfile, useChangePassword } from '@/query/auth.query';
-import { useWhatsAppStatus, useWhatsAppQR, useWhatsAppLogout } from '@/query/whatsapp.query';
+import {
+	useAuth,
+	useUpdateProfile,
+	useChangePassword,
+} from '@/query/auth.query';
+import {
+	useWhatsAppStatus,
+	useWhatsAppStart,
+	useWhatsAppLogout,
+} from '@/query/whatsapp.query';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
@@ -41,11 +48,8 @@ export default function ProfilePage() {
 	const changePassword = useChangePassword();
 
 	const statusQuery = useWhatsAppStatus();
-	const qrMutation = useWhatsAppQR();
+	const startMutation = useWhatsAppStart();
 	const logoutMutation = useWhatsAppLogout();
-
-	const [qrData, setQrData] = useState<string | null>(null);
-	const [countdown, setCountdown] = useState(20);
 
 	const [name, setName] = useState('');
 	const [email, setEmail] = useState('');
@@ -62,8 +66,21 @@ export default function ProfilePage() {
 	const [currentPassword, setCurrentPassword] = useState('');
 	const [newPassword, setNewPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');
-
 	const [activeSection, setActiveSection] = useState('personal');
+	const hasAutoStartedQR = useRef(false);
+
+	useEffect(() => {
+		if (
+			activeSection === 'whatsapp' &&
+			statusQuery.data?.state === 'DISCONNECTED' &&
+			!hasAutoStartedQR.current
+		) {
+			hasAutoStartedQR.current = true;
+			handleStartConnection();
+		} else if (activeSection !== 'whatsapp') {
+			hasAutoStartedQR.current = false;
+		}
+	}, [activeSection, statusQuery.data?.state]);
 
 	useEffect(() => {
 		if (user) {
@@ -81,26 +98,10 @@ export default function ProfilePage() {
 		}
 	}, [user]);
 
-	useEffect(() => {
-		if (qrData) {
-			const timer = setInterval(() => {
-				setCountdown((prev) => {
-					if (prev <= 1) {
-						startQR();
-						return 20;
-					}
-					return prev - 1;
-				});
-			}, 1000);
-
-			return () => clearInterval(timer);
-		}
-	}, [qrData]);
-
 	if (isLoading) {
 		return (
-			<div className='flex items-center justify-center h-64'>
-				<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary' />
+			<div className='flex items-center justify-center h-96'>
+				<div className='animate-spin rounded-full h-6 w-6 border-b-2 border-primary' />
 			</div>
 		);
 	}
@@ -126,7 +127,7 @@ export default function ProfilePage() {
 				onSuccess: () => {
 					toast.success('Profile updated');
 				},
-			}
+			},
 		);
 	};
 
@@ -148,33 +149,16 @@ export default function ProfilePage() {
 					setConfirmPassword('');
 					toast.success('Password changed successfully');
 				},
-			}
+			},
 		);
 	};
 
-	const startQR = () => {
-		setCountdown(20);
-		qrMutation.mutate(undefined, {
-			onSuccess: () => {
-				setQrData(null);
-				statusQuery.refetch();
-			},
+	const handleStartConnection = () => {
+		startMutation.mutate(undefined, {
 			onError: () => {
-				toast.error('Failed to generate QR code');
+				toast.error('Failed to start WhatsApp connection');
 			},
 		});
-	};
-
-	const handleQR = (event: { qr?: string; timeout?: boolean; error?: string }) => {
-		if (event.qr) {
-			setQrData(event.qr);
-		}
-		if (event.timeout) {
-			startQR();
-		}
-		if (event.error) {
-			toast.error(event.error);
-		}
 	};
 
 	const handleDisconnect = () => {
@@ -182,7 +166,6 @@ export default function ProfilePage() {
 			logoutMutation.mutate(undefined, {
 				onSuccess: () => {
 					toast.success('WhatsApp disconnected');
-					setQrData(null);
 				},
 			});
 		}
@@ -191,7 +174,7 @@ export default function ProfilePage() {
 	const formatDate = (date: string) => {
 		return new Date(date).toLocaleDateString('en-US', {
 			year: 'numeric',
-			month: 'long',
+			month: 'short',
 			day: 'numeric',
 		});
 	};
@@ -207,452 +190,435 @@ export default function ProfilePage() {
 	];
 
 	return (
-		<div className='max-w-4xl mx-auto space-y-6'>
-			<header>
-				<h1 className='text-2xl font-semibold tracking-tight'>Profile Settings</h1>
-				<p className='text-muted-foreground mt-1'>
-					Manage your account information and preferences
+		<div className='max-w-5xl mx-auto space-y-8 p-4 md:p-8 font-sans'>
+			<header className='space-y-1'>
+				<h1 className='text-2xl font-semibold tracking-tight text-foreground'>
+					Profile Settings
+				</h1>
+				<p className='text-sm text-muted-foreground'>
+					Manage your identity, company profile, and workspace preferences.
 				</p>
 			</header>
 
-			<div className='flex gap-6'>
-				<nav className='w-48 shrink-0'>
-					<div className='border border-border rounded-lg bg-card overflow-hidden'>
-						<div className='divide-y divide-border'>
-							{sections.map((section) => {
-								const Icon = section.icon;
-								return (
-									<button
-										key={section.id}
-										onClick={() => setActiveSection(section.id)}
-										className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
-											activeSection === section.id
-												? 'bg-primary/10 text-primary'
-												: 'text-muted-foreground hover:bg-muted hover:text-foreground'
-										}`}
-									>
-										<Icon size={18} />
-										{section.label}
-									</button>
-								);
-							})}
-						</div>
-					</div>
+			<div className='flex flex-col md:flex-row gap-8 items-start'>
+				<nav className='w-full md:w-56 shrink-0 flex flex-col gap-1'>
+					{sections.map((section) => {
+						const Icon = section.icon;
+						const isActive = activeSection === section.id;
+						return (
+							<button
+								key={section.id}
+								onClick={() => setActiveSection(section.id)}
+								className={`
+                                    group flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-xl 
+                                    transition-all duration-200 active:scale-95
+                                    ${
+																			isActive
+																				? 'bg-primary text-primary-foreground shadow-sm'
+																				: 'text-muted-foreground hover:bg-card hover:text-foreground hover:shadow-sm'
+																		}
+                                `}
+							>
+								<span className='flex items-center gap-2.5'>
+									<Icon
+										size={16}
+										strokeWidth={isActive ? 2.5 : 2}
+									/>
+									{section.label}
+								</span>
+								{isActive && (
+									<ChevronRight
+										size={14}
+										className='opacity-70'
+									/>
+								)}
+							</button>
+						);
+					})}
 				</nav>
 
-				<div className='flex-1 space-y-6'>
-					{activeSection === 'personal' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<User size={18} />
-									Personal Information
-								</h2>
-							</div>
+				<main className='flex-1 w-full min-w-0'>
+					<div className='bg-card border border-border rounded-xl shadow-sm overflow-hidden transition-all duration-200'>
+						{/* Render Header Section dynamically */}
+						<div className='px-6 py-4 border-b border-border bg-background/50'>
+							<h2 className='text-sm font-semibold flex items-center gap-2 uppercase tracking-wider opacity-80'>
+								{sections.find((s) => s.id === activeSection)?.label}{' '}
+								Information
+							</h2>
+						</div>
 
-							<div className='p-6 space-y-4'>
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Username</label>
-									<Input
-										value={name}
-										onChange={(e) => setName(e.target.value)}
-										placeholder='Enter your username'
-									/>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Email</label>
-									<Input
-										type='email'
-										value={email}
-										onChange={(e) => setEmail(e.target.value)}
-										placeholder='Enter your email'
-									/>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Phone Number</label>
-									<Input
-										type='tel'
-										value={phoneNumber}
-										onChange={(e) => setPhoneNumber(e.target.value)}
-										placeholder='Enter your phone number'
-									/>
-								</div>
-
-								<div className='pt-2'>
-									<button
-										onClick={handleSaveProfile}
-										disabled={updateProfile.isPending}
-										className='px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity50'
-									>
-										{updateProfile.isPending ? 'Saving...' : 'Save Changes'}
-									</button>
-								</div>
-							</div>
-						</section>
-					)}
-
-					{activeSection === 'company' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<Building size={18} />
-									Company Information
-								</h2>
-							</div>
-
-							<div className='p-6 space-y-4'>
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Company Name</label>
-									<Input
-										value={companyName}
-										onChange={(e) => setCompanyName(e.target.value)}
-										placeholder='Enter company name'
-									/>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Company Size</label>
-									<select
-										value={companySize}
-										onChange={(e) => setCompanySize(e.target.value)}
-										className='h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm'
-									>
-										<option value=''>Select company size</option>
-										{COMPANY_SIZES.map((size) => (
-											<option key={size} value={size}>
-												{size} employees
-											</option>
-										))}
-									</select>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Job Title</label>
-									<Input
-										value={jobTitle}
-										onChange={(e) => setJobTitle(e.target.value)}
-										placeholder='Enter your job title'
-									/>
-								</div>
-
-								<div className='pt-2'>
-									<button
-										onClick={handleSaveProfile}
-										disabled={updateProfile.isPending}
-										className='px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity50'
-									>
-										{updateProfile.isPending ? 'Saving...' : 'Save Changes'}
-									</button>
-								</div>
-							</div>
-						</section>
-					)}
-
-					{activeSection === 'web' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<Globe size={18} />
-									Web Presence
-								</h2>
-							</div>
-
-							<div className='p-6 space-y-4'>
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Website</label>
-									<Input
-										value={website}
-										onChange={(e) => setWebsite(e.target.value)}
-										placeholder='https://your-website.com'
-									/>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>LinkedIn Profile</label>
-									<Input
-										value={linkedinUrl}
-										onChange={(e) => setLinkedinUrl(e.target.value)}
-										placeholder='https://linkedin.com/in/your-profile'
-									/>
-								</div>
-
-								<div className='pt-2'>
-									<button
-										onClick={handleSaveProfile}
-										disabled={updateProfile.isPending}
-										className='px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity50'
-									>
-										{updateProfile.isPending ? 'Saving...' : 'Save Changes'}
-									</button>
-								</div>
-							</div>
-						</section>
-					)}
-
-					{activeSection === 'preferences' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<Settings size={18} />
-									Preferences
-								</h2>
-							</div>
-
-							<div className='p-6 space-y-4'>
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Timezone</label>
-									<select
-										value={timezone}
-										onChange={(e) => setTimezone(e.target.value)}
-										className='h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm'
-									>
-										{TIMEZONES.map((tz) => (
-											<option key={tz} value={tz}>
-												{tz}
-											</option>
-										))}
-									</select>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Language</label>
-									<select
-										value={language}
-										onChange={(e) => setLanguage(e.target.value)}
-										className='h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm'
-									>
-										{LANGUAGES.map((lang) => (
-											<option key={lang} value={lang}>
-												{lang.toUpperCase()}
-											</option>
-										))}
-									</select>
-								</div>
-
-								<div className='flex items-center gap-2'>
-									<input
-										type='checkbox'
-										id='emailNotifications'
-										checked={emailNotifications}
-										onChange={(e) =>
-											setEmailNotifications(e.target.checked)
-										}
-										className='w-4 h-4'
-									/>
-									<label htmlFor='emailNotifications' className='text-sm'>
-										Receive email notifications
-									</label>
-								</div>
-
-								<div className='pt-2'>
-									<button
-										onClick={handleSaveProfile}
-										disabled={updateProfile.isPending}
-										className='px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity50'
-									>
-										{updateProfile.isPending ? 'Saving...' : 'Save Changes'}
-									</button>
-								</div>
-							</div>
-						</section>
-					)}
-
-					{activeSection === 'security' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<Lock size={18} />
-									Security
-								</h2>
-							</div>
-
-							<div className='p-6 space-y-4'>
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Current Password</label>
-									<Input
-										type='password'
-										value={currentPassword}
-										onChange={(e) => setCurrentPassword(e.target.value)}
-										placeholder='Enter current password'
-									/>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>New Password</label>
-									<Input
-										type='password'
-										value={newPassword}
-										onChange={(e) => setNewPassword(e.target.value)}
-										placeholder='Enter new password'
-									/>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium'>Confirm New Password</label>
-									<Input
-										type='password'
-										value={confirmPassword}
-										onChange={(e) => setConfirmPassword(e.target.value)}
-										placeholder='Confirm new password'
-									/>
-								</div>
-
-								<div className='pt-2'>
-									<button
-										onClick={handleChangePassword}
-										disabled={
-											changePassword.isPending ||
-											!currentPassword ||
-											!newPassword ||
-											!confirmPassword
-										}
-										className='px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity50'
-									>
-										{changePassword.isPending
-											? 'Changing...'
-											: 'Change Password'}
-									</button>
-								</div>
-							</div>
-						</section>
-					)}
-
-					{activeSection === 'whatsapp' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<MessageCircle size={18} />
-									WhatsApp Connection
-								</h2>
-							</div>
-
-							<div className='p-6 space-y-4'>
-								{statusQuery.isLoading ? (
-									<div className='flex items-center justify-center h-32'>
-										<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary' />
-									</div>
-								) : statusQuery.data?.connected ? (
-									<div className='space-y-4'>
-										<div className='flex items-center gap-3 p-4 bg-green-500/10 rounded-lg border border-green-500/20'>
-											<div className='w-3 h-3 bg-green-500 rounded-full' />
-											<div>
-												<p className='font-medium text-green-600'>Connected</p>
-												<p className='text-sm text-muted-foreground'>
-													{statusQuery.data.phoneNumber}
-												</p>
-											</div>
+						<div className='p-6'>
+							{activeSection === 'personal' && (
+								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									<div className='grid gap-4 sm:grid-cols-2'>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Username
+											</label>
+											<Input
+												value={name}
+												onChange={(e) => setName(e.target.value)}
+												placeholder='johndoe'
+												className='rounded-xl border-border bg-background/50 focus:bg-background transition-all'
+											/>
 										</div>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Phone Number
+											</label>
+											<Input
+												type='tel'
+												value={phoneNumber}
+												onChange={(e) => setPhoneNumber(e.target.value)}
+												placeholder='+1 (555) 000-0000'
+												className='rounded-xl border-border bg-background/50 focus:bg-background transition-all'
+											/>
+										</div>
+									</div>
+									<div className='space-y-1.5'>
+										<label className='text-xs font-medium text-muted-foreground'>
+											Email Address
+										</label>
+										<Input
+											type='email'
+											value={email}
+											onChange={(e) => setEmail(e.target.value)}
+											placeholder='john@example.com'
+											className='rounded-xl border-border bg-background/50 focus:bg-background transition-all'
+										/>
+									</div>
+									<div className='pt-2'>
 										<button
-											onClick={handleDisconnect}
-											disabled={logoutMutation.isPending}
-											className='px-4 py-2 bg-destructive text-destructive-foreground rounded-md text-sm font-medium disabled:opacity-50'
+											onClick={handleSaveProfile}
+											disabled={updateProfile.isPending}
+											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all hover:shadow-md active:scale-95 disabled:opacity-50'
 										>
-											{logoutMutation.isPending ? 'Disconnecting...' : 'Disconnect'}
+											{updateProfile.isPending ? 'Saving...' : 'Save Profile'}
 										</button>
 									</div>
-								) : (
-									<div className='space-y-4'>
-										<div className='flex flex-col items-center gap-4'>
-											<div className='border-2 border-dashed border-border rounded-lg p-8 text-center'>
-												{qrMutation.isPending || qrData ? (
+								</div>
+							)}
+
+							{activeSection === 'company' && (
+								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									<div className='space-y-1.5'>
+										<label className='text-xs font-medium text-muted-foreground'>
+											Company Name
+										</label>
+										<Input
+											value={companyName}
+											onChange={(e) => setCompanyName(e.target.value)}
+											placeholder='Acme Corp'
+											className='rounded-xl'
+										/>
+									</div>
+									<div className='grid gap-4 sm:grid-cols-2'>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Company Size
+											</label>
+											<select
+												value={companySize}
+												onChange={(e) => setCompanySize(e.target.value)}
+												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm transition-all focus:ring-2 focus:ring-primary/20'
+											>
+												<option value=''>Select size</option>
+												{COMPANY_SIZES.map((size) => (
+													<option
+														key={size}
+														value={size}
+													>
+														{size} employees
+													</option>
+												))}
+											</select>
+										</div>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Job Title
+											</label>
+											<Input
+												value={jobTitle}
+												onChange={(e) => setJobTitle(e.target.value)}
+												placeholder='Product Designer'
+												className='rounded-xl'
+											/>
+										</div>
+									</div>
+									<div className='pt-2'>
+										<button
+											onClick={handleSaveProfile}
+											disabled={updateProfile.isPending}
+											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95'
+										>
+											Save Company Data
+										</button>
+									</div>
+								</div>
+							)}
+
+							{activeSection === 'web' && (
+								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									<div className='space-y-1.5'>
+										<label className='text-xs font-medium text-muted-foreground'>
+											Website
+										</label>
+										<Input
+											value={website}
+											onChange={(e) => setWebsite(e.target.value)}
+											placeholder='https://company.com'
+											className='rounded-xl'
+										/>
+									</div>
+									<div className='space-y-1.5'>
+										<label className='text-xs font-medium text-muted-foreground'>
+											LinkedIn Profile
+										</label>
+										<Input
+											value={linkedinUrl}
+											onChange={(e) => setLinkedinUrl(e.target.value)}
+											placeholder='https://linkedin.com/in/user'
+											className='rounded-xl'
+										/>
+									</div>
+									<div className='pt-2'>
+										<button
+											onClick={handleSaveProfile}
+											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95'
+										>
+											Update Links
+										</button>
+									</div>
+								</div>
+							)}
+
+							{activeSection === 'preferences' && (
+								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									<div className='grid gap-4 sm:grid-cols-2'>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Timezone
+											</label>
+											<select
+												value={timezone}
+												onChange={(e) => setTimezone(e.target.value)}
+												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm'
+											>
+												{TIMEZONES.map((tz) => (
+													<option
+														key={tz}
+														value={tz}
+													>
+														{tz}
+													</option>
+												))}
+											</select>
+										</div>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Language
+											</label>
+											<select
+												value={language}
+												onChange={(e) => setLanguage(e.target.value)}
+												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm'
+											>
+												{LANGUAGES.map((lang) => (
+													<option
+														key={lang}
+														value={lang}
+													>
+														{lang.toUpperCase()}
+													</option>
+												))}
+											</select>
+										</div>
+									</div>
+									<label className='flex items-center gap-3 p-3 rounded-xl border border-border bg-background/30 hover:bg-background/50 transition-colors cursor-pointer'>
+										<input
+											type='checkbox'
+											checked={emailNotifications}
+											onChange={(e) => setEmailNotifications(e.target.checked)}
+											className='w-4 h-4 rounded border-border text-primary focus:ring-primary transition-all'
+										/>
+										<span className='text-sm text-foreground'>
+											Enable email notifications
+										</span>
+									</label>
+									<div className='pt-2'>
+										<button
+											onClick={handleSaveProfile}
+											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95'
+										>
+											Save Preferences
+										</button>
+									</div>
+								</div>
+							)}
+
+							{activeSection === 'security' && (
+								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									<div className='space-y-1.5'>
+										<label className='text-xs font-medium text-muted-foreground'>
+											Current Password
+										</label>
+										<Input
+											type='password'
+											value={currentPassword}
+											onChange={(e) => setCurrentPassword(e.target.value)}
+											className='rounded-xl'
+										/>
+									</div>
+									<div className='grid gap-4 sm:grid-cols-2'>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												New Password
+											</label>
+											<Input
+												type='password'
+												value={newPassword}
+												onChange={(e) => setNewPassword(e.target.value)}
+												className='rounded-xl'
+											/>
+										</div>
+										<div className='space-y-1.5'>
+											<label className='text-xs font-medium text-muted-foreground'>
+												Confirm New Password
+											</label>
+											<Input
+												type='password'
+												value={confirmPassword}
+												onChange={(e) => setConfirmPassword(e.target.value)}
+												className='rounded-xl'
+											/>
+										</div>
+									</div>
+									<div className='pt-2'>
+										<button
+											onClick={handleChangePassword}
+											disabled={
+												changePassword.isPending ||
+												!currentPassword ||
+												!newPassword ||
+												!confirmPassword
+											}
+											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50'
+										>
+											{changePassword.isPending
+												? 'Updating...'
+												: 'Change Password'}
+										</button>
+									</div>
+								</div>
+							)}
+
+							{activeSection === 'whatsapp' && (
+								<div className='animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									{statusQuery.isLoading ? (
+										<div className='flex items-center justify-center py-12'>
+											<div className='animate-spin rounded-full h-6 w-6 border-b-2 border-primary' />
+										</div>
+									) : statusQuery.data?.state === 'CONNECTED' ? (
+										<div className='space-y-6'>
+											<div className='flex items-center gap-4 p-4 bg-green-500/5 rounded-xl border border-green-500/20'>
+												<div className='relative'>
+													<div className='w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center text-green-600'>
+														<MessageCircle size={24} />
+													</div>
+													<div className='absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-card rounded-full' />
+												</div>
+												<div className='flex-1'>
+													<p className='text-sm font-semibold text-foreground'>
+														Active Connection
+													</p>
+													<p className='text-xs text-muted-foreground font-mono'>
+														{statusQuery.data.phoneNumber}
+													</p>
+												</div>
+											</div>
+											<button
+												onClick={handleDisconnect}
+												disabled={logoutMutation.isPending}
+												className='px-4 py-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95'
+											>
+												{logoutMutation.isPending
+													? 'Disconnecting...'
+													: 'Terminate Connection'}
+											</button>
+										</div>
+									) : (
+										<div className='flex flex-col items-center py-4 space-y-4'>
+											<div className='w-full max-w-[280px] p-6 bg-background rounded-xl border border-border border-dashed text-center space-y-4'>
+												{statusQuery.data?.state === 'AWAITING_SCAN' &&
+												statusQuery.data.qr ? (
 													<>
-														{qrData && (
-															<>
-																<p className='font-medium mb-2'>Scan with WhatsApp</p>
-																<img src={qrData} alt='WhatsApp QR Code' className='mx-auto mb-4' style={{ width: 200, height: 200 }} />
-																<p className='text-sm text-muted-foreground'>
-																	QR refreshes automatically in {countdown}s
-																</p>
-															</>
-														)}
-														{qrMutation.isPending && !qrData && (
-															<>
-																<div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4' />
-																<p className='text-muted-foreground'>Generating QR code...</p>
-															</>
-														)}
+														<p className='text-xs font-semibold text-muted-foreground uppercase tracking-widest'>
+															Scan to Connect
+														</p>
+														<div className='p-2 bg-white rounded-lg inline-block shadow-sm'>
+															<img
+																src={statusQuery.data.qr}
+																alt='QR'
+																className='w-40 h-40'
+															/>
+														</div>
+														<p className='text-[10px] text-muted-foreground italic'>
+															Refreshes every 3s
+														</p>
 													</>
 												) : (
-													<>
-														<p className='text-muted-foreground mb-4'>Click to connect WhatsApp</p>
-														<button
-															onClick={() => {
-																qrMutation.mutate(handleQR);
-															}}
-															className='px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium'
-														>
-															Connect WhatsApp
-														</button>
-													</>
+													<div className='py-8 flex flex-col items-center space-y-3'>
+														<div className='animate-spin rounded-full h-5 w-5 border-b-2 border-primary' />
+														<p className='text-xs text-muted-foreground'>
+															Establishing secure link...
+														</p>
+													</div>
 												)}
 											</div>
 										</div>
-									</div>
-								)}
-							</div>
-						</section>
-					)}
-
-					{activeSection === 'account' && (
-						<section className='border border-border rounded-lg bg-card overflow-hidden'>
-							<div className='px-6 py-4 border-b border-border bg-card/50'>
-								<h2 className='font-medium flex items-center gap-2'>
-									<Mail size={18} />
-									Account Information
-								</h2>
-							</div>
-
-							<div className='p-6 space-y-4'>
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium text-muted-foreground'>
-										Role
-									</label>
-									<p className='text-foreground capitalize'>{user.role}</p>
+									)}
 								</div>
+							)}
 
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium text-muted-foreground'>
-										Subscription Plan
-									</label>
-									<p className='text-foreground capitalize'>
-										{user.subscriptionPlan || 'free'}
-									</p>
-								</div>
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium text-muted-foreground flex items-center gap-2'>
-										<Calendar size={14} />
-										Member Since
-									</label>
-									<p className='text-foreground'>
-										{formatDate(user.createdAt)}
-									</p>
-								</div>
-
-								{user.lastLogin && (
-									<div className='grid gap-2'>
-										<label className='text-sm font-medium text-muted-foreground flex items-center gap-2'>
-											<Calendar size={14} />
-											Last Login
-										</label>
-										<p className='text-foreground'>
-											{formatDate(user.lastLogin)}
+							{activeSection === 'account' && (
+								<div className='grid gap-6 sm:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
+										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider'>
+											Access Level
+										</p>
+										<p className='text-sm font-semibold text-foreground capitalize'>
+											{user.role}
 										</p>
 									</div>
-								)}
-
-								<div className='grid gap-2'>
-									<label className='text-sm font-medium text-muted-foreground'>
-										Login Count
-									</label>
-									<p className='text-foreground'>{user.loginCount || 0}</p>
+									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
+										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider'>
+											Active Plan
+										</p>
+										<p className='text-sm font-semibold text-primary capitalize'>
+											{user.subscriptionPlan || 'Free'}
+										</p>
+									</div>
+									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
+										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1'>
+											<Calendar size={10} /> Joined Date
+										</p>
+										<p className='text-sm font-semibold text-foreground'>
+											{formatDate(user.createdAt)}
+										</p>
+									</div>
+									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
+										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider'>
+											Usage Stats
+										</p>
+										<p className='text-sm font-semibold text-foreground'>
+											{user.loginCount || 0} Sessions
+										</p>
+									</div>
 								</div>
-							</div>
-						</section>
-					)}
-				</div>
+							)}
+						</div>
+					</div>
+				</main>
 			</div>
 		</div>
 	);

@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../middleware';
 import { analyzeUrl, countSitePages, scrapeMultipleWebPages } from './scrapper';
-import Audit from './model';
 
 export const scrapeSeoTarget = asyncHandler(
   async (req: Request, res: Response) => {
@@ -55,7 +54,6 @@ export const scrapeSeoBulkUrls = asyncHandler(
     };
 
     const data = await scrapeMultipleWebPages(urls);
-    const audit = await Audit.create(data);
 
     res.status(200).json({
       success: true,

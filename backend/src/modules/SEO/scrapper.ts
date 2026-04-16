@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import xml2js from 'xml2js';
+import { string } from 'zod';
 
 interface CategorizedUrls {
   blog: string[];
@@ -27,6 +28,9 @@ interface PageImage {
 
 interface ScrapedPageData {
   url: string;
+  redirectUrls: string[];
+  redirectCount: number;
+  isError: boolean;
   title: string;
   metaDescription: string | null;
   metaKeywords: string | null;
@@ -41,6 +45,8 @@ interface ScrapedPageData {
   wordCount: number;
   internalLinkCount: number;
   externalLinkCount: number;
+  emails: string[];
+  phoneNumbers: string[];
 }
 
 interface SiteScrapeResult {
@@ -323,15 +329,47 @@ function extractWordCount(text: string): number {
   return trimmed.split(/\s+/).length;
 }
 
+function countPhoneNumbers(text: string) {
+  // Matches international + local phone formats
+  const phoneRegex =
+    /(\+?\d{1,3}[\s.-]?)?(\(?\d{2,5}\)?[\s.-]?)?\d{3,5}[\s.-]?\d{4,}/g;
+
+  const matches = text.match(phoneRegex) || [];
+
+  // Remove duplicates
+  const uniquePhones = [...new Set(matches.map((num) => num.trim()))];
+
+  return {
+    total: uniquePhones.length,
+    numbers: uniquePhones,
+  };
+}
+
+// Function to extract all emails
+function extractEmails(text: string) {
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+  const matches = text.match(emailRegex) || [];
+
+  // Remove duplicates
+  return [...new Set(matches)];
+}
+
 async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
   try {
     const normalizedUrl = normalizeUrl(url);
-    const { data } = await axios.get(normalizedUrl, {
+    const response = await axios.get(normalizedUrl, {
       timeout: 20000,
       responseType: 'text',
+      maxRedirects: 10,
     });
+    const redirectUrls = response.request._redirectable._redirects || [];
+    const redirectCount = redirectUrls.length;
+
+    const data = response.data;
     const $ = cheerio.load(data);
     const textContent = $('body').text().replace(/\s+/g, ' ').trim();
+
     const title = $('title').text().trim();
     const metaDescription =
       $('meta[name="description"]').attr('content')?.trim() || null;
@@ -351,9 +389,14 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
     ).length;
     const externalLinkCount = links.length - internalLinkCount;
     const paragraphExcerpt = extractParagraphExcerpt($);
+    const emails = extractEmails(textContent);
+    const phoneNumber = countPhoneNumbers(textContent);
 
     return {
       url: normalizedUrl,
+      redirectUrls,
+      redirectCount,
+      isError: false,
       title,
       metaDescription,
       metaKeywords,
@@ -368,8 +411,10 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
       wordCount: extractWordCount(textContent),
       internalLinkCount,
       externalLinkCount,
+      emails,
+      phoneNumbers: phoneNumber.numbers,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Web page scrape failed', {
       url,
       ...getErrorDetails(error),
@@ -452,7 +497,9 @@ async function crawlSite(domainOrUrl: string): Promise<SiteScrapeResult> {
   };
 }
 
-async function countSitePages(domainOrUrl: string): Promise<SitePageCountResult> {
+async function countSitePages(
+  domainOrUrl: string
+): Promise<SitePageCountResult> {
   const normalizedUrl = normalizeUrl(domainOrUrl);
   const analyzedDomain = getDomain(normalizedUrl);
   const categorized: CategorizedUrls = {
@@ -511,7 +558,9 @@ async function countSitePages(domainOrUrl: string): Promise<SitePageCountResult>
   };
 }
 
-async function scrapeMultipleWebPages(urls: string[]): Promise<ScrapedPageData[]> {
+async function scrapeMultipleWebPages(
+  urls: string[]
+): Promise<ScrapedPageData[]> {
   const results = await Promise.all(
     urls.map(async (url) => {
       try {
@@ -521,14 +570,12 @@ async function scrapeMultipleWebPages(urls: string[]): Promise<ScrapedPageData[]
           url,
           ...getErrorDetails(error),
         });
-        return null;
+        return { url, isError: true };
       }
     })
   );
 
-  return results.filter(
-    (result): result is ScrapedPageData => Boolean(result)
-  );
+  return results.filter((result): result is ScrapedPageData => Boolean(result));
 }
 
 function resolveMode({
@@ -593,6 +640,7 @@ export type {
   SitePageCountResult,
   SiteScrapeResult,
 };
+
 export {
   analyzeUrl,
   countSitePages,

@@ -5,7 +5,7 @@ import { Globe, MapPin, Phone, Star, X, MessageSquare, ExternalLink } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getStatusLabel } from './leadWorkspace.constants';
-import SingleLeadReachDialog from './SingleLeadReachDialog';
+import ReachDialog from './ReachDialog';
 
 type Props = {
 	lead: ILead | null;
@@ -179,10 +179,10 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 				</div>
 			</div>
 
-			<SingleLeadReachDialog
+			<ReachDialog
 				isOpen={isReachDialogOpen}
 				onClose={() => setIsReachDialogOpen(false)}
-				lead={lead}
+				selectedLeads={[lead]}
 			/>
 		</>
 	);

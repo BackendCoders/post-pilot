@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { authenticate } from '../../middleware';
-import { getQRCode, getStatus, logout, deleteSession } from './controller';
+import { startConnection, getStatus, logout, deleteSession, checkAuth, sendSingleMessage, sendBulkMessage } from './controller';
 
 const router = Router();
 
-router.get('/qr', getQRCode);
 router.use(authenticate);
+router.post('/start', startConnection);
 router.get('/status', getStatus);
 router.post('/logout', logout);
 router.delete('/session', deleteSession);
+
+router.get('/check-auth', checkAuth);
+router.post('/message/single', sendSingleMessage);
+router.post('/message/bulk', sendBulkMessage);
 
 export default router;
