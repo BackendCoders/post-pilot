@@ -152,3 +152,40 @@ export const sendBulkMessage = asyncHandler(
     }
   }
 );
+
+export const sendDocument = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId?.toString();
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const { phoneNumber, message, documentBase64, fileName, mimeType } = req.body;
+    if (!phoneNumber || !documentBase64 || !fileName) {
+      res.status(400).json({
+        success: false,
+        error: 'phoneNumber, documentBase64, and fileName are required',
+      });
+      return;
+    }
+
+    try {
+      const buffer = Buffer.from(documentBase64, 'base64');
+      await whatsappService.sendDocument(
+        userId,
+        phoneNumber,
+        message || '',
+        buffer,
+        fileName,
+        mimeType || 'application/pdf'
+      );
+      res.json({ success: true, message: 'Document sent successfully' });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to send document',
+      });
+    }
+  }
+);

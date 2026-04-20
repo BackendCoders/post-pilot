@@ -6,6 +6,7 @@ import {
   scrapeSeoBulkUrls,
   scrapeSeoTarget,
 } from './controller';
+import seoAnalysisRoutes from './routes/seoAnalysis.route';
 
 const router = Router();
 
@@ -38,5 +39,7 @@ router.post(
   countSeoPages
 );
 router.post('/bulk-scrape', validateRequest(scrapeSeoBulkSchema), scrapeSeoBulkUrls);
+
+router.use('/analysis', seoAnalysisRoutes);
 
 export default router;

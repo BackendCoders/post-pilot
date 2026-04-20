@@ -3,6 +3,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   Browsers,
+  WAMediaUpload,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import * as fs from 'fs';
@@ -373,6 +374,48 @@ class WhatsAppService {
     }
 
     return results;
+  }
+
+  async sendDocument(
+    userId: string,
+    to: string,
+    text: string,
+    documentBuffer: Buffer,
+    fileName: string,
+    mimeType: string = 'application/pdf'
+  ): Promise<any> {
+    let sock = this.getSocket(userId);
+    if (!sock) {
+      const isConnected = await this.checkIsConnected(userId);
+      if (isConnected) {
+        logger.info('Socket missing but user connected in DB. Attempting to restore session.', { userId });
+        await this.startConnection(userId, true);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        sock = this.getSocket(userId);
+      }
+
+      if (!sock) {
+        throw new Error(
+          'WhatsApp session not active. Please reconnect to WhatsApp.'
+        );
+      }
+    }
+
+    const jid = this.formatPhoneNumber(to);
+
+    try {
+      const result = await sock.sendMessage(jid, {
+        document: documentBuffer,
+        fileName: fileName,
+        mimetype: mimeType,
+        caption: text,
+      });
+      logger.info('WhatsApp document sent', { userId, to, jid, fileName });
+      return result;
+    } catch (error) {
+      logger.error('Failed to send WhatsApp document', { userId, to, error });
+      throw new Error('Failed to send WhatsApp document');
+    }
   }
 }
 

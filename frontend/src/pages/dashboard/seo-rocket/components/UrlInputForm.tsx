@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Globe, FolderTree, Loader2 } from 'lucide-react';
+import { Search, FolderTree, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,7 +16,6 @@ import type { SeoAnalysisMode } from '@/types/seo.types';
 interface UrlInputFormProps {
 	onDiscover: (url: string, mode: SeoAnalysisMode) => void;
 	isLoading: boolean;
-	hasSitemap: boolean;
 }
 
 export default function UrlInputForm({
@@ -24,7 +23,7 @@ export default function UrlInputForm({
 	isLoading,
 }: UrlInputFormProps) {
 	const [url, setUrl] = useState('');
-	const [mode, setMode] = useState<SeoAnalysisMode>('auto');
+	const [mode, setMode] = useState<SeoAnalysisMode>('site');
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -37,25 +36,16 @@ export default function UrlInputForm({
 		value: SeoAnalysisMode;
 		label: string;
 		icon: React.ReactNode;
-		desc: string;
 	}[] = [
-		{
-			value: 'auto',
-			label: 'Auto',
-			icon: <Globe className='h-3.5 w-3.5' />,
-			desc: 'Automatic detection',
-		},
 		{
 			value: 'page',
 			label: 'Single Page',
 			icon: <Search className='h-3.5 w-3.5' />,
-			desc: 'Focus one URL',
 		},
 		{
 			value: 'site',
 			label: 'Full Site',
 			icon: <FolderTree className='h-3.5 w-3.5' />,
-			desc: 'Crawl sitemap',
 		},
 	];
 
@@ -122,9 +112,7 @@ export default function UrlInputForm({
 									>
 										{option.icon}
 									</span>
-									<div className='flex flex-col items-start leading-none'>
-										<span>{option.label}</span>
-									</div>
+									<span>{option.label}</span>
 								</button>
 							);
 						})}

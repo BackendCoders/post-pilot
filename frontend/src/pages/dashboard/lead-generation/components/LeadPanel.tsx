@@ -9,6 +9,7 @@ import {
 	PanelLeftOpen,
 	Search,
 	Square,
+	Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -428,7 +429,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 		<div className='relative flex h-[calc(100vh-140px)] rounded-3xl border border-border bg-background font-sans'>
 			<aside
 				className={cn(
-					'border-r border-border bg-card/50 flex flex-col transition-all duration-300',
+					'border-r border-border bg-card/50 flex flex-col transition-all duration-300 overflow-y-auto scrollbar-hide',
 					isWorkspaceSidebarCollapsed ? 'w-20' : 'w-72',
 				)}
 			>
@@ -548,7 +549,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 				</div>
 			</aside>
 
-			<main className='relative overflow-y-auto flex flex-1 flex-col bg-background'>
+			<main className='relative flex flex-1 flex-col bg-background overflow-y-auto scrollbar-hide'>
 				<header className='sticky top-0 z-20 h-20 border-b border-border bg-background/80 px-8 backdrop-blur-md'>
 					<div className='relative flex h-full items-center justify-between'>
 						<div>
@@ -656,8 +657,8 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 					</div>
 				)}
 
-				<div className='flex flex-1 min-h-0 overflow-hidden'>
-					<div className='flex-1 min-w-0 overflow-hidden'>
+				<div className='flex flex-1 min-h-0 overflow-y-auto scrollbar-hide'>
+					<div className='flex-1 min-w-0 overflow-y-auto scrollbar-hide'>
 						{viewMode === 'kanban' ? (
 							<div className='h-full p-4'>
 								<LeadKanbanBoard

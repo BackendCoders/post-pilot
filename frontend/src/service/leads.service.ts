@@ -48,3 +48,10 @@ export const deleteBulkLeads = async (leadIds: string[]) => {
 	const response = await api.post<IApiResponse<null>>(url, { ids: leadIds });
 	return response.data;
 };
+
+export const updateLeadNote = async (leadId: string, note: string) => {
+	const response = await api.patch<IApiResponse<ILead>>(`/api/leads/${leadId}`, {
+		note,
+	});
+	return response.data;
+};

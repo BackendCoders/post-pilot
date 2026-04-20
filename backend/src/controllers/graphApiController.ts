@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import Social from '../models/Social';
-import { ITokenPayload } from '../types';
+import { ITokenPayload } from '@/types/index';
 
 const FACEBOOK_GRAPH_BASE_URL = 'https://graph.facebook.com/v25.0';
 

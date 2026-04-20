@@ -1,7 +1,9 @@
-import { useCallback, useMemo } from 'react';
-import { CheckSquare, Square } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { CheckSquare, Square, Pencil } from 'lucide-react';
 import { Kanban, type BoardData } from 'react-kanban-kit';
 import { LEAD_COLUMNS, statusFromColumnId } from './leadWorkspace.constants';
+import { cn } from '@/lib/utils';
+import NoteDialog from './NoteDialog';
 
 type Props = {
 	leads: ILead[];
@@ -25,7 +27,11 @@ export default function LeadKanbanBoard({
 	onToggleColumnSelection,
 	onOpenLead,
 	onMoveLeads,
+	onOpenNote,
 }: Props) {
+	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+	const [noteLead, setNoteLead] = useState<ILead | null>(null);
+
 	const leadsByStatus = useMemo(() => {
 		const map = new Map<string, ILead[]>();
 		for (const column of LEAD_COLUMNS) {
@@ -96,7 +102,7 @@ export default function LeadKanbanBoard({
 					type: 'lead-card',
 					children: [],
 					totalChildrenCount: 0,
-					content: { leadId: lead._id, thumbnailUrl: lead.thumbnailUrl },
+					content: { leadId: lead._id, thumbnailUrl: lead.thumbnailUrl, note: lead.note },
 				};
 			}
 		}
@@ -108,12 +114,22 @@ export default function LeadKanbanBoard({
 		() => ({
 			'lead-card': {
 				isDraggable: true,
-				render: ({ data }: { data: { id: string; title: string; content?: { leadId?: string; thumbnailUrl?: string } } }) => {
+				render: ({ data }: { data: { id: string; title: string; content?: { leadId?: string; thumbnailUrl?: string; note?: string } } }) => {
 					const leadId = data.content?.leadId || getLeadIdFromCard(data.id);
 					const isSelected = selectedLeadIds.has(leadId);
+					const hasNote = !!data.content?.note;
+
+					const handleNoteClick = (event: React.MouseEvent) => {
+						event.stopPropagation();
+						const lead = leadById.get(leadId);
+						if (lead) {
+							setNoteLead(lead);
+							setIsNoteDialogOpen(true);
+						}
+					};
 
 					return (
-						<div className='rounded-xl border border-border bg-card px-3 py-3 shadow-sm hover:shadow-md transition-all'>
+						<div className='relative rounded-xl border border-border bg-card px-3 py-3 shadow-sm hover:shadow-md transition-all group'>
 							<button
 								type='button'
 								onClick={(event) => {
@@ -127,6 +143,25 @@ export default function LeadKanbanBoard({
 								) : (
 									<Square className='h-4 w-4 text-muted-foreground' />
 								)}
+							</button>
+							<button
+								type='button'
+								onClick={handleNoteClick}
+								className={cn(
+									'absolute top-2 right-2 p-1 rounded-md transition-all',
+									hasNote
+										? 'opacity-100 bg-background/80 hover:bg-background'
+										: 'opacity-0 group-hover:opacity-100 bg-background/80 hover:bg-background',
+								)}
+								title={hasNote ? data.content?.note : 'Add note'}
+							>
+								<Pencil
+									size={12}
+									className={cn(
+										'transition-colors',
+										hasNote ? 'text-primary' : 'text-muted-foreground',
+									)}
+								/>
 							</button>
 							{data.content?.thumbnailUrl && (
 								<img
@@ -142,7 +177,7 @@ export default function LeadKanbanBoard({
 				},
 			},
 		}),
-		[onToggleLeadSelection, selectedLeadIds],
+		[onToggleLeadSelection, selectedLeadIds, leadById],
 	);
 
 	if (isLoading) {
@@ -154,84 +189,92 @@ export default function LeadKanbanBoard({
 	}
 
 	return (
-		<div className='h-full w-full overflow-x-auto overflow-y-hidden'>
-			<div className='h-full min-w-[1160px]'>
-				<Kanban
-					dataSource={dataSource}
-					configMap={configMap}
-					virtualization={false}
-					rootClassName='h-full min-w-[1160px]'
-					onCardClick={(_, card) => {
-						const leadId = card.content?.leadId || getLeadIdFromCard(card.id);
-						const lead = leadById.get(leadId);
-						if (lead) onOpenLead(lead);
-					}}
-					onCardMove={({ cardId, toColumnId }) => {
-						const targetStatus = statusFromColumnId(toColumnId);
-						if (!targetStatus) return;
+		<div className='relative h-full'>
+			<div className='h-full w-full overflow-x-auto overflow-y-auto scrollbar-hide'>
+				<div className='h-full min-w-[1160px]'>
+					<Kanban
+						dataSource={dataSource}
+						configMap={configMap}
+						virtualization={false}
+						rootClassName='h-full min-w-[1160px]'
+						onCardClick={(_, card) => {
+							const leadId = card.content?.leadId || getLeadIdFromCard(card.id);
+							const lead = leadById.get(leadId);
+							if (lead) onOpenLead(lead);
+						}}
+						onCardMove={({ cardId, toColumnId }) => {
+							const targetStatus = statusFromColumnId(toColumnId);
+							if (!targetStatus) return;
 
-						const draggedLeadId = getLeadIdFromCard(cardId);
-						const draggedLead = leadById.get(draggedLeadId);
-						if (!draggedLead || !draggedLead._id) return;
+							const draggedLeadId = getLeadIdFromCard(cardId);
+							const draggedLead = leadById.get(draggedLeadId);
+							if (!draggedLead || !draggedLead._id) return;
 
-						const moveMany =
-							selectedLeadIds.has(draggedLead._id) && selectedLeadIds.size > 1;
-						if (moveMany) {
-							const ids = leads
-								.filter(
-									(item) =>
-										item._id &&
-										selectedLeadIds.has(item._id) &&
-										String(item.status).toLowerCase() !== targetStatus,
-								)
-								.map((item) => item._id as string);
+							const moveMany =
+								selectedLeadIds.has(draggedLead._id) && selectedLeadIds.size > 1;
+							if (moveMany) {
+								const ids = leads
+									.filter(
+										(item) =>
+											item._id &&
+											selectedLeadIds.has(item._id) &&
+											String(item.status).toLowerCase() !== targetStatus,
+									)
+									.map((item) => item._id as string);
 
-							if (ids.length) onMoveLeads(ids, targetStatus);
-							return;
-						}
+								if (ids.length) onMoveLeads(ids, targetStatus);
+								return;
+							}
 
-						if (String(draggedLead.status).toLowerCase() !== targetStatus) {
-							onMoveLeads([draggedLead._id], targetStatus);
-						}
-					}}
-					renderColumnHeader={(column) => (
-						<div className='flex items-center justify-between'>
-							<div className='flex items-center gap-2'>
-								<button
-									type='button'
-									onClick={(event) => {
-										event.stopPropagation();
-										onToggleColumnSelection(getColumnLeadIds(column.id));
-									}}
-									className='rounded-full p-0.5 text-muted-foreground hover:text-primary transition-colors'
-									title={`Toggle all ${column.title} leads`}
-								>
-									{(() => {
-										const ids = getColumnLeadIds(column.id);
-										const allSelected =
-											ids.length > 0 &&
-											ids.every((id) => selectedLeadIds.has(id));
-										return allSelected ? (
-											<CheckSquare className='h-4 w-4 text-primary' />
-										) : (
-											<Square className='h-4 w-4' />
-										);
-									})()}
-								</button>
-								<span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-									{column.title}
+							if (String(draggedLead.status).toLowerCase() !== targetStatus) {
+								onMoveLeads([draggedLead._id], targetStatus);
+							}
+						}}
+						renderColumnHeader={(column) => (
+							<div className='flex items-center justify-between'>
+								<div className='flex items-center gap-2'>
+									<button
+										type='button'
+										onClick={(event) => {
+											event.stopPropagation();
+											onToggleColumnSelection(getColumnLeadIds(column.id));
+										}}
+										className='rounded-full p-0.5 text-muted-foreground hover:text-primary transition-colors'
+										title={`Toggle all ${column.title} leads`}
+									>
+										{(() => {
+											const ids = getColumnLeadIds(column.id);
+											const allSelected =
+												ids.length > 0 &&
+												ids.every((id) => selectedLeadIds.has(id));
+											return allSelected ? (
+												<CheckSquare className='h-4 w-4 text-primary' />
+											) : (
+												<Square className='h-4 w-4' />
+											);
+										})()}
+									</button>
+									<span className='text-xs font-bold uppercase tracking-wider text-muted-foreground'>
+										{column.title}
+									</span>
+								</div>
+								<span className='rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground'>
+									{column.totalChildrenCount}
 								</span>
 							</div>
-							<span className='rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground'>
-								{column.totalChildrenCount}
-							</span>
-						</div>
-					)}
-					columnWrapperClassName={() => 'min-w-[280px] max-w-[320px]'}
-					columnStyle={() => ({ minHeight: 520 })}
-					columnListContentStyle={() => ({ padding: 8 })}
-				/>
+						)}
+						columnWrapperClassName={() => 'min-w-[280px] max-w-[320px]'}
+						columnStyle={() => ({ minHeight: 520 })}
+						columnListContentStyle={() => ({ padding: 8 })}
+					/>
+				</div>
 			</div>
+
+			<NoteDialog
+				isOpen={isNoteDialogOpen}
+				onClose={() => setIsNoteDialogOpen(false)}
+				lead={noteLead}
+			/>
 		</div>
 	);
 }

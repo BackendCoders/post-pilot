@@ -82,6 +82,7 @@ interface ILead {
 	ratingCount?: number;
 	category?: string;
 	googleMapUrl?: string;
+	note?: string;
 	status: (typeof LEAD_STATUSES)[number];
 	createdAt?: Date;
 	updatedAt?: Date;

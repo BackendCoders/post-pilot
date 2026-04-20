@@ -30,7 +30,7 @@ interface SitemapViewProps {
 	onToggleUrl: (url: string) => void;
 	onSelectAll: () => void;
 	onDeselectAll: () => void;
-	onAnalyze: () => void;
+	onAnalyze: (urls: string[]) => void;
 	isAnalyzing: boolean;
 }
 
@@ -276,7 +276,7 @@ export default function SitemapView({
 					</div>
 
 					<Button
-						onClick={onAnalyze}
+						onClick={() => onAnalyze(selectedUrls)}
 						disabled={selectedUrls.length === 0 || isAnalyzing}
 						className='w-full sm:w-auto rounded-xl px-8 h-11 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all'
 					>

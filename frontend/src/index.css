@@ -181,6 +181,14 @@
 }
 
 @layer components {
+	.scrollbar-hide {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+	.scrollbar-hide::-webkit-scrollbar {
+		display: none;
+	}
+
 	.toast-googly {
 		background:
 			radial-gradient(circle at 100% 0%, hsl(0 0% 100% / 0.12), transparent 40%),

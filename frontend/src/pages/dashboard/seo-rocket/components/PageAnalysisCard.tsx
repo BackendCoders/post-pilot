@@ -13,14 +13,18 @@ import {
 	Hash,
 	Info,
 	RefreshCw,
+	Zap,
+	Gauge,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { ScrapedPageData } from '@/types/seo.types';
+import type { ScrapedPageData, SeoReport } from '@/types/seo.types';
+import { SeoScoreBadge, SeoSectionScore } from './SeoScoreBadge';
 
 interface PageAnalysisCardProps {
 	page: ScrapedPageData;
+	report: SeoReport | null;
 	index: number;
 	onRescrape?: (url: string) => void;
 	isRescraping?: boolean;
@@ -28,6 +32,7 @@ interface PageAnalysisCardProps {
 
 export default function PageAnalysisCard({
 	page,
+	report,
 	index,
 	onRescrape,
 	isRescraping,
@@ -67,48 +72,15 @@ export default function PageAnalysisCard({
 		);
 	}
 
-	const issues: { type: 'warning' | 'error' | 'success'; message: string }[] =
-		[];
-
-	if (!page.metaDescription) {
-		issues.push({ type: 'warning', message: 'Missing meta description' });
-	} else if (page.metaDescription.length < 120) {
-		issues.push({ type: 'warning', message: 'Meta description too short' });
-	} else if (page.metaDescription.length > 160) {
-		issues.push({ type: 'warning', message: 'Meta description too long' });
-	} else {
-		issues.push({ type: 'success', message: 'Optimal meta description' });
-	}
-
-	if (page.headings.h1.length === 0) {
-		issues.push({ type: 'error', message: 'Missing H1 heading' });
-	} else if (page.headings.h1.length > 1) {
-		issues.push({
-			type: 'warning',
-			message: `Multiple H1s (${page.headings.h1.length})`,
-		});
-	} else {
-		issues.push({ type: 'success', message: 'Single H1 heading found' });
-	}
-
-	const imagesWithoutAlt = page.images.filter((img) => !img.alt).length;
-	if (imagesWithoutAlt > 0) {
-		issues.push({
-			type: 'warning',
-			message: `${imagesWithoutAlt} images missing alt text`,
-		});
-	} else if (page.images.length > 0) {
-		issues.push({ type: 'success', message: 'All images have alt text' });
-	}
-
-	if (page.wordCount < 300) {
-		issues.push({ type: 'warning', message: 'Low word count (< 300)' });
-	} else {
-		issues.push({
-			type: 'success',
-			message: `Good word count (${page.wordCount})`,
-		});
-	}
+	const allIssues = report ? [
+		...report.sections.meta.issues.map(i => ({ type: i.severity, message: i.message })),
+		...report.sections.headings.issues.map(i => ({ type: i.severity, message: i.message })),
+		...report.sections.images.issues.map(i => ({ type: i.severity, message: i.message })),
+		...report.sections.content.issues.map(i => ({ type: i.severity, message: i.message })),
+		...report.sections.links.issues.map(i => ({ type: i.severity, message: i.message })),
+		...report.sections.technical.issues.map(i => ({ type: i.severity, message: i.message })),
+		...(report.sections.performance?.issues || []).map(i => ({ type: i.severity, message: i.message })),
+	] : [];
 
 	const imagesWithoutAltCount = page.images.filter((img) => !img.alt).length;
 
@@ -123,6 +95,7 @@ export default function PageAnalysisCard({
 						<span className='shrink-0 flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary text-[10px] font-bold border border-primary/20'>
 							{index + 1}
 						</span>
+						{report && <SeoScoreBadge report={report} />}
 						<div className='min-w-0'>
 							<h3 className='text-sm font-semibold tracking-tight text-foreground truncate group-hover:text-primary transition-colors'>
 								{page.title || 'Untitled Page'}
@@ -146,13 +119,22 @@ export default function PageAnalysisCard({
 									value: page.images.length,
 									error: imagesWithoutAltCount > 0,
 								},
+								{
+									icon: Gauge,
+									value: page.performanceMetrics?.totalLoadTime
+										? `${Math.round(page.performanceMetrics.totalLoadTime)}ms`
+										: '-',
+									warning: page.performanceMetrics?.totalLoadTime && page.performanceMetrics.totalLoadTime > 3000,
+								},
 							].map((stat, i) => (
 								<div
 									key={i}
 									className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-transparent text-[10px] font-medium text-muted-foreground whitespace-nowrap'
 								>
-									<stat.icon className='h-3 w-3 opacity-70' />
-									{stat.value}
+									<stat.icon className={`h-3 w-3 opacity-70 ${stat.warning ? 'text-yellow-600' : ''}`} />
+									<span className={stat.warning ? 'text-yellow-600' : ''}>
+										{stat.value}
+									</span>
 									{stat.error && (
 										<span className='ml-0.5 text-[9px] font-bold text-destructive px-1 bg-destructive/10 rounded-sm'>
 											!
@@ -199,32 +181,41 @@ export default function PageAnalysisCard({
 							<div className='flex items-center gap-2 mb-2.5'>
 								<div className='h-3 w-0.5 bg-primary/60 rounded-full' />
 								<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
-									Health Check
+									Health Check ({allIssues.length})
 								</h4>
 							</div>
 
-							<div className='grid gap-1.5'>
-								{issues.map((issue, i) => (
-									<div
-										key={i}
-										className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[12px] transition-colors ${
-											issue.type === 'error'
-												? 'bg-destructive/5 border-destructive/10 text-destructive'
-												: issue.type === 'warning'
-													? 'bg-yellow-500/5 border-yellow-500/10 text-yellow-700'
-													: 'bg-emerald-500/5 border-emerald-500/10 text-emerald-700'
-										}`}
-									>
-										{issue.type === 'success' ? (
-											<CheckCircle className='h-3 w-3 shrink-0' />
-										) : (
-											<AlertCircle className='h-3 w-3 shrink-0' />
-										)}
-										<span className='font-medium truncate'>
-											{issue.message}
-										</span>
+							<div className='grid gap-1.5 max-h-64 overflow-y-auto pr-1'>
+								{allIssues.length === 0 ? (
+									<div className='flex items-center gap-2 px-2.5 py-2 rounded-lg border bg-emerald-500/5 border-emerald-500/10 text-emerald-700 text-[12px]'>
+										<CheckCircle className='h-3 w-3 shrink-0' />
+										<span className='font-medium'>No issues found</span>
 									</div>
-								))}
+								) : (
+									allIssues.map((issue, i) => (
+										<div
+											key={i}
+											className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] transition-colors ${
+												issue.type === 'high'
+													? 'bg-red-50 border-red-200 text-red-700'
+													: issue.type === 'medium'
+														? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+														: issue.type === 'low'
+															? 'bg-blue-50 border-blue-200 text-blue-700'
+															: 'bg-emerald-50 border-emerald-200 text-emerald-700'
+											}`}
+										>
+											{issue.type === 'high' || issue.type === 'medium' || issue.type === 'low' ? (
+												<AlertCircle className='h-3 w-3 shrink-0 mt-0.5' />
+											) : (
+												<CheckCircle className='h-3 w-3 shrink-0 mt-0.5' />
+											)}
+											<span className='font-medium flex-1'>
+												{issue.message}
+											</span>
+										</div>
+									))
+								)}
 							</div>
 						</div>
 
@@ -345,9 +336,122 @@ export default function PageAnalysisCard({
 								)}
 							</div>
 						</div>
+
+								{/* SEO Report Sections */}
+						{report && (
+							<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>
+								<div className='flex items-center gap-2 mb-3'>
+									<div className='h-3 w-0.5 bg-primary/60 rounded-full' />
+									<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
+										SEO Report
+									</h4>
+								</div>
+								<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
+									{[
+										{ label: 'Meta', section: report.sections.meta },
+										{ label: 'Headings', section: report.sections.headings },
+										{ label: 'Images', section: report.sections.images },
+										{ label: 'Content', section: report.sections.content },
+										{ label: 'Links', section: report.sections.links },
+										{ label: 'Technical', section: report.sections.technical },
+										...(report.sections.performance ? [{ label: 'Performance', section: report.sections.performance }] : []),
+									].map(({ label, section }) => (
+										<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5'>
+											<div className='flex items-center justify-between mb-2'>
+												<span className='text-[10px] font-bold uppercase flex items-center gap-1'>
+													{label === 'Performance' && <Zap className='h-3 w-3' />}
+													{label}
+												</span>
+												<span className={`text-[10px] font-bold ${
+													section.score >= 80 ? 'text-emerald-600' :
+													section.score >= 60 ? 'text-yellow-600' : 'text-red-600'
+												}`}>
+													{section.score}
+												</span>
+											</div>
+											<SeoSectionScore score={section.score} />
+											{section.issues.length > 0 && (
+												<div className='mt-2 space-y-1'>
+													{section.issues.slice(0, 2).map((issue, i) => (
+														<div key={i} className='text-[9px] text-muted-foreground truncate'>
+															• {issue.message}
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+							</div>
+						)}
+
+						{/* Performance Metrics Details */}
+						{page.performanceMetrics && (
+							<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>
+								<div className='flex items-center gap-2 mb-3'>
+									<div className='h-3 w-0.5 bg-amber-500/60 rounded-full' />
+									<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
+										Performance Metrics
+									</h4>
+								</div>
+								<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
+									<PerformanceMetricCard
+										label='Load Time'
+										value={page.performanceMetrics.totalLoadTime ? `${Math.round(page.performanceMetrics.totalLoadTime)}ms` : '-'}
+										rating={page.performanceMetrics.totalLoadTime && page.performanceMetrics.totalLoadTime <= 3000 ? 'good' : page.performanceMetrics.totalLoadTime && page.performanceMetrics.totalLoadTime <= 5000 ? 'needs-improvement' : page.performanceMetrics.totalLoadTime ? 'poor' : null}
+									/>
+									<PerformanceMetricCard
+										label='Page Size'
+										value={page.performanceMetrics.pageSizeFormatted || '-'}
+										rating={page.performanceMetrics.pageSize && page.performanceMetrics.pageSize <= 2_000_000 ? 'good' : page.performanceMetrics.pageSize && page.performanceMetrics.pageSize <= 5_000_000 ? 'needs-improvement' : page.performanceMetrics.pageSize ? 'poor' : null}
+									/>
+									<PerformanceMetricCard
+										label='DNS Lookup'
+										value={page.performanceMetrics.dns ? `${Math.round(page.performanceMetrics.dns)}ms` : '-'}
+										rating={null}
+									/>
+									<PerformanceMetricCard
+										label='TCP Connect'
+										value={page.performanceMetrics.tcp ? `${Math.round(page.performanceMetrics.tcp)}ms` : '-'}
+										rating={null}
+									/>
+								</div>
+								<div className='mt-2 text-[9px] text-muted-foreground/60 italic'>
+									Note: FCP, LCP, CLS, INP require real browser measurement. These are available via Lighthouse or browser DevTools.
+								</div>
+							</div>
+						)}
 					</div>
 				</CardContent>
 			)}
 		</Card>
+	);
+}
+
+interface PerformanceMetricCardProps {
+	label: string;
+	value: string;
+	rating?: 'good' | 'needs-improvement' | 'poor' | null;
+}
+
+function PerformanceMetricCard({ label, value, rating }: PerformanceMetricCardProps) {
+	const bgColor = rating === 'good' ? 'bg-emerald-500/5 border-emerald-500/20' :
+					rating === 'needs-improvement' ? 'bg-yellow-500/5 border-yellow-500/20' :
+					rating === 'poor' ? 'bg-red-500/5 border-red-500/20' :
+					'bg-muted/10 border-border/40';
+	const textColor = rating === 'good' ? 'text-emerald-600' :
+					rating === 'needs-improvement' ? 'text-yellow-600' :
+					rating === 'poor' ? 'text-red-600' :
+					'text-muted-foreground';
+
+	return (
+		<div className={`rounded-lg border p-2.5 ${bgColor}`}>
+			<div className='text-[9px] font-bold uppercase tracking-tight text-muted-foreground mb-1'>
+				{label}
+			</div>
+			<div className={`text-sm font-bold ${textColor}`}>
+				{value}
+			</div>
+		</div>
 	);
 }

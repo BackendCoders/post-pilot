@@ -114,20 +114,24 @@ function ActionButton({
 	children,
 	onClick,
 	icon,
+	disabled,
 }: {
 	children: React.ReactNode;
 	onClick: () => void;
 	icon?: React.ReactNode;
+	disabled?: boolean;
 }) {
 	return (
 		<Button
 			variant='ghost'
 			onClick={onClick}
+			disabled={disabled}
 			className={cn(
 				'h-10 px-4 rounded-xl',
 				'text-sm font-medium tracking-tight',
 				'hover:bg-muted transition-all duration-200 active:scale-95',
 				'flex items-center gap-2',
+				disabled && 'opacity-50 cursor-not-allowed',
 			)}
 		>
 			{icon && <span className='opacity-80'>{icon}</span>}

@@ -9,6 +9,7 @@ import {
 	getLeadById,
 	deleteLeads,
 	deleteBulkLeads,
+	updateLeadNote,
 } from '@/service/leads.service';
 
 export interface IScrapedLeadsState {
@@ -165,6 +166,24 @@ export const useDeleteBulkLeads = function () {
 		},
 		onError: (err) =>
 			toast.error('Bulk delete failed', {
+				description: getErrorMessage(err),
+			}),
+	});
+};
+
+export const useUpdateLeadNote = function () {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ leadId, note }: { leadId: string; note: string }) =>
+			updateLeadNote(leadId, note),
+		onSuccess: () => {
+			toast.success('Note saved', {
+				description: 'Lead note has been updated.',
+			});
+			queryClient.invalidateQueries({ queryKey: ['leads'] });
+		},
+		onError: (err) =>
+			toast.error('Failed to save note', {
 				description: getErrorMessage(err),
 			}),
 	});

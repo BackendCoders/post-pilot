@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { asyncHandler } from '../../../middleware';
-import { IApiResponse } from '../../../types';
 import Lead from '../model/lead.model';
 import LeadCategory from '../model/leadCategory.model';
 import axios from 'axios';
@@ -9,6 +8,7 @@ import {
   deleteImageFromCloudinary,
   uploadImageFromUrl,
 } from '../../../utils/uploadCloudinary';
+import { IApiResponse } from '@/types/index';
 
 export const isOwnerOrAdmin = (
   reqUser: Express.Request['user'],
@@ -109,6 +109,7 @@ const normalizeLeadPayload = (
   rating: payload.rating,
   googleMapUrl: payload.googleMapUrl,
   ratingCount: payload.ratingCount,
+  note: payload.note,
   status: forceNewStatus ? 'saved' : payload.status,
 });
 

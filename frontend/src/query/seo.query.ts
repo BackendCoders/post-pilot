@@ -6,9 +6,10 @@ import { seoService } from '@/service/seo.service';
 import type {
 	SitePageCountResult,
 	ScrapedPageData,
-	SeoAnalysisMode,
 	CategorizedUrls,
 } from '@/types/seo.types';
+
+export type AnalysisCallback = (data: { data: ScrapedPageData[]; scrapedCount: number }) => void;
 
 const getErrorMessage = (err: unknown) => {
 	if (isAxiosError(err)) {
@@ -33,8 +34,14 @@ export const useCountPages = () => {
 
 export const useBulkScrape = () => {
 	return useMutation({
-		mutationFn: (urls: string[]) => seoService.bulkScrape(urls),
+		mutationFn: async (urls: string[]) => {
+			console.log('useBulkScrape mutationFn called with:', urls);
+			const result = await seoService.bulkScrape(urls);
+			console.log('useBulkScrape got result:', result);
+			return result;
+		},
 		onError: (err) => {
+			console.error('useBulkScrape onError:', err);
 			toast.error('Analysis failed', {
 				description: getErrorMessage(err),
 			});
@@ -64,37 +71,57 @@ export const useSeoAnalysis = () => {
 	const [sitemap, setSitemap] = useState<SitePageCountResult | null>(null);
 	const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
 	const [results, setResults] = useState<ScrapedPageData[]>([]);
+	const [hasSitemapError, setHasSitemapError] = useState(false);
+	const [hasAnalysisError, setHasAnalysisError] = useState(false);
 
-	const { mutate: fetchSitemap, isPending: isFetchingSitemap } =
+	const { mutateAsync: fetchSitemap, isPending: isFetchingSitemap } =
 		useCountPages();
-	const { mutate: analyzeUrls, isPending: isAnalyzing } = useBulkScrape();
+	const { mutateAsync: analyzeUrls, isPending: isAnalyzing } = useBulkScrape();
 
 	const discoverSitemap = useCallback(
-		(url: string, _mode: SeoAnalysisMode = 'auto') => {
+		(url: string) => {
+			setHasSitemapError(false);
+			setSitemap(null);
 			fetchSitemap(url, {
 				onSuccess: (data) => {
 					setSitemap(data);
 					setSelectedUrls([]);
 					setResults([]);
 				},
+				onError: () => {
+					setHasSitemapError(true);
+				},
 			});
 		},
 		[fetchSitemap],
 	);
 
-	const analyzeSelected = useCallback(() => {
-		if (selectedUrls.length === 0) {
-			toast.error('Please select at least one page to analyze');
-			return;
-		}
+	const analyzeSelected = useCallback(
+		async (urls?: string[], onSuccess?: AnalysisCallback) => {
+			const urlsToAnalyze = urls || selectedUrls;
+			if (urlsToAnalyze.length === 0) {
+				toast.error('Please select at least one page to analyze');
+				return;
+			}
 
-		analyzeUrls(selectedUrls, {
-			onSuccess: (data) => {
+			console.log('analyzeSelected called with:', urlsToAnalyze);
+			setHasAnalysisError(false);
+			setResults([]);
+
+			try {
+				const data = await analyzeUrls(urlsToAnalyze);
+				console.log('analyzeUrls success, data:', data);
 				setResults(data.data || []);
 				toast.success(`Analyzed ${data.scrapedCount} page(s)`);
-			},
-		});
-	}, [selectedUrls, analyzeUrls]);
+				console.log('Calling onSuccess callback...');
+				onSuccess?.(data);
+				console.log('onSuccess callback called');
+			} catch {
+				setHasAnalysisError(true);
+			}
+		},
+		[selectedUrls, analyzeUrls],
+	);
 
 	const toggleUrl = useCallback((url: string) => {
 		setSelectedUrls((prev) =>
@@ -129,15 +156,20 @@ export const useSeoAnalysis = () => {
 		setSitemap(null);
 		setSelectedUrls([]);
 		setResults([]);
+		setHasSitemapError(false);
+		setHasAnalysisError(false);
 	}, []);
 
 	return {
 		sitemap,
 		selectedUrls,
+		setSelectedUrls,
 		results,
 		setResults,
 		isFetchingSitemap,
 		isAnalyzing,
+		hasSitemapError,
+		hasAnalysisError,
 		discoverSitemap,
 		analyzeSelected,
 		toggleUrl,

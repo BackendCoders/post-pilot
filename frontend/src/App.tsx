@@ -26,6 +26,7 @@ import RejectedLeads from './pages/dashboard/lead-generation/RejectedLeads';
 import MessageTemplate from '@/pages/dashboard/lead-generation/MessageTemplate';
 import LeadBriefAnalysisPage from '@/pages/dashboard/lead-generation/briefAnalysis';
 import ProfilePage from '@/pages/dashboard/profile';
+import SEORocketHistory from './pages/dashboard/seo-rocket/history';
 
 const router = createBrowserRouter([
 	{
@@ -44,7 +45,6 @@ const router = createBrowserRouter([
 			</Protected>
 		),
 		children: [
-			{ path: 'seo-rocket', element: <SEORocketPage /> },
 			{ path: 'lead-generator', element: <LeadGeneratorPage /> },
 			{
 				path: 'console',
@@ -63,6 +63,16 @@ const router = createBrowserRouter([
 					</Protected>
 				),
 				children: [
+					{
+						path: 'seo-rocket',
+						children: [
+							{ path: '', element: <SEORocketPage /> },
+							{ path: 'history', element: <SEORocketHistory /> },
+							{ path: 'sitemap', element: <SEORocketPage /> },
+							{ path: 'results', element: <SEORocketPage /> },
+							{ path: 'single', element: <SEORocketPage /> },
+						],
+					},
 					{ path: 'profile', element: <ProfilePage /> },
 					{
 						index: true,
@@ -80,14 +90,6 @@ const router = createBrowserRouter([
 							{ path: 'overview', element: <ProfilePage />, index: true },
 							{ path: 'create', element: <ConsolePage /> },
 							{ path: 'manage', element: <ProfilePage /> },
-						],
-					},
-					{
-						path: 'seo-rocket',
-						children: [
-							{ path: 'overview', element: <SEORocketPage />, index: true },
-							{ path: 'audit', element: <SEORocketPage /> },
-							{ path: 'rankings', element: <SEORocketPage /> },
 						],
 					},
 					{

@@ -24,6 +24,7 @@ export interface ILead {
   ratingCount?: number;
   category?: string;
   googleMapUrl?: string;
+  note?: string;
   status: (typeof LEAD_STATUSES)[number];
   createdAt?: Date;
   updatedAt?: Date;
@@ -81,6 +82,11 @@ const leadSchema = new Schema<ILead>(
     },
     publicId: String,
     googleMapUrl: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    note: {
       type: String,
       trim: true,
       default: null,

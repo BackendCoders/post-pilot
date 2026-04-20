@@ -1,6 +1,9 @@
-import { Building2, CheckSquare, MapPin, Square } from 'lucide-react';
+import { useState } from 'react';
+import { Building2, CheckSquare, MapPin, Square, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getStatusLabel } from './leadWorkspace.constants';
+import { Button } from '@/components/ui/button';
+import NoteDialog from './NoteDialog';
 
 type Props = {
 	leads: ILead[];
@@ -17,6 +20,9 @@ export default function LeadListView({
 	onToggleLeadSelection,
 	onOpenLead,
 }: Props) {
+	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+	const [noteLead, setNoteLead] = useState<ILead | null>(null);
+
 	if (isLoading) {
 		return (
 			<div className='h-full flex items-center justify-center text-muted-foreground'>
@@ -38,8 +44,9 @@ export default function LeadListView({
 	}
 
 	return (
-		<div className='h-full overflow-y-auto divide-y divide-border/50'>
-			{leads.map((lead) => {
+		<>
+			<div className='h-full overflow-y-auto divide-y divide-border/50'>
+				{leads.map((lead) => {
 				const id = lead._id || '';
 				if (!id) return null;
 
@@ -94,10 +101,48 @@ export default function LeadListView({
 									{lead.address}
 								</div>
 							)}
+							{lead.note ? (
+								<button
+									type='button'
+									onClick={(event) => {
+										event.stopPropagation();
+										setNoteLead(lead);
+										setIsNoteDialogOpen(true);
+									}}
+									className='flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-primary transition-colors'
+									title={lead.note}
+								>
+									<Pencil size={12} className='text-primary' />
+									<span className='truncate max-w-[200px]'>
+										{lead.note}
+									</span>
+								</button>
+							) : (
+								<button
+									type='button'
+									onClick={(event) => {
+										event.stopPropagation();
+										setNoteLead(lead);
+										setIsNoteDialogOpen(true);
+									}}
+									className='opacity-0 group-hover:opacity-100 flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-primary transition-all'
+									title='Add note'
+								>
+									<Pencil size={12} />
+									<span>Add note</span>
+								</button>
+							)}
 						</div>
 					</div>
 				);
 			})}
 		</div>
+
+		<NoteDialog
+			isOpen={isNoteDialogOpen}
+			onClose={() => setIsNoteDialogOpen(false)}
+			lead={noteLead}
+		/>
+		</>
 	);
 }

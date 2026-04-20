@@ -86,9 +86,8 @@ const NAV_ITEMS = [
 		label: 'SEO Rocket',
 		icon: <Rocket size={18} />,
 		subItems: [
-			{ label: 'Overview', path: '/dashboard/seo-rocket/overview' },
-			{ label: 'Audit', path: '/dashboard/seo-rocket/audit' },
-			{ label: 'Rankings', path: '/dashboard/seo-rocket/rankings' },
+			{ label: 'New Analysis', path: '/dashboard/seo-rocket' },
+			{ label: 'History', path: '/dashboard/seo-rocket/history' },
 		],
 	},
 	{

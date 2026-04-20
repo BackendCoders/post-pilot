@@ -1,11 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { Globe, MapPin, Phone, Star, X, MessageSquare, ExternalLink } from 'lucide-react';
+import {
+	Globe,
+	MapPin,
+	Phone,
+	Star,
+	X,
+	MessageSquare,
+	ExternalLink,
+	Pencil,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getStatusLabel } from './leadWorkspace.constants';
 import ReachDialog from './ReachDialog';
+import NoteDialog from './NoteDialog';
 
 type Props = {
 	lead: ILead | null;
@@ -15,6 +25,7 @@ type Props = {
 export default function LeadDetailsPanel({ lead, onClose }: Props) {
 	const navigate = useNavigate();
 	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
+	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 
 	if (!lead) return null;
 
@@ -175,6 +186,38 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 								</a>
 							</Button>
 						)}
+
+						<div className='space-y-3'>
+							<p className='text-xs font-bold uppercase tracking-widest text-muted-foreground'>
+								Note
+							</p>
+							<div className='rounded-xl border border-border p-4 min-h-[60px]'>
+								{lead.note ? (
+									<div className='flex items-start justify-between gap-2'>
+										<p className='text-sm whitespace-pre-wrap'>
+											{lead.note}
+										</p>
+										<Button
+											variant='ghost'
+											size='icon'
+											onClick={() => setIsNoteDialogOpen(true)}
+											className='h-8 w-8 shrink-0 rounded-lg'
+										>
+											<Pencil size={14} />
+										</Button>
+									</div>
+								) : (
+									<Button
+										variant='ghost'
+										onClick={() => setIsNoteDialogOpen(true)}
+										className='w-full h-auto py-2 text-muted-foreground hover:text-foreground'
+									>
+										<Pencil size={14} className='mr-2' />
+										<span className='text-xs'>Add a note</span>
+									</Button>
+								)}
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -183,6 +226,12 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 				isOpen={isReachDialogOpen}
 				onClose={() => setIsReachDialogOpen(false)}
 				selectedLeads={[lead]}
+			/>
+
+			<NoteDialog
+				isOpen={isNoteDialogOpen}
+				onClose={() => setIsNoteDialogOpen(false)}
+				lead={lead}
 			/>
 		</>
 	);

@@ -13,7 +13,7 @@ export const useWhatsAppStatus = () => {
 	return useQuery<WhatsAppStatus>({
 		queryKey: ['whatsapp', 'status'],
 		queryFn: () => api.get('/api/whatsapp/status').then((res) => res.data.data),
-		refetchInterval: 3000, // Poll every 3 seconds
+		refetchInterval: 3000,
 	});
 };
 
@@ -22,7 +22,6 @@ export const useWhatsAppStart = () => {
 	return useMutation({
 		mutationFn: () => api.post('/api/whatsapp/start'),
 		onSuccess: () => {
-			// Force an immediate refetch of the status to quickly show the QR code when ready
 			queryClient.invalidateQueries({ queryKey: ['whatsapp', 'status'] });
 		},
 	});
@@ -58,6 +57,38 @@ export const useWhatsAppLogout = () => {
 		mutationFn: () => api.post('/api/whatsapp/logout'),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['whatsapp', 'status'] });
+		},
+	});
+};
+
+export const useWhatsAppSendDocument = () => {
+	return useMutation({
+		mutationFn: ({
+			phoneNumber,
+			message,
+			documentBase64,
+			fileName,
+			mimeType,
+		}: {
+			phoneNumber: string;
+			message?: string;
+			documentBase64: string;
+			fileName: string;
+			mimeType?: string;
+		}) =>
+			api.post('/api/whatsapp/message/document', {
+				phoneNumber,
+				message,
+				documentBase64,
+				fileName,
+				mimeType,
+			}),
+		onSuccess: () => {
+			toast.success('Report sent successfully via WhatsApp!');
+		},
+		onError: (error: unknown) => {
+			const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to send document';
+			toast.error(errorMessage);
 		},
 	});
 };
