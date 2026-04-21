@@ -28,6 +28,7 @@ export const useWhatsAppStart = () => {
 };
 
 export const useWhatsappSendMessagebulk = () => {
+	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: ({
 			phoneNumbers,
@@ -42,6 +43,7 @@ export const useWhatsappSendMessagebulk = () => {
 			}),
 		onSuccess: () => {
 			toast.success('Messages Sent successfully');
+			queryClient.invalidateQueries({ queryKey: ['leads'] });
 		},
 		onError: () => {
 			toast.error(

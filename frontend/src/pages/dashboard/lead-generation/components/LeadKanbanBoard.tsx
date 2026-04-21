@@ -102,7 +102,7 @@ export default function LeadKanbanBoard({
 					type: 'lead-card',
 					children: [],
 					totalChildrenCount: 0,
-					content: { leadId: lead._id, thumbnailUrl: lead.thumbnailUrl, note: lead.note },
+					content: { leadId: lead._id, thumbnailUrl: lead.thumbnailUrl, note: lead.note, status: lead.status },
 				};
 			}
 		}
@@ -112,12 +112,13 @@ export default function LeadKanbanBoard({
 
 	const configMap = useMemo(
 		() => ({
-			'lead-card': {
+'lead-card': {
 				isDraggable: true,
-				render: ({ data }: { data: { id: string; title: string; content?: { leadId?: string; thumbnailUrl?: string; note?: string } } }) => {
+				render: ({ data }: { data: { id: string; title: string; content?: { leadId?: string; thumbnailUrl?: string; note?: string; status?: string } } }) => {
 					const leadId = data.content?.leadId || getLeadIdFromCard(data.id);
 					const isSelected = selectedLeadIds.has(leadId);
 					const hasNote = !!data.content?.note;
+					const isConverted = data.content?.status === 'converted';
 
 					const handleNoteClick = (event: React.MouseEvent) => {
 						event.stopPropagation();
@@ -129,7 +130,10 @@ export default function LeadKanbanBoard({
 					};
 
 					return (
-						<div className='relative rounded-xl border border-border bg-card px-3 py-3 shadow-sm hover:shadow-md transition-all group'>
+						<div className={cn(
+							'relative rounded-xl border bg-card px-3 py-3 shadow-sm hover:shadow-md transition-all group',
+							isConverted ? 'border-green-300 dark:border-green-600' : 'border-border'
+						)}>
 							<button
 								type='button'
 								onClick={(event) => {

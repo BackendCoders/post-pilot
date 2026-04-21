@@ -20,7 +20,7 @@ const userSchema = new Schema<IUserDocument>(
         'Please enter a valid email',
       ],
     },
-    password: {
+password: {
       type: String,
       required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters long'],
@@ -126,6 +126,15 @@ const userSchema = new Schema<IUserDocument>(
       type: String,
       default: '',
     },
+    googleId: {
+      type: String,
+      default: null,
+    },
+    provider: {
+      type: String,
+      enum: ['local', 'google', null],
+      default: 'local',
+    },
     deletedAt: {
       type: Date,
     },
@@ -145,6 +154,8 @@ const userSchema = new Schema<IUserDocument>(
 // Index for better query performance
 userSchema.index({ email: 1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ whatsappPhoneNumber: 1, whatsappConnected: 1 });
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
 // Instance methods
 userSchema.methods.comparePassword = async function (
@@ -173,7 +184,7 @@ userSchema.statics.findActiveUsers = function () {
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password') || !this.password) return next();
 
   try {
     this.password = await bcrypt.hash(this.password, 12);

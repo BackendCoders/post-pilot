@@ -147,4 +147,16 @@ describe('Authentication', () => {
       expect(response.body.error).toBe('Invalid email or password');
     });
   });
+
+  describe('POST /api/auth/google', () => {
+    it('should return validation error when idToken is missing', async () => {
+      const response = await request(app)
+        .post('/api/auth/google')
+        .send({})
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.errors.idToken).toBeDefined();
+    });
+  });
 });

@@ -73,7 +73,16 @@ const router = createBrowserRouter([
 							{ path: 'single', element: <SEORocketPage /> },
 						],
 					},
-					{ path: 'profile', element: <ProfilePage /> },
+					{
+						path: 'profile',
+						element: (
+							<Navigate
+								to='personal'
+								replace
+							/>
+						),
+					},
+					{ path: 'profile/:section', element: <ProfilePage /> },
 					{
 						index: true,
 						element: (

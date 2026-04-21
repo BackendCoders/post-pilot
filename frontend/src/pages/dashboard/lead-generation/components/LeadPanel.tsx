@@ -10,7 +10,9 @@ import {
 	Search,
 	Square,
 	Pencil,
+	Plus,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
 	useBulkUpdateLeads,
@@ -25,6 +27,7 @@ import LeadListView from './LeadListView';
 import LeadFloatingDock from './LeadFloatingDock';
 import LeadDetailsPanel from './LeadDetailsPanel';
 import ReachDialog from './ReachDialog';
+import EditLeadDialog from './EditLeadDialog';
 
 export type LeadPanelSection = 'saved' | 'processed' | 'converted' | 'rejected';
 
@@ -47,6 +50,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 	const [isWorkspaceSidebarCollapsed, setIsWorkspaceSidebarCollapsed] =
 		useState(false);
 	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
+	const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
 
 	const { data: categoriesResponse, isLoading: isLoadingCategories } =
 		useGetLeadCategory();
@@ -551,8 +555,8 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 
 			<main className='relative flex flex-1 flex-col bg-background overflow-y-auto scrollbar-hide'>
 				<header className='sticky top-0 z-20 h-20 border-b border-border bg-background/80 px-8 backdrop-blur-md'>
-					<div className='relative flex h-full items-center justify-between'>
-						<div>
+					<div className='flex h-full items-center justify-between gap-4'>
+						<div className='flex-shrink-0'>
 							<h1 className='text-xl font-medium tracking-tight'>
 								{sectionTitle}
 							</h1>
@@ -561,7 +565,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 							</p>
 						</div>
 
-						<div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'>
+						<div className='flex-shrink-0'>
 							<LeadWorkspaceToggle
 								value={viewMode}
 								onChange={(mode) => {
@@ -571,7 +575,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 							/>
 						</div>
 
-						<div className='relative group'>
+						<div className='flex flex-1 max-w-md relative group'>
 							<Search
 								className='absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary'
 								size={16}
@@ -581,9 +585,17 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 								placeholder='Search leads...'
 								value={searchQuery}
 								onChange={(event) => setSearchQuery(event.target.value)}
-								className='w-72 rounded-[12px] border-none bg-muted/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:bg-muted/60 focus:ring-2 focus:ring-primary/20'
+								className='w-full rounded-[12px] border-none bg-muted/40 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:bg-muted/60 focus:ring-2 focus:ring-primary/20'
 							/>
 						</div>
+
+						<Button
+							onClick={() => setIsCreateLeadDialogOpen(true)}
+							className='flex-shrink-0'
+						>
+							<Plus size={16} className='mr-2' />
+							Create Lead
+						</Button>
 					</div>
 				</header>
 
@@ -710,6 +722,12 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 					selectedLeads={leads.filter(
 						(lead) => lead._id && selectedLeadIds.has(lead._id),
 					)}
+				/>
+
+				<EditLeadDialog
+					isOpen={isCreateLeadDialogOpen}
+					onClose={() => setIsCreateLeadDialogOpen(false)}
+					lead={null}
 				/>
 			</main>
 		</div>

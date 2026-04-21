@@ -10,6 +10,8 @@ import {
 	deleteLeads,
 	deleteBulkLeads,
 	updateLeadNote,
+	updateLead,
+	createLead,
 } from '@/service/leads.service';
 
 export interface IScrapedLeadsState {
@@ -184,6 +186,41 @@ export const useUpdateLeadNote = function () {
 		},
 		onError: (err) =>
 			toast.error('Failed to save note', {
+				description: getErrorMessage(err),
+			}),
+	});
+};
+
+export const useUpdateLead = function () {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ leadId, data }: { leadId: string; data: Partial<ILead> }) =>
+			updateLead(leadId, data),
+		onSuccess: () => {
+			toast.success('Lead updated', {
+				description: 'Lead has been updated successfully.',
+			});
+			queryClient.invalidateQueries({ queryKey: ['leads'] });
+		},
+		onError: (err) =>
+			toast.error('Failed to update lead', {
+				description: getErrorMessage(err),
+			}),
+	});
+};
+
+export const useCreateLead = function () {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (data: Omit<ILead, '_id'>) => createLead(data),
+		onSuccess: () => {
+			toast.success('Lead created', {
+				description: 'New lead has been created successfully.',
+			});
+			queryClient.invalidateQueries({ queryKey: ['leads'] });
+		},
+		onError: (err) =>
+			toast.error('Failed to create lead', {
 				description: getErrorMessage(err),
 			}),
 	});

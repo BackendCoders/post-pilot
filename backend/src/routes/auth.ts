@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   register,
   login,
+  googleAuth,
   refreshToken,
   logout,
   getMe,
@@ -10,6 +11,7 @@ import { authenticate, validateRequest } from '../middleware';
 import {
   registerSchema,
   loginSchema,
+  googleAuthSchema,
   refreshTokenSchema,
 } from '../utils/validationSchemas';
 
@@ -18,6 +20,7 @@ const router = Router();
 // Public routes
 router.post('/register', validateRequest(registerSchema), register);
 router.post('/login', validateRequest(loginSchema), login);
+router.post('/google', validateRequest(googleAuthSchema), googleAuth);
 router.post('/refresh', validateRequest(refreshTokenSchema), refreshToken);
 
 // Protected routes

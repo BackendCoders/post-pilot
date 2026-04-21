@@ -7,5 +7,5 @@
     "logs/*",
     "temp-test*"
   ],
-  "exec": "ts-node src/app.ts"
+  "exec": "ts-node --files src/app.ts"
 }

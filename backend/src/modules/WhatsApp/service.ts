@@ -11,6 +11,7 @@ import * as path from 'path';
 import User from '../../models/User';
 import { logger } from '../../utils/logger';
 import QRCode from 'qrcode';
+import Lead from '../LeadGeneration/model/lead.model';
 
 const SESSION_DIR = './whatsapp-sessions';
 
@@ -173,6 +174,31 @@ class WhatsAppService {
         if (connection === 'open') {
           const phoneNumber = sock.user?.id?.split(':')[0] || '';
           logger.info('WhatsApp connected', { phoneNumber });
+
+          const existingUser = await User.findOne({
+            whatsappPhoneNumber: phoneNumber,
+            _id: { $ne: userId },
+            whatsappConnected: true,
+          });
+
+          if (existingUser) {
+            logger.warn('Phone number already connected to another account', {
+              phoneNumber,
+              existingUserId: existingUser._id,
+              newUserId: userId,
+            });
+            this.connectionStates.set(userId, 'DISCONNECTED');
+            this.qrCodes.set(userId, null);
+            sock.end(undefined);
+            await User.findByIdAndUpdate(userId, {
+              whatsappConnected: false,
+              whatsappConnectedAt: null,
+              whatsappPhoneNumber: '',
+            });
+            logger.info('Connection rejected - phone number in use by another account', { phoneNumber });
+            return;
+          }
+
           this.connectionStates.set(userId, 'CONNECTED');
           this.qrCodes.set(userId, null);
           User.findByIdAndUpdate(userId, {
@@ -210,6 +236,69 @@ class WhatsAppService {
                 logger.error('Failed to auto-reconnect', { err })
               );
             }, 1500);
+          }
+        }
+      });
+
+      // Listen for incoming messages to detect replies from leads
+      sock.ev.on('messages.upsert', async ({ messages, type }) => {
+        if (type !== 'notify') return;
+        
+        for (const msg of messages) {
+          if (!msg.key.fromMe && msg.key.remoteJid) {
+            const phoneNumber = msg.key.remoteJid.split('@')[0].replace(/[^0-9]/g, '');
+            const phoneLast10 = phoneNumber.slice(-10);
+            
+            // Debug: Log incoming phone number
+            logger.info('Incoming message from', { phoneNumber, phoneLast10 });
+            
+            // Check if this phone number exists in processed leads (also check saved status)
+            let lead = await Lead.findOne({
+              phone: { $regex: new RegExp(phoneLast10, 'i') },
+              status: 'processed'
+            });
+            
+            // If not in processed, check saved leads
+            if (!lead) {
+              lead = await Lead.findOne({
+                phone: { $regex: new RegExp(phoneLast10, 'i') },
+                status: 'saved'
+              });
+              
+              if (lead) {
+                logger.info('Found lead in saved status, updating to processed', { 
+                  phone: phoneNumber,
+                  leadId: lead._id,
+                  oldStatus: lead.status 
+                });
+                
+                await Lead.findByIdAndUpdate(lead._id, {
+                  $set: { status: 'processed' }
+                });
+                continue;
+              }
+            }
+            
+            if (lead) {
+              logger.info('Found processed lead, updating to converted', { 
+                phone: phoneNumber,
+                leadId: lead._id,
+                oldStatus: lead.status 
+              });
+              
+              // Update lead status to 'converted' to indicate they replied
+              const result = await Lead.findByIdAndUpdate(lead._id, {
+                $set: { status: 'converted' }
+              });
+              
+              logger.info('Lead status updated to converted', { 
+                leadId: lead._id,
+                phone: phoneNumber,
+                result: result ? 'success' : 'failed'
+              });
+            } else {
+              logger.info('No matching lead found in saved/processed status', { phoneNumber, phoneLast10 });
+            }
           }
         }
       });
@@ -359,6 +448,14 @@ class WhatsAppService {
         const jid = this.formatPhoneNumber(phone);
         await sock.sendMessage(jid, { text });
         results.successful.push(phone);
+
+        // Update lead status to 'processed' if it was 'saved'
+        await Lead.updateOne(
+          { phone, user: userId, status: 'saved' },
+          { $set: { status: 'processed' } }
+        ).catch((err: unknown) => {
+          logger.error('Failed to update lead status', { phone, error: err });
+        });
 
         // Wait 1-3 seconds between messages
         const delay = Math.floor(Math.random() * 2000) + 1000;

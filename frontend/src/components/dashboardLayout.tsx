@@ -7,7 +7,6 @@ import {
 	ChevronsUpDown,
 	PanelLeftClose,
 	PanelLeftOpen,
-	Send,
 	Rocket,
 	Home,
 	Search,
@@ -18,9 +17,10 @@ import {
 	Moon,
 	HelpCircle,
 	PersonStanding,
+	LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/query/auth.query';
+import { useAuth, useLogout } from '@/query/auth.query';
 
 /**
  * M3 DESIGN SYSTEM COMPONENTS
@@ -72,16 +72,6 @@ const NAV_ITEMS = [
 		path: '/dashboard/home',
 	},
 	{
-		id: 'post-pilot',
-		label: 'Post Pilot',
-		icon: <Send size={18} />,
-		subItems: [
-			{ label: 'Overview', path: '/dashboard/post-pilot/overview' },
-			{ label: 'Create Post', path: '/dashboard/post-pilot/create' },
-			{ label: 'Manage Socials', path: '/dashboard/post-pilot/manage' },
-		],
-	},
-	{
 		id: 'seo-rocket',
 		label: 'SEO Rocket',
 		icon: <Rocket size={18} />,
@@ -125,9 +115,13 @@ export default function GoogleModernLayout() {
 	const location = useLocation();
 	const [isDark, setIsDark] = useState(false);
 	const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-	const [openMenus, setOpenMenus] = useState<string[]>(['post-pilot']);
+	const [openMenus, setOpenMenus] = useState<string[]>([
+		'seo-rocket',
+		'lead-generation',
+	]);
 	const navigate = useNavigate();
 	const { data: user } = useAuth();
+	const { handleLogout } = useLogout();
 
 	// Dynamic Breadcrumb Logic
 	const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -148,7 +142,7 @@ export default function GoogleModernLayout() {
 			<aside
 				className={cn(
 					'border-r border-border bg-card/30 backdrop-blur-md flex flex-col z-50 transition-all duration-300',
-					isSidebarCollapsed ? 'w-[84px]' : 'w-[280px]',
+					isSidebarCollapsed ? 'w-21' : 'w-70',
 				)}
 			>
 				<div className='p-4'>
@@ -165,7 +159,7 @@ export default function GoogleModernLayout() {
 							<>
 								<div className='flex flex-col flex-1 overflow-hidden'>
 									<span className='text-sm font-bold tracking-tight truncate'>
-										Google Cloud
+										Backend Coders
 									</span>
 									<span className='text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider'>
 										Production
@@ -189,9 +183,7 @@ export default function GoogleModernLayout() {
 							size='icon'
 							className='rounded-full'
 							onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-							title={
-								isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
-							}
+							title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 						>
 							{isSidebarCollapsed ? (
 								<PanelLeftOpen size={18} />
@@ -227,7 +219,9 @@ export default function GoogleModernLayout() {
 														: [...prev, item.id],
 												)
 											: navigate(
-													item.path || item.subItems?.[0]?.path || '/dashboard/home',
+													item.path ||
+														item.subItems?.[0]?.path ||
+														'/dashboard/home',
 												)
 									}
 									className={cn(
@@ -286,7 +280,7 @@ export default function GoogleModernLayout() {
 					})}
 				</nav>
 
-{/* BOTTOM UTILS */}
+				{/* BOTTOM UTILS */}
 				<div
 					className={cn(
 						'p-4 border-t border-border/50 space-y-2',
@@ -314,6 +308,19 @@ export default function GoogleModernLayout() {
 							</div>
 						)}
 					</button>
+					<Button
+						variant='outline'
+						size={isSidebarCollapsed ? 'icon' : 'sm'}
+						className={cn(
+							'w-full',
+							isSidebarCollapsed ? 'justify-center' : 'justify-start gap-2',
+						)}
+						onClick={handleLogout}
+						title='Logout'
+					>
+						<LogOut size={16} />
+						{!isSidebarCollapsed && <span>Logout</span>}
+					</Button>
 				</div>
 			</aside>
 

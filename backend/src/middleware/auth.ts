@@ -3,15 +3,6 @@ import { JWTUtils } from '../utils/jwt';
 import { ITokenPayload, UserRole } from '../types/index';
 import User from '../models/User';
 
-// Extend Express Request interface
-declare global {
-  namespace Express {
-    interface Request {
-      user?: ITokenPayload;
-    }
-  }
-}
-
 export const authenticate = async (
   req: Request,
   res: Response,
@@ -33,7 +24,7 @@ export const authenticate = async (
     }
 
     const decoded = JWTUtils.verifyAccessToken(token);
-    req.user = decoded;
+    (req as any).user = decoded;
 
     // Check if user still exists and is active
     const user = await User.findById(decoded.userId);
@@ -56,7 +47,9 @@ export const authenticate = async (
 
 export const authorize = (...roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
+    const user = (req as any).user as ITokenPayload | undefined;
+    
+    if (!user) {
       res.status(401).json({
         success: false,
         error: 'Authentication required',
@@ -64,7 +57,7 @@ export const authorize = (...roles: UserRole[]) => {
       return;
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(user.role)) {
       res.status(403).json({
         success: false,
         error: 'Insufficient permissions',
@@ -90,7 +83,7 @@ export const optionalAuth = async (
 
     if (token) {
       const decoded = JWTUtils.verifyAccessToken(token);
-      req.user = decoded;
+      (req as any).user = decoded;
     }
 
     next();

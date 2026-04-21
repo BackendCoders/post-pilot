@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
 	User,
 	Lock,
@@ -17,13 +18,9 @@ import {
 	useUpdateProfile,
 	useChangePassword,
 } from '@/query/auth.query';
-import {
-	useWhatsAppStatus,
-	useWhatsAppStart,
-	useWhatsAppLogout,
-} from '@/query/whatsapp.query';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import WhatsAppConnectionPanel from '@/components/whatsapp/WhatsAppConnectionPanel';
 
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
 const LANGUAGES = ['en', 'es', 'fr', 'de', 'pt', 'zh', 'ja'];
@@ -42,14 +39,31 @@ const TIMEZONES = [
 	'Australia/Sydney',
 ];
 
+const PROFILE_SECTIONS = [
+	{ id: 'personal', label: 'Personal', icon: User },
+	{ id: 'company', label: 'Company', icon: Building },
+	{ id: 'web', label: 'Web Presence', icon: Globe },
+	{ id: 'preferences', label: 'Preferences', icon: Settings },
+	{ id: 'security', label: 'Security', icon: Lock },
+	{ id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+	{ id: 'account', label: 'Account', icon: Mail },
+] as const;
+
+const PROFILE_SECTION_IDS = PROFILE_SECTIONS.map((section) => section.id);
+const isProfileSectionId = (
+	value: string | undefined,
+): value is (typeof PROFILE_SECTIONS)[number]['id'] =>
+	Boolean(value) &&
+	PROFILE_SECTION_IDS.includes(
+		value as (typeof PROFILE_SECTIONS)[number]['id'],
+	);
+
 export default function ProfilePage() {
 	const { data: user, isLoading } = useAuth();
 	const updateProfile = useUpdateProfile();
 	const changePassword = useChangePassword();
-
-	const statusQuery = useWhatsAppStatus();
-	const startMutation = useWhatsAppStart();
-	const logoutMutation = useWhatsAppLogout();
+	const navigate = useNavigate();
+	const { section: sectionParam } = useParams<{ section?: string }>();
 
 	const [name, setName] = useState('');
 	const [email, setEmail] = useState('');
@@ -66,21 +80,15 @@ export default function ProfilePage() {
 	const [currentPassword, setCurrentPassword] = useState('');
 	const [newPassword, setNewPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');
-	const [activeSection, setActiveSection] = useState('personal');
-	const hasAutoStartedQR = useRef(false);
+	const activeSection = isProfileSectionId(sectionParam)
+		? sectionParam
+		: 'personal';
 
 	useEffect(() => {
-		if (
-			activeSection === 'whatsapp' &&
-			statusQuery.data?.state === 'DISCONNECTED' &&
-			!hasAutoStartedQR.current
-		) {
-			hasAutoStartedQR.current = true;
-			handleStartConnection();
-		} else if (activeSection !== 'whatsapp') {
-			hasAutoStartedQR.current = false;
+		if (!isProfileSectionId(sectionParam)) {
+			navigate('/dashboard/profile/personal', { replace: true });
 		}
-	}, [activeSection, statusQuery.data?.state]);
+	}, [navigate, sectionParam]);
 
 	useEffect(() => {
 		if (user) {
@@ -101,7 +109,7 @@ export default function ProfilePage() {
 	if (isLoading) {
 		return (
 			<div className='flex items-center justify-center h-96'>
-				<div className='animate-spin rounded-full h-6 w-6 border-b-2 border-primary' />
+				<div className='animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent' />
 			</div>
 		);
 	}
@@ -153,24 +161,6 @@ export default function ProfilePage() {
 		);
 	};
 
-	const handleStartConnection = () => {
-		startMutation.mutate(undefined, {
-			onError: () => {
-				toast.error('Failed to start WhatsApp connection');
-			},
-		});
-	};
-
-	const handleDisconnect = () => {
-		if (confirm('Are you sure you want to disconnect WhatsApp?')) {
-			logoutMutation.mutate(undefined, {
-				onSuccess: () => {
-					toast.success('WhatsApp disconnected');
-				},
-			});
-		}
-	};
-
 	const formatDate = (date: string) => {
 		return new Date(date).toLocaleDateString('en-US', {
 			year: 'numeric',
@@ -179,57 +169,67 @@ export default function ProfilePage() {
 		});
 	};
 
-	const sections = [
-		{ id: 'personal', label: 'Personal', icon: User },
-		{ id: 'company', label: 'Company', icon: Building },
-		{ id: 'web', label: 'Web Presence', icon: Globe },
-		{ id: 'preferences', label: 'Preferences', icon: Settings },
-		{ id: 'security', label: 'Security', icon: Lock },
-		{ id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-		{ id: 'account', label: 'Account', icon: Mail },
-	];
+	const Label = ({ children }: { children: React.ReactNode }) => (
+		<label className='text-xs font-medium text-muted-foreground mb-1 block'>
+			{children}
+		</label>
+	);
+
+	const PrimaryButton = ({
+		onClick,
+		disabled,
+		children,
+		className = '',
+	}: any) => (
+		<button
+			onClick={onClick}
+			disabled={disabled}
+			className={`px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium transition-all hover:shadow-sm active:scale-95 disabled:opacity-50 ${className}`}
+		>
+			{children}
+		</button>
+	);
 
 	return (
-		<div className='max-w-5xl mx-auto space-y-8 p-4 md:p-8 font-sans'>
-			<header className='space-y-1'>
-				<h1 className='text-2xl font-semibold tracking-tight text-foreground'>
-					Profile Settings
-				</h1>
+		<div className='max-w-4xl mx-auto p-4 md:p-6 font-sans text-foreground'>
+			<header className='mb-6'>
+				<h1 className='text-xl font-bold tracking-tight'>Profile Settings</h1>
 				<p className='text-sm text-muted-foreground'>
-					Manage your identity, company profile, and workspace preferences.
+					Manage your identity and workspace preferences.
 				</p>
 			</header>
 
-			<div className='flex flex-col md:flex-row gap-8 items-start'>
-				<nav className='w-full md:w-56 shrink-0 flex flex-col gap-1'>
-					{sections.map((section) => {
+			<div className='flex flex-col md:flex-row gap-6'>
+				{/* Sidebar Navigation */}
+				<nav className='w-full md:w-48 shrink-0 space-y-0.5'>
+					{PROFILE_SECTIONS.map((section) => {
 						const Icon = section.icon;
 						const isActive = activeSection === section.id;
 						return (
 							<button
 								key={section.id}
-								onClick={() => setActiveSection(section.id)}
+								onClick={() => navigate(`/dashboard/profile/${section.id}`)}
 								className={`
-                                    group flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-xl 
+                                    flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-xl 
                                     transition-all duration-200 active:scale-95
                                     ${
 																			isActive
-																				? 'bg-primary text-primary-foreground shadow-sm'
-																				: 'text-muted-foreground hover:bg-card hover:text-foreground hover:shadow-sm'
+																				? 'bg-card text-foreground border border-border shadow-sm'
+																				: 'text-muted-foreground hover:bg-card/50 hover:text-foreground'
 																		}
                                 `}
 							>
-								<span className='flex items-center gap-2.5'>
+								<span className='flex items-center gap-2'>
 									<Icon
-										size={16}
+										size={14}
 										strokeWidth={isActive ? 2.5 : 2}
 									/>
 									{section.label}
 								</span>
 								{isActive && (
 									<ChevronRight
-										size={14}
-										className='opacity-70'
+										size={12}
+										className='text-primary'
 									/>
 								)}
 							</button>
@@ -237,90 +237,79 @@ export default function ProfilePage() {
 					})}
 				</nav>
 
-				<main className='flex-1 w-full min-w-0'>
-					<div className='bg-card border border-border rounded-xl shadow-sm overflow-hidden transition-all duration-200'>
-						{/* Render Header Section dynamically */}
-						<div className='px-6 py-4 border-b border-border bg-background/50'>
-							<h2 className='text-sm font-semibold flex items-center gap-2 uppercase tracking-wider opacity-80'>
-								{sections.find((s) => s.id === activeSection)?.label}{' '}
+				{/* Main Content Area */}
+				<main className='flex-1 min-w-0'>
+					<div className='bg-card border border-border rounded-xl shadow-sm overflow-hidden'>
+						<div className='px-5 py-3 border-b border-border bg-background/30'>
+							<h2 className='text-xs font-bold uppercase tracking-widest text-muted-foreground/70'>
+								{PROFILE_SECTIONS.find((s) => s.id === activeSection)?.label}{' '}
 								Information
 							</h2>
 						</div>
 
-						<div className='p-6'>
+						<div className='p-5'>
 							{activeSection === 'personal' && (
-								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+								<div className='space-y-4 animate-in fade-in slide-in-from-bottom-1 duration-300'>
 									<div className='grid gap-4 sm:grid-cols-2'>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Username
-											</label>
+										<div>
+											<Label>Username</Label>
 											<Input
 												value={name}
 												onChange={(e) => setName(e.target.value)}
 												placeholder='johndoe'
-												className='rounded-xl border-border bg-background/50 focus:bg-background transition-all'
+												className='rounded-xl h-9 text-sm bg-background/50 focus:bg-background'
 											/>
 										</div>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Phone Number
-											</label>
+										<div>
+											<Label>Phone Number</Label>
 											<Input
 												type='tel'
 												value={phoneNumber}
 												onChange={(e) => setPhoneNumber(e.target.value)}
 												placeholder='+1 (555) 000-0000'
-												className='rounded-xl border-border bg-background/50 focus:bg-background transition-all'
+												className='rounded-xl h-9 text-sm bg-background/50 focus:bg-background'
 											/>
 										</div>
 									</div>
-									<div className='space-y-1.5'>
-										<label className='text-xs font-medium text-muted-foreground'>
-											Email Address
-										</label>
+									<div>
+										<Label>Email Address</Label>
 										<Input
 											type='email'
 											value={email}
 											onChange={(e) => setEmail(e.target.value)}
 											placeholder='john@example.com'
-											className='rounded-xl border-border bg-background/50 focus:bg-background transition-all'
+											className='rounded-xl h-9 text-sm bg-background/50 focus:bg-background'
 										/>
 									</div>
 									<div className='pt-2'>
-										<button
+										<PrimaryButton
 											onClick={handleSaveProfile}
 											disabled={updateProfile.isPending}
-											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all hover:shadow-md active:scale-95 disabled:opacity-50'
 										>
-											{updateProfile.isPending ? 'Saving...' : 'Save Profile'}
-										</button>
+											{updateProfile.isPending ? 'Saving...' : 'Save Changes'}
+										</PrimaryButton>
 									</div>
 								</div>
 							)}
 
 							{activeSection === 'company' && (
-								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
-									<div className='space-y-1.5'>
-										<label className='text-xs font-medium text-muted-foreground'>
-											Company Name
-										</label>
+								<div className='space-y-4 animate-in fade-in slide-in-from-bottom-1 duration-300'>
+									<div>
+										<Label>Company Name</Label>
 										<Input
 											value={companyName}
 											onChange={(e) => setCompanyName(e.target.value)}
 											placeholder='Acme Corp'
-											className='rounded-xl'
+											className='rounded-xl h-9 text-sm'
 										/>
 									</div>
 									<div className='grid gap-4 sm:grid-cols-2'>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Company Size
-											</label>
+										<div>
+											<Label>Company Size</Label>
 											<select
 												value={companySize}
 												onChange={(e) => setCompanySize(e.target.value)}
-												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm transition-all focus:ring-2 focus:ring-primary/20'
+												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-primary/30'
 											>
 												<option value=''>Select size</option>
 												{COMPANY_SIZES.map((size) => (
@@ -333,76 +322,64 @@ export default function ProfilePage() {
 												))}
 											</select>
 										</div>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Job Title
-											</label>
+										<div>
+											<Label>Job Title</Label>
 											<Input
 												value={jobTitle}
 												onChange={(e) => setJobTitle(e.target.value)}
 												placeholder='Product Designer'
-												className='rounded-xl'
+												className='rounded-xl h-9 text-sm'
 											/>
 										</div>
 									</div>
 									<div className='pt-2'>
-										<button
+										<PrimaryButton
 											onClick={handleSaveProfile}
 											disabled={updateProfile.isPending}
-											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95'
 										>
 											Save Company Data
-										</button>
+										</PrimaryButton>
 									</div>
 								</div>
 							)}
 
 							{activeSection === 'web' && (
-								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
-									<div className='space-y-1.5'>
-										<label className='text-xs font-medium text-muted-foreground'>
-											Website
-										</label>
+								<div className='space-y-4 animate-in fade-in slide-in-from-bottom-1 duration-300'>
+									<div>
+										<Label>Website</Label>
 										<Input
 											value={website}
 											onChange={(e) => setWebsite(e.target.value)}
 											placeholder='https://company.com'
-											className='rounded-xl'
+											className='rounded-xl h-9 text-sm'
 										/>
 									</div>
-									<div className='space-y-1.5'>
-										<label className='text-xs font-medium text-muted-foreground'>
-											LinkedIn Profile
-										</label>
+									<div>
+										<Label>LinkedIn Profile</Label>
 										<Input
 											value={linkedinUrl}
 											onChange={(e) => setLinkedinUrl(e.target.value)}
 											placeholder='https://linkedin.com/in/user'
-											className='rounded-xl'
+											className='rounded-xl h-9 text-sm'
 										/>
 									</div>
 									<div className='pt-2'>
-										<button
-											onClick={handleSaveProfile}
-											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95'
-										>
+										<PrimaryButton onClick={handleSaveProfile}>
 											Update Links
-										</button>
+										</PrimaryButton>
 									</div>
 								</div>
 							)}
 
 							{activeSection === 'preferences' && (
-								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
+								<div className='space-y-4 animate-in fade-in slide-in-from-bottom-1 duration-300'>
 									<div className='grid gap-4 sm:grid-cols-2'>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Timezone
-											</label>
+										<div>
+											<Label>Timezone</Label>
 											<select
 												value={timezone}
 												onChange={(e) => setTimezone(e.target.value)}
-												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm'
+												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm outline-none'
 											>
 												{TIMEZONES.map((tz) => (
 													<option
@@ -414,14 +391,12 @@ export default function ProfilePage() {
 												))}
 											</select>
 										</div>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Language
-											</label>
+										<div>
+											<Label>Language</Label>
 											<select
 												value={language}
 												onChange={(e) => setLanguage(e.target.value)}
-												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm'
+												className='flex h-9 w-full rounded-xl border border-border bg-background px-3 py-1 text-sm outline-none'
 											>
 												{LANGUAGES.map((lang) => (
 													<option
@@ -434,67 +409,58 @@ export default function ProfilePage() {
 											</select>
 										</div>
 									</div>
-									<label className='flex items-center gap-3 p-3 rounded-xl border border-border bg-background/30 hover:bg-background/50 transition-colors cursor-pointer'>
+									<label className='flex items-center gap-3 p-3 rounded-xl border border-border bg-background/20 hover:bg-background/40 transition-colors cursor-pointer'>
 										<input
 											type='checkbox'
 											checked={emailNotifications}
 											onChange={(e) => setEmailNotifications(e.target.checked)}
-											className='w-4 h-4 rounded border-border text-primary focus:ring-primary transition-all'
+											className='w-4 h-4 rounded-md border-border text-primary focus:ring-primary'
 										/>
-										<span className='text-sm text-foreground'>
+										<span className='text-sm font-medium'>
 											Enable email notifications
 										</span>
 									</label>
 									<div className='pt-2'>
-										<button
-											onClick={handleSaveProfile}
-											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95'
-										>
+										<PrimaryButton onClick={handleSaveProfile}>
 											Save Preferences
-										</button>
+										</PrimaryButton>
 									</div>
 								</div>
 							)}
 
 							{activeSection === 'security' && (
-								<div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300'>
-									<div className='space-y-1.5'>
-										<label className='text-xs font-medium text-muted-foreground'>
-											Current Password
-										</label>
+								<div className='space-y-4 animate-in fade-in slide-in-from-bottom-1 duration-300'>
+									<div>
+										<Label>Current Password</Label>
 										<Input
 											type='password'
 											value={currentPassword}
 											onChange={(e) => setCurrentPassword(e.target.value)}
-											className='rounded-xl'
+											className='rounded-xl h-9'
 										/>
 									</div>
 									<div className='grid gap-4 sm:grid-cols-2'>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												New Password
-											</label>
+										<div>
+											<Label>New Password</Label>
 											<Input
 												type='password'
 												value={newPassword}
 												onChange={(e) => setNewPassword(e.target.value)}
-												className='rounded-xl'
+												className='rounded-xl h-9'
 											/>
 										</div>
-										<div className='space-y-1.5'>
-											<label className='text-xs font-medium text-muted-foreground'>
-												Confirm New Password
-											</label>
+										<div>
+											<Label>Confirm Password</Label>
 											<Input
 												type='password'
 												value={confirmPassword}
 												onChange={(e) => setConfirmPassword(e.target.value)}
-												className='rounded-xl'
+												className='rounded-xl h-9'
 											/>
 										</div>
 									</div>
 									<div className='pt-2'>
-										<button
+										<PrimaryButton
 											onClick={handleChangePassword}
 											disabled={
 												changePassword.isPending ||
@@ -502,118 +468,54 @@ export default function ProfilePage() {
 												!newPassword ||
 												!confirmPassword
 											}
-											className='px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50'
 										>
 											{changePassword.isPending
 												? 'Updating...'
 												: 'Change Password'}
-										</button>
+										</PrimaryButton>
 									</div>
 								</div>
 							)}
 
 							{activeSection === 'whatsapp' && (
-								<div className='animate-in fade-in slide-in-from-bottom-2 duration-300'>
-									{statusQuery.isLoading ? (
-										<div className='flex items-center justify-center py-12'>
-											<div className='animate-spin rounded-full h-6 w-6 border-b-2 border-primary' />
-										</div>
-									) : statusQuery.data?.state === 'CONNECTED' ? (
-										<div className='space-y-6'>
-											<div className='flex items-center gap-4 p-4 bg-green-500/5 rounded-xl border border-green-500/20'>
-												<div className='relative'>
-													<div className='w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center text-green-600'>
-														<MessageCircle size={24} />
-													</div>
-													<div className='absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-card rounded-full' />
-												</div>
-												<div className='flex-1'>
-													<p className='text-sm font-semibold text-foreground'>
-														Active Connection
-													</p>
-													<p className='text-xs text-muted-foreground font-mono'>
-														{statusQuery.data.phoneNumber}
-													</p>
-												</div>
-											</div>
-											<button
-												onClick={handleDisconnect}
-												disabled={logoutMutation.isPending}
-												className='px-4 py-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all hover:bg-destructive hover:text-destructive-foreground active:scale-95'
-											>
-												{logoutMutation.isPending
-													? 'Disconnecting...'
-													: 'Terminate Connection'}
-											</button>
-										</div>
-									) : (
-										<div className='flex flex-col items-center py-4 space-y-4'>
-											<div className='w-full max-w-[280px] p-6 bg-background rounded-xl border border-border border-dashed text-center space-y-4'>
-												{statusQuery.data?.state === 'AWAITING_SCAN' &&
-												statusQuery.data.qr ? (
-													<>
-														<p className='text-xs font-semibold text-muted-foreground uppercase tracking-widest'>
-															Scan to Connect
-														</p>
-														<div className='p-2 bg-white rounded-lg inline-block shadow-sm'>
-															<img
-																src={statusQuery.data.qr}
-																alt='QR'
-																className='w-40 h-40'
-															/>
-														</div>
-														<p className='text-[10px] text-muted-foreground italic'>
-															Refreshes every 3s
-														</p>
-													</>
-												) : (
-													<div className='py-8 flex flex-col items-center space-y-3'>
-														<div className='animate-spin rounded-full h-5 w-5 border-b-2 border-primary' />
-														<p className='text-xs text-muted-foreground'>
-															Establishing secure link...
-														</p>
-													</div>
-												)}
-											</div>
-										</div>
-									)}
+								<div className='animate-in fade-in slide-in-from-bottom-1 duration-300'>
+									<WhatsAppConnectionPanel autoStart />
 								</div>
 							)}
 
 							{activeSection === 'account' && (
-								<div className='grid gap-6 sm:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300'>
-									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
-										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider'>
-											Access Level
-										</p>
-										<p className='text-sm font-semibold text-foreground capitalize'>
-											{user.role}
-										</p>
-									</div>
-									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
-										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider'>
-											Active Plan
-										</p>
-										<p className='text-sm font-semibold text-primary capitalize'>
-											{user.subscriptionPlan || 'Free'}
-										</p>
-									</div>
-									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
-										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1'>
-											<Calendar size={10} /> Joined Date
-										</p>
-										<p className='text-sm font-semibold text-foreground'>
-											{formatDate(user.createdAt)}
-										</p>
-									</div>
-									<div className='p-4 bg-background/50 rounded-xl border border-border space-y-1'>
-										<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider'>
-											Usage Stats
-										</p>
-										<p className='text-sm font-semibold text-foreground'>
-											{user.loginCount || 0} Sessions
-										</p>
-									</div>
+								<div className='grid gap-3 sm:grid-cols-2 animate-in fade-in slide-in-from-bottom-1 duration-300'>
+									{[
+										{ label: 'Access Level', value: user.role },
+										{
+											label: 'Active Plan',
+											value: user.subscriptionPlan || 'Free',
+											primary: true,
+										},
+										{
+											label: 'Joined Date',
+											value: formatDate(user.createdAt),
+											icon: Calendar,
+										},
+										{
+											label: 'Usage Stats',
+											value: `${user.loginCount || 0} Sessions`,
+										},
+									].map((stat, i) => (
+										<div
+											key={i}
+											className='p-3 bg-background/50 rounded-xl border border-border'
+										>
+											<p className='text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1'>
+												{stat.icon && <stat.icon size={10} />} {stat.label}
+											</p>
+											<p
+												className={`text-sm font-semibold ${stat.primary ? 'text-primary' : 'text-foreground'} capitalize`}
+											>
+												{stat.value}
+											</p>
+										</div>
+									))}
 								</div>
 							)}
 						</div>

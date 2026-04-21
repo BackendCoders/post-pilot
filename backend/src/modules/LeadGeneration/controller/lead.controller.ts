@@ -114,13 +114,22 @@ const normalizeLeadPayload = (
 });
 
 export const createLead = asyncHandler(async (req: Request, res: Response) => {
-  const payload = normalizeLeadPayload(req.body as Record<string, any>);
+  const body = req.body as Record<string, any>;
+  const payload = normalizeLeadPayload(body);
   payload.user = ensureAssignableUser(req, payload.user);
-  payload.leadCategory = await ensureLeadCategoryAccess(
-    req,
-    payload.leadCategory,
-    payload.user
-  );
+
+  if (body.category && !body.leadCategory) {
+    const cat = await LeadCategory.findOne({ title: body.category, user: payload.user }).exec();
+    if (cat) {
+      payload.leadCategory = cat._id;
+    }
+  } else {
+    payload.leadCategory = await ensureLeadCategoryAccess(
+      req,
+      payload.leadCategory,
+      payload.user
+    );
+  }
 
   const lead = await Lead.create(payload);
 

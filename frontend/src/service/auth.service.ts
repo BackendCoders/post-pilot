@@ -19,6 +19,20 @@ export const login = async function ({
 	return res.data.data;
 };
 
+export const googleAuth = async function ({
+	idToken,
+	accessToken,
+}: {
+	idToken?: string;
+	accessToken?: string;
+}) {
+	const res = await api.post<IApiResponse<ILoginResponse>>('/api/auth/google', {
+		idToken,
+		accessToken,
+	});
+	return res.data.data;
+};
+
 export const register = async function ({
 	email,
 	password,

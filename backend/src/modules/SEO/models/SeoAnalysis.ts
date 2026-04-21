@@ -186,19 +186,24 @@ const sectionResultSchema = new Schema(
   { _id: false }
 );
 
+const seoReportSectionsSchema = new Schema(
+  {
+    meta: { type: sectionResultSchema, default: () => ({}) },
+    headings: { type: sectionResultSchema, default: () => ({}) },
+    images: { type: sectionResultSchema, default: () => ({}) },
+    content: { type: sectionResultSchema, default: () => ({}) },
+    links: { type: sectionResultSchema, default: () => ({}) },
+    technical: { type: sectionResultSchema, default: () => ({}) },
+    performance: { type: sectionResultSchema, default: () => ({}) },
+  },
+  { _id: false }
+);
+
 const seoReportSchema = new Schema(
   {
     totalScore: { type: Number, required: true },
     grade: { type: String, enum: ['A', 'B', 'C', 'D', 'F'], required: true },
-    sections: {
-      meta: { type: sectionResultSchema, default: () => ({}) },
-      headings: { type: sectionResultSchema, default: () => ({}) },
-      images: { type: sectionResultSchema, default: () => ({}) },
-      content: { type: sectionResultSchema, default: () => ({}) },
-      links: { type: sectionResultSchema, default: () => ({}) },
-      technical: { type: sectionResultSchema, default: () => ({}) },
-      performance: { type: sectionResultSchema, default: () => ({}) },
-    },
+    sections: { type: seoReportSectionsSchema, default: () => ({}) },
   },
   { _id: false }
 );

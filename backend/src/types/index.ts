@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 export interface IUser {
   _id?: string;
   email: string;
-  password: string;
+  password?: string;
   userName: string;
   role: UserRole;
   isActive: boolean;
@@ -30,6 +30,8 @@ export interface IUser {
   lastActiveAt?: Date;
   deactiveReason: string;
   deletedAt?: Date;
+  googleId?: string | null;
+  provider?: 'local' | 'google' | null;
 }
 
 export interface IAuthRequest {

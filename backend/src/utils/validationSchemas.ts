@@ -19,6 +19,21 @@ export const loginSchema = z.object({
   }),
 });
 
+export const googleAuthSchema = z.object({
+  body: z
+    .object({
+      idToken: z.string().min(1, 'Google idToken cannot be empty').optional(),
+      accessToken: z
+        .string()
+        .min(1, 'Google accessToken cannot be empty')
+        .optional(),
+    })
+    .refine(
+      (body) => Boolean(body.idToken || body.accessToken),
+      'Either Google idToken or accessToken is required'
+    ),
+});
+
 export const refreshTokenSchema = z.object({
   body: z.object({
     refreshToken: z.string().min(1, 'Refresh token is required'),

@@ -1,4 +1,12 @@
-import { login, me, refresh, register, updateProfile, changePassword } from '@/service/auth.service';
+import {
+	login,
+	me,
+	refresh,
+	register,
+	updateProfile,
+	changePassword,
+	googleAuth,
+} from '@/service/auth.service';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +41,21 @@ export const useSignIn = function () {
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ['auth'] });
 			toast.success('User Successfully Authenticated');
+			persistAuthTokens(data);
+		},
+		onError: (err) => {
+			toast.error(getErrorMessage(err));
+		},
+	});
+};
+
+export const useGoogleSignIn = function () {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: googleAuth,
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ['auth'] });
+			toast.success('Google authentication successful');
 			persistAuthTokens(data);
 		},
 		onError: (err) => {

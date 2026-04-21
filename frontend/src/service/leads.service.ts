@@ -55,3 +55,13 @@ export const updateLeadNote = async (leadId: string, note: string) => {
 	});
 	return response.data;
 };
+
+export const updateLead = async (leadId: string, data: Partial<ILead>) => {
+	const response = await api.patch<IApiResponse<ILead>>(`/api/leads/${leadId}`, data);
+	return response.data;
+};
+
+export const createLead = async (data: Omit<ILead, '_id'>) => {
+	const response = await api.post<IApiResponse<ILead>>('/api/leads', data);
+	return response.data;
+};

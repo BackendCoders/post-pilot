@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/app.js",
-    "dev": "nodemon src/app.ts",
+    "dev": "nodemon",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -24,8 +24,8 @@
   "dependencies": {
     "@types/multer": "^2.1.0",
     "@types/qrcode": "^1.5.6",
-    "axios": "^1.13.5",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
     "cloudinary": "^2.9.0",

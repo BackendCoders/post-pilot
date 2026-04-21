@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; // Assuming standard Shadcn Input
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth, useSignIn } from '@/query/auth.query';
+import { useAuth, useGoogleSignIn, useSignIn } from '@/query/auth.query';
 import { Link, useNavigate } from 'react-router-dom';
+import { requestGoogleAccessToken } from '@/utils/googleOAuth';
+import { toast } from 'sonner';
 
 const userData = {
 	email: '',
@@ -14,6 +16,8 @@ const userData = {
 
 export default function LoginScreen() {
 	const { mutate: login, isPending } = useSignIn();
+	const { mutateAsync: googleSignIn, isPending: isGooglePending } =
+		useGoogleSignIn();
 	const { data } = useAuth();
 	const [formData, setFormData] = useState(userData);
 	const navigation = useNavigate();
@@ -33,6 +37,17 @@ export default function LoginScreen() {
 			email: formData.email.trim().toLowerCase(),
 			password: formData.password,
 		});
+	};
+
+	const handleGoogleSignIn = async () => {
+		try {
+			const accessToken = await requestGoogleAccessToken();
+			await googleSignIn({ accessToken });
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : 'Google sign in failed';
+			toast.error(message);
+		}
 	};
 
 	return (
@@ -144,6 +159,9 @@ export default function LoginScreen() {
 					<Button
 						variant='outline'
 						className='w-full h-11 rounded-xl border-border flex items-center gap-2'
+						type='button'
+						onClick={handleGoogleSignIn}
+						disabled={isGooglePending}
 					>
 						<svg
 							className='w-4 h-4'
@@ -166,7 +184,7 @@ export default function LoginScreen() {
 								d='M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z'
 							/>
 						</svg>
-						Google
+						{isGooglePending ? 'Connecting Google...' : 'Google'}
 					</Button>
 				</div>
 
@@ -174,7 +192,7 @@ export default function LoginScreen() {
 					Don't have an account?{' '}
 					<Link
 						to='/signup'
-						className='font-semibold text-primary hover:underline underline-offset-4'
+						className='inline-block relative z-10 cursor-pointer font-semibold text-primary hover:underline underline-offset-4'
 					>
 						Sign up for free
 					</Link>

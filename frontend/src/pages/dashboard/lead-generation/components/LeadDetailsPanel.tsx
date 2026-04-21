@@ -10,12 +10,14 @@ import {
 	MessageSquare,
 	ExternalLink,
 	Pencil,
+	Edit,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getStatusLabel } from './leadWorkspace.constants';
 import ReachDialog from './ReachDialog';
 import NoteDialog from './NoteDialog';
+import EditLeadDialog from './EditLeadDialog';
 
 type Props = {
 	lead: ILead | null;
@@ -26,6 +28,7 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 	const navigate = useNavigate();
 	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
 	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
 	if (!lead) return null;
 
@@ -35,14 +38,25 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 				<div className='h-full overflow-y-auto'>
 					<div className='sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 px-6 py-4 backdrop-blur'>
 						<h3 className='text-base font-semibold'>Lead Details</h3>
-						<Button
-							variant='ghost'
-							size='icon'
-							onClick={onClose}
-							className='rounded-full'
-						>
-							<X size={16} />
-						</Button>
+						<div className='flex items-center gap-2'>
+							<Button
+								variant='ghost'
+								size='sm'
+								onClick={() => setIsEditDialogOpen(true)}
+								className='rounded-full'
+							>
+								<Edit size={14} className='mr-1' />
+								Edit
+							</Button>
+							<Button
+								variant='ghost'
+								size='icon'
+								onClick={onClose}
+								className='rounded-full'
+							>
+								<X size={16} />
+							</Button>
+						</div>
 					</div>
 
 					<div className='space-y-6 p-6'>
@@ -231,6 +245,12 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 			<NoteDialog
 				isOpen={isNoteDialogOpen}
 				onClose={() => setIsNoteDialogOpen(false)}
+				lead={lead}
+			/>
+
+			<EditLeadDialog
+				isOpen={isEditDialogOpen}
+				onClose={() => setIsEditDialogOpen(false)}
 				lead={lead}
 			/>
 		</>
