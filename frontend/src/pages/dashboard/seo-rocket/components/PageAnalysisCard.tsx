@@ -82,7 +82,7 @@ export default function PageAnalysisCard({
 		...(report.sections.performance?.issues || []).map(i => ({ type: i.severity, message: i.message })),
 	] : [];
 
-	const imagesWithoutAltCount = page.images.filter((img) => !img.alt).length;
+	const imagesWithoutAltCount = (page.images || []).filter((img) => !img.alt).length;
 
 	return (
 		<Card className='overflow-hidden border-border bg-card transition-all duration-200 hover:shadow-sm hover:border-border/80 rounded-xl group'>
@@ -114,11 +114,7 @@ export default function PageAnalysisCard({
 									icon: LinkIcon,
 									value: page.internalLinkCount + page.externalLinkCount,
 								},
-								{
-									icon: ImageIcon,
-									value: page.images.length,
-									error: imagesWithoutAltCount > 0,
-								},
+								{ icon: ImageIcon, value: (page.images || []).length, error: imagesWithoutAltCount > 0 },
 								{
 									icon: Gauge,
 									value: page.performanceMetrics?.totalLoadTime
@@ -296,7 +292,7 @@ export default function PageAnalysisCard({
 							<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2'>
 								{(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const).map(
 									(level) => {
-										const headings = page.headings[level] || [];
+										const headings = (page.headings || {})[level] || [];
 										const hasItems = headings.length > 0;
 										return (
 											<div

@@ -6,6 +6,7 @@ import {
   deleteUser,
   updateProfile,
   changePassword,
+  completeWalkthrough,
 } from '../controllers/userController';
 import {
   authenticate,
@@ -33,6 +34,10 @@ router.put(
   '/change-password',
   validateRequest(changePasswordSchema),
   changePassword
+);
+
+// Walkthrough completion
+router.patch('/walkthrough', completeWalkthrough
 );
 
 // Admin only routes

@@ -17,6 +17,8 @@ import LoginScreen from './pages/auth';
 import SignUpScreen from './pages/signup';
 import Protected from './components/Protected';
 import DashboardLayout from './components/dashboardLayout';
+import ErrorBoundary from './components/ErrorBoundary';
+import RouteErrorPage from './pages/ErrorPage';
 
 import DashboardHome from './pages/dashboard';
 import SavedLead from './pages/dashboard/lead-generation/savedLeads';
@@ -25,12 +27,15 @@ import ConvertedLeads from './pages/dashboard/lead-generation/convertedLeads';
 import RejectedLeads from './pages/dashboard/lead-generation/RejectedLeads';
 import MessageTemplate from '@/pages/dashboard/lead-generation/MessageTemplate';
 import LeadBriefAnalysisPage from '@/pages/dashboard/lead-generation/briefAnalysis';
+import LeadOverview from './pages/dashboard/lead-generation/overview';
 import ProfilePage from '@/pages/dashboard/profile';
 import SEORocketHistory from './pages/dashboard/seo-rocket/history';
+import SeoOverview from './pages/dashboard/seo-rocket/overview';
 
 const router = createBrowserRouter([
 	{
 		path: '/',
+		errorElement: <RouteErrorPage />,
 		element: (
 			<Protected>
 				<HomePage />
@@ -39,6 +44,7 @@ const router = createBrowserRouter([
 	},
 
 	{
+		errorElement: <RouteErrorPage />,
 		element: (
 			<Protected>
 				<Outlet />
@@ -67,6 +73,7 @@ const router = createBrowserRouter([
 						path: 'seo-rocket',
 						children: [
 							{ path: '', element: <SEORocketPage /> },
+							{ path: 'overview', element: <SeoOverview /> },
 							{ path: 'history', element: <SEORocketHistory /> },
 							{ path: 'sitemap', element: <SEORocketPage /> },
 							{ path: 'results', element: <SEORocketPage /> },
@@ -104,7 +111,7 @@ const router = createBrowserRouter([
 					{
 						path: 'lead-generation',
 						children: [
-							{ path: 'overview', element: <LeadGeneratorPage />, index: true },
+							{ path: 'overview', element: <LeadOverview />, index: true },
 							{ path: 'scrape', element: <LeadGeneratorPage /> },
 							{ path: 'manage-saved-leads', element: <SavedLead /> },
 							{ path: 'manage-processed-leads', element: <ProcessedLeads /> },
@@ -121,20 +128,22 @@ const router = createBrowserRouter([
 			},
 		],
 	},
-	{ path: '/login', element: <LoginScreen /> },
-	{ path: '/signup', element: <SignUpScreen /> },
+	{ path: '/login', errorElement: <RouteErrorPage />, element: <LoginScreen /> },
+	{ path: '/signup', errorElement: <RouteErrorPage />, element: <SignUpScreen /> },
 ]);
 
 const queryClient = new QueryClient();
 
 function App() {
 	return (
-		<QueryClientProvider client={queryClient}>
-			<DarkModeProvider>
-				<Toaster />
-				<RouterProvider router={router} />
-			</DarkModeProvider>
-		</QueryClientProvider>
+		<ErrorBoundary>
+			<QueryClientProvider client={queryClient}>
+				<DarkModeProvider>
+					<Toaster />
+					<RouterProvider router={router} />
+				</DarkModeProvider>
+			</QueryClientProvider>
+		</ErrorBoundary>
 	);
 }
 

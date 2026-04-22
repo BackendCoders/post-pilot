@@ -32,6 +32,7 @@ export interface IUser {
   deletedAt?: Date;
   googleId?: string | null;
   provider?: 'local' | 'google' | null;
+  completedWalkthroughs: string[];
 }
 
 export interface IAuthRequest {

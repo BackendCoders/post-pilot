@@ -147,15 +147,26 @@ export interface SavedAnalysis {
     firstAnalyzedAt: string;
     lastAnalyzedAt: string;
   }>;
+  pagination?: {
+    page: number;
+    limit: number;
+    totalResults: number;
+    totalPages: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
 
-export const useGetAnalysis = (analysisId: string | null) => {
+export const useGetAnalysis = (
+  analysisId: string | null,
+  params?: { page?: number; limit?: number }
+) => {
   return useQuery<SavedAnalysis>({
-    queryKey: ['seo-analysis', 'detail', analysisId],
+    queryKey: ['seo-analysis', 'detail', analysisId, params?.page, params?.limit],
     queryFn: () =>
-      api.get(`/api/seo/analysis/${analysisId}`).then((res) => res.data.data),
+      api
+        .get(`/api/seo/analysis/${analysisId}`, { params })
+        .then((res) => res.data.data),
     enabled: !!analysisId,
   });
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
 	BarChart3,
 	AlertTriangle,
@@ -10,6 +10,8 @@ import {
 	Send,
 	ExternalLink,
 	Gauge,
+	ChevronLeft,
+	ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +33,8 @@ interface AnalysisResultsProps {
 	rescrapingUrl?: string | null;
 }
 
+const RESULTS_PER_PAGE = 20;
+
 export default function AnalysisResults({
 	results,
 	reports = {},
@@ -42,6 +46,7 @@ export default function AnalysisResults({
 		base64: string;
 		fileName: string;
 	} | null>(null);
+	const [currentPage, setCurrentPage] = useState(1);
 
 	const { data: whatsappStatus } = useWhatsAppStatus();
 	const isWhatsAppConnected = whatsappStatus?.state === 'CONNECTED';
@@ -112,7 +117,10 @@ export default function AnalysisResults({
 	const slowPages = results.filter((p) => p.performanceMetrics && p.performanceMetrics.totalLoadTime > 3000).length;
 
 	return (
-		<div className='space-y-6 animate-in fade-in duration-500'>
+		<div
+			data-walkthrough='seo-results'
+			className='space-y-6 animate-in fade-in duration-500'
+		>
 			{/* Header Section */}
 			<div className='flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-4'>
 				<div className='space-y-1'>
@@ -325,30 +333,114 @@ export default function AnalysisResults({
 			)}
 
 			{/* Details List */}
-			<div className='space-y-4 pt-2'>
-				<div className='flex items-center gap-2'>
-					<h3 className='text-sm font-bold uppercase tracking-widest text-muted-foreground'>
-						Detailed Breakdown
-					</h3>
-					<div className='h-px flex-1 bg-border' />
-				</div>
-				<div className='grid gap-4'>
-					{results.map((page, index) => (
-						<div
-							key={page.url}
-							className='group transition-transform duration-200 active:scale-[0.99]'
-						>
-							<PageAnalysisCard
-								page={page}
-								report={reports[page.url] || null}
-								index={index}
-								onRescrape={onRescrape}
-								isRescraping={rescrapingUrl === page.url}
-							/>
+			{(() => {
+				const totalDetailPages = Math.ceil(results.length / RESULTS_PER_PAGE);
+				const startIdx = (currentPage - 1) * RESULTS_PER_PAGE;
+				const pageResults = results.slice(startIdx, startIdx + RESULTS_PER_PAGE);
+
+				return (
+					<div className='space-y-4 pt-2'>
+						<div className='flex items-center justify-between gap-2'>
+							<div className='flex items-center gap-2'>
+								<h3 className='text-sm font-bold uppercase tracking-widest text-muted-foreground'>
+									Detailed Breakdown
+								</h3>
+								<div className='h-px flex-1 bg-border' />
+							</div>
+
+							{totalDetailPages > 1 && (
+								<span className='text-[11px] text-muted-foreground whitespace-nowrap'>
+									{startIdx + 1}–{Math.min(startIdx + RESULTS_PER_PAGE, results.length)} of {results.length}
+								</span>
+							)}
 						</div>
-					))}
-				</div>
-			</div>
+
+						<div className='grid gap-4'>
+							{pageResults.map((page, index) => (
+								<div
+									key={page.url}
+									className='group transition-transform duration-200 active:scale-[0.99]'
+								>
+									<PageAnalysisCard
+										page={page}
+										report={reports[page.url] || null}
+										index={startIdx + index}
+										onRescrape={onRescrape}
+										isRescraping={rescrapingUrl === page.url}
+									/>
+								</div>
+							))}
+						</div>
+
+						{/* Pagination Controls */}
+						{totalDetailPages > 1 && (
+							<div className='flex items-center justify-center gap-1.5 py-3'>
+								<Button
+									variant='outline'
+									size='sm'
+									onClick={() => setCurrentPage(1)}
+									disabled={currentPage === 1}
+									className='h-8 px-2.5 text-xs rounded-lg'
+								>
+									First
+								</Button>
+								<Button
+									variant='outline'
+									size='sm'
+									onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+									disabled={currentPage === 1}
+									className='h-8 w-8 p-0 rounded-lg'
+								>
+									<ChevronLeft className='h-4 w-4' />
+								</Button>
+
+								{Array.from({ length: Math.min(5, totalDetailPages) }, (_, i) => {
+									let pageNum: number;
+									if (totalDetailPages <= 5) {
+										pageNum = i + 1;
+									} else if (currentPage <= 3) {
+										pageNum = i + 1;
+									} else if (currentPage >= totalDetailPages - 2) {
+										pageNum = totalDetailPages - 4 + i;
+									} else {
+										pageNum = currentPage - 2 + i;
+									}
+									return (
+										<Button
+											key={pageNum}
+											variant={currentPage === pageNum ? 'default' : 'outline'}
+											size='sm'
+											onClick={() => setCurrentPage(pageNum)}
+											className='h-8 w-8 p-0 rounded-lg text-xs font-semibold'
+										>
+											{pageNum}
+										</Button>
+									);
+								})}
+
+								<Button
+									variant='outline'
+									size='sm'
+									onClick={() => setCurrentPage((p) => Math.min(totalDetailPages, p + 1))}
+									disabled={currentPage === totalDetailPages}
+									className='h-8 w-8 p-0 rounded-lg'
+								>
+									<ChevronRight className='h-4 w-4' />
+								</Button>
+								<Button
+									variant='outline'
+									size='sm'
+									onClick={() => setCurrentPage(totalDetailPages)}
+									disabled={currentPage === totalDetailPages}
+									className='h-8 px-2.5 text-xs rounded-lg'
+								>
+									Last
+								</Button>
+							</div>
+						)}
+					</div>
+				);
+			})()}
 
 			{reportData && (
 				<ShareViaWhatsApp

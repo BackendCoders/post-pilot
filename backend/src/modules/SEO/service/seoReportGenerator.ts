@@ -70,13 +70,15 @@ function analyzeHeadings(data: ScrapedPageData): ISectionResult {
   let score = 100;
   const issues: ISectionResult['issues'] = [];
 
+  const h = data.headings || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] };
+
   const metrics: Record<string, number> = {
-    h1: data.headings.h1.length,
-    h2: data.headings.h2.length,
-    h3: data.headings.h3.length,
-    h4: data.headings.h4.length,
-    h5: data.headings.h5.length,
-    h6: data.headings.h6.length,
+    h1: (h.h1 || []).length,
+    h2: (h.h2 || []).length,
+    h3: (h.h3 || []).length,
+    h4: (h.h4 || []).length,
+    h5: (h.h5 || []).length,
+    h6: (h.h6 || []).length,
   };
 
   if (metrics.h1 === 0) {
@@ -111,7 +113,9 @@ function analyzeImages(data: ScrapedPageData): ISectionResult {
 
   const seen = new Set<string>();
 
-  for (const img of data.images) {
+  const images = data.images || [];
+
+  for (const img of images) {
     if (!img.alt) missingAlt++;
     else if (img.alt.split(' ').length < 3) weakAlt++;
 
@@ -127,7 +131,7 @@ function analyzeImages(data: ScrapedPageData): ISectionResult {
   }
 
   const metrics: Record<string, number> = {
-    totalImages: data.images.length,
+    totalImages: images.length,
     missingAlt,
     weakAlt,
     heavyImages: heavySize,
@@ -197,11 +201,11 @@ function analyzeContent(data: ScrapedPageData): ISectionResult {
   let score = 100;
   const issues: ISectionResult['issues'] = [];
 
-  const stuffing = detectKeywordStuffing(data.paragraphExcerpt);
+  const stuffing = detectKeywordStuffing(data.paragraphExcerpt || []);
 
   const metrics: Record<string, number> = {
-    wordCount: data.wordCount,
-    paragraphCount: data.paragraphExcerpt.length,
+    wordCount: data.wordCount || 0,
+    paragraphCount: (data.paragraphExcerpt || []).length,
     keywordStuffingSignals: stuffing,
   };
 
@@ -237,14 +241,15 @@ function analyzeLinks(data: ScrapedPageData): ISectionResult {
   let score = 100;
   const issues: ISectionResult['issues'] = [];
 
-  const invalid = data.links.filter(
+  const links = data.links || [];
+  const invalid = links.filter(
     (l: string) => l.includes('javascript:void') || l === 'tel:' || l === ''
   );
 
   const metrics: Record<string, number> = {
-    totalLinks: data.links.length,
-    internalLinks: data.internalLinkCount,
-    externalLinks: data.externalLinkCount,
+    totalLinks: links.length,
+    internalLinks: data.internalLinkCount || 0,
+    externalLinks: data.externalLinkCount || 0,
     invalidLinks: invalid.length,
   };
 
@@ -265,7 +270,7 @@ function analyzeTechnical(data: ScrapedPageData): ISectionResult {
   const issues: ISectionResult['issues'] = [];
 
   const metrics: Record<string, number> = {
-    redirectCount: data.redirectCount,
+    redirectCount: data.redirectCount || 0,
     hasCanonical: data.canonical ? 1 : 0,
     hasRobotsMeta: data.robotsMeta ? 1 : 0,
     hasError: data.isError ? 1 : 0,

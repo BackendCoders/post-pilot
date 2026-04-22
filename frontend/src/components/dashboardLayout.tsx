@@ -18,9 +18,12 @@ import {
 	HelpCircle,
 	PersonStanding,
 	LogOut,
+	AlertCircle,
+	MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useLogout } from '@/query/auth.query';
+import SupportModal from './SupportModal';
 
 /**
  * M3 DESIGN SYSTEM COMPONENTS
@@ -76,6 +79,7 @@ const NAV_ITEMS = [
 		label: 'SEO Rocket',
 		icon: <Rocket size={18} />,
 		subItems: [
+			{ label: 'Overview', path: '/dashboard/seo-rocket/overview' },
 			{ label: 'New Analysis', path: '/dashboard/seo-rocket' },
 			{ label: 'History', path: '/dashboard/seo-rocket/history' },
 		],
@@ -122,6 +126,8 @@ export default function GoogleModernLayout() {
 	const navigate = useNavigate();
 	const { data: user } = useAuth();
 	const { handleLogout } = useLogout();
+	const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+	const [supportInitialType, setSupportInitialType] = useState<'feedback' | 'error'>('feedback');
 
 	// Dynamic Breadcrumb Logic
 	const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -263,6 +269,13 @@ export default function GoogleModernLayout() {
 											<Link
 												key={sub.path}
 												to={sub.path}
+												data-walkthrough={
+													sub.path === '/dashboard/seo-rocket/history'
+														? 'seo-history-link'
+														: sub.path === '/dashboard/lead-generation/manage-saved-leads'
+															? 'lead-history-link'
+															: undefined
+												}
 												className={cn(
 													'block py-2 px-3 text-sm rounded-lg transition-all',
 													location.pathname === sub.path
@@ -287,6 +300,36 @@ export default function GoogleModernLayout() {
 						isSidebarCollapsed && 'px-2',
 					)}
 				>
+					<div className="mb-2 space-y-1">
+						<button
+							onClick={() => {
+								setSupportInitialType('feedback');
+								setIsSupportModalOpen(true);
+							}}
+							className={cn(
+								'w-full flex items-center rounded-xl transition-all text-xs font-medium group text-muted-foreground hover:bg-muted hover:text-foreground p-2',
+								isSidebarCollapsed ? 'justify-center' : 'gap-3',
+							)}
+							title="Give Feedback"
+						>
+							<MessageSquare size={16} />
+							{!isSidebarCollapsed && <span>Give Feedback</span>}
+						</button>
+						<button
+							onClick={() => {
+								setSupportInitialType('error');
+								setIsSupportModalOpen(true);
+							}}
+							className={cn(
+								'w-full flex items-center rounded-xl transition-all text-xs font-medium group text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 p-2',
+								isSidebarCollapsed ? 'justify-center' : 'gap-3',
+							)}
+							title="Report an Issue"
+						>
+							<AlertCircle size={16} />
+							{!isSidebarCollapsed && <span>Report an Issue</span>}
+						</button>
+					</div>
 					<button
 						onClick={() => navigate('/dashboard/profile')}
 						className={cn(
@@ -415,6 +458,12 @@ export default function GoogleModernLayout() {
 					</div>
 				</main>
 			</div>
+
+			<SupportModal
+				isOpen={isSupportModalOpen}
+				onClose={() => setIsSupportModalOpen(false)}
+				initialType={supportInitialType}
+			/>
 		</div>
 	);
 }

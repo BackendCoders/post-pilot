@@ -683,24 +683,57 @@ async function countSitePages(
   };
 }
 
-async function scrapeMultipleWebPages(
-  urls: string[]
-): Promise<ScrapedPageData[]> {
-  const results = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        return await scrapeWebPage(url);
-      } catch (error) {
-        console.error('Bulk page scrape failed for URL', {
-          url,
-          ...getErrorDetails(error),
-        });
-        return { url, isError: true };
-      }
-    })
-  );
+function createErrorPageData(url: string): ScrapedPageData {
+  return {
+    url,
+    redirectUrls: [],
+    redirectCount: 0,
+    isError: true,
+    title: '',
+    metaDescription: null,
+    metaKeywords: null,
+    canonical: null,
+    robotsMeta: null,
+    headings: { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
+    images: [],
+    links: [],
+    socialLinks: [],
+    paragraphExcerpt: [],
+    textSample: '',
+    emails: [],
+    phoneNumbers: [],
+    wordCount: 0,
+    internalLinkCount: 0,
+    externalLinkCount: 0,
+    performanceMetrics: null,
+  };
+}
 
-  return results.filter((result): result is ScrapedPageData => Boolean(result));
+async function scrapeMultipleWebPages(
+  urls: string[],
+  concurrency: number = 5
+): Promise<ScrapedPageData[]> {
+  const results: ScrapedPageData[] = [];
+
+  for (let i = 0; i < urls.length; i += concurrency) {
+    const batch = urls.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map(async (url) => {
+        try {
+          return await scrapeWebPage(url);
+        } catch (error) {
+          console.error('Bulk page scrape failed for URL', {
+            url,
+            ...getErrorDetails(error),
+          });
+          return createErrorPageData(url);
+        }
+      })
+    );
+    results.push(...batchResults);
+  }
+
+  return results;
 }
 
 function resolveMode({

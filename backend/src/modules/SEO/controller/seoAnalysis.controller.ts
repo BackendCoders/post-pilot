@@ -196,6 +196,7 @@ export const getAnalysisById = asyncHandler(
     }
 
     const id = req.params.id as string;
+    const { page = '1', limit = '20' } = req.query;
 
     if (!id) {
       res.status(400).json({
@@ -205,7 +206,10 @@ export const getAnalysisById = asyncHandler(
       return;
     }
 
-    const analysis = await seoAnalysisService.getAnalysisById(id, userId);
+    const analysis = await seoAnalysisService.getAnalysisById(id, userId, {
+      page: parseInt(page as string, 10),
+      limit: parseInt(limit as string, 10),
+    });
 
     if (!analysis) {
       res.status(404).json({

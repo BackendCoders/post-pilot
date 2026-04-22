@@ -316,6 +316,7 @@ export const getMe = asyncHandler(
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        completedWalkthroughs: user.completedWalkthroughs || [],
       },
     };
 

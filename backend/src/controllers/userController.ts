@@ -243,3 +243,36 @@ export const changePassword = asyncHandler(
     res.status(200).json(response);
   }
 );
+
+export const completeWalkthrough = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user!.userId;
+    const { walkthroughKey } = req.body;
+
+    if (!walkthroughKey || typeof walkthroughKey !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: 'walkthroughKey is required',
+      });
+      return;
+    }
+
+    const validKeys = ['seo-rocket', 'lead-generation'];
+    if (!validKeys.includes(walkthroughKey)) {
+      res.status(400).json({
+        success: false,
+        error: `Invalid walkthrough key. Valid keys: ${validKeys.join(', ')}`,
+      });
+      return;
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { completedWalkthroughs: walkthroughKey },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Walkthrough '${walkthroughKey}' marked as completed`,
+    });
+  }
+);

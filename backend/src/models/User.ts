@@ -128,7 +128,6 @@ password: {
     },
     googleId: {
       type: String,
-      default: null,
     },
     provider: {
       type: String,
@@ -137,6 +136,10 @@ password: {
     },
     deletedAt: {
       type: Date,
+    },
+    completedWalkthroughs: {
+      type: [String],
+      default: [],
     },
   },
   {

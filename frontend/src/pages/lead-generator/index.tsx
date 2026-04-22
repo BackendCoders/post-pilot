@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/query/auth.query';
+import { useAuth, useCompleteWalkthrough } from '@/query/auth.query';
+import Walkthrough from '@/components/Walkthrough';
 import {
 	useScrapMapData,
 	useBulkCreateLeads,
@@ -47,6 +48,7 @@ export default function LeadGeneratorPage() {
 	const { mutate: bulkCreate, isPending: isSaving } = useBulkCreateLeads();
 	const { mutate: createCategory, isPending: isCreatingCategory } =
 		useCreateLeadCategory();
+	const { mutate: completeWalkthrough } = useCompleteWalkthrough();
 
 	const business = scrapedLeadsState?.business ?? '';
 	const location = scrapedLeadsState?.location ?? '';
@@ -294,6 +296,7 @@ export default function LeadGeneratorPage() {
 							<input
 								type='text'
 								placeholder='e.g., "restros", "dentists", "plumbers"'
+								data-walkthrough='lead-type-input'
 								className='flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground/50'
 								value={business}
 								onChange={(e) =>
@@ -310,6 +313,7 @@ export default function LeadGeneratorPage() {
 							<input
 								type='text'
 								placeholder='e.g., "new-york", "london", "10012"'
+								data-walkthrough='lead-location-input'
 								className='flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground/50'
 								value={location}
 								onChange={(e) =>
@@ -324,6 +328,7 @@ export default function LeadGeneratorPage() {
 						<button
 							disabled={isScraping}
 							type='submit'
+							data-walkthrough='lead-mine-btn'
 							className='bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-2.5 rounded-lg text-sm font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
 						>
 							{isScraping ? (
@@ -353,7 +358,10 @@ export default function LeadGeneratorPage() {
 			<div className='flex-1 overflow-y-auto relative bg-muted/20 pb-24'>
 				<div className='max-w-5xl mx-auto p-6'>
 					{leads.length > 0 ? (
-						<div className='bg-background border border-border rounded-xl shadow-sm overflow-hidden'>
+						<div
+							data-walkthrough='lead-results-list'
+							className='bg-background border border-border rounded-xl shadow-sm overflow-hidden'
+						>
 							<div className='flex items-center justify-between p-4 border-b border-border bg-card/50'>
 								<div className='flex items-center gap-3'>
 									<button
@@ -538,6 +546,7 @@ export default function LeadGeneratorPage() {
 					<button
 						disabled={isSaving}
 						onClick={openSaveDialog}
+						data-walkthrough='lead-save-btn'
 						className='bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-full text-sm font-medium shadow-sm transition-all flex items-center gap-2 whitespace-nowrap'
 					>
 						<Save className='w-4 h-4' />
@@ -563,6 +572,41 @@ export default function LeadGeneratorPage() {
 					handleBulkSave={handleBulkSave}
 				/>
 			)}
+			<Walkthrough
+				steps={[
+					{
+						title: 'Welcome to Lead Generator!',
+						content:
+							'This tool helps you find potential customers directly from Google Maps. Let’s see how it works.',
+					},
+					{
+						target: '[data-walkthrough="lead-type-input"]',
+						title: 'What are you looking for?',
+						content:
+							'Enter the type of business you want to target, like "restaurants", "dentists", or "gyms".',
+					},
+					{
+						target: '[data-walkthrough="lead-location-input"]',
+						title: 'Where to look?',
+						content:
+							'Specify the city, zip code, or country where you want to find these businesses.',
+					},
+					{
+						target: '[data-walkthrough="lead-mine-btn"]',
+						title: 'Start Mining',
+						content:
+							'Click here to begin the scraping process. We will fetch the top results for you.',
+					},
+					{
+						target: '[data-walkthrough="lead-history-link"]',
+						title: 'Manage Your Leads',
+						content:
+							'Once you save leads, you can manage them and start your outreach from the CRM section.',
+					},
+				]}
+				onComplete={() => completeWalkthrough('lead-generation')}
+				isVisible={!user?.completedWalkthroughs?.includes('lead-generation')}
+			/>
 		</div>
 	);
 }

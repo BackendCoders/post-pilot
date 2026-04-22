@@ -17,6 +17,7 @@ import graphApiRoutes from './routes/graphApi';
 import seoRoutes from './modules/SEO/route';
 import leadGenerationRoutes from './modules/LeadGeneration/route';
 import whatsappRoutes from './modules/WhatsApp';
+import supportRoutes from './routes/support';
 import { whatsappService } from './modules/WhatsApp/service';
 
 // Load environment variables
@@ -100,6 +101,7 @@ app.use('/api/facebook', graphApiRoutes);
 app.use('/api/seo', seoRoutes);
 app.use('/api/leads', leadGenerationRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/support', supportRoutes);
 
 // 404 handler
 app.use(notFound);

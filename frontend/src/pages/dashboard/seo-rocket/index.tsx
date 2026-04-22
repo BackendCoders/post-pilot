@@ -14,7 +14,9 @@ import { api } from '@/service/api';
 import UrlInputForm from './components/UrlInputForm';
 import SitemapView from './components/SitemapView';
 import AnalysisResults from './components/AnalysisResults';
+import Walkthrough from '@/components/Walkthrough';
 import { useSeoAnalysis, useRescrape, useBulkScrape } from '@/query/seo.query';
+import { useCompleteWalkthrough, useAuth } from '@/query/auth.query';
 import {
 	useSaveAnalysis,
 	useUpdatePageAnalysis,
@@ -27,6 +29,8 @@ import type { ScrapedPageData, SeoAnalysisMode, SeoReport } from '@/types/seo.ty
 type ViewType = 'input' | 'sitemap' | 'results' | 'single';
 
 export default function SEORocketPage() {
+	const { data: user } = useAuth();
+	const { mutate: completeWalkthrough } = useCompleteWalkthrough();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [searchParams] = useSearchParams();
@@ -34,6 +38,7 @@ export default function SEORocketPage() {
 	const [isScrapingSingle, setIsScrapingSingle] = useState(false);
 	const [currentResults, setCurrentResults] = useState<ScrapedPageData[]>([]);
 	const [currentReports, setCurrentReports] = useState<Record<string, SeoReport>>({});
+	const [resultsPage, setResultsPage] = useState(1);
 	const isScrapingSingleRef = useRef(false);
 	const urlParamRef = useRef<string | null>(null);
 
@@ -66,6 +71,7 @@ export default function SEORocketPage() {
 	const { mutate: updatePageAnalysis } = useUpdatePageAnalysis();
 	const { data: savedAnalysis, isLoading: isLoadingAnalysis } = useGetAnalysis(
 		currentView === 'results' ? analysisIdParam : null,
+		{ page: resultsPage, limit: 20 },
 	);
 
 	const { mutateAsync: bulkScrape, isPending: isAnalyzing } = useBulkScrape();
@@ -259,6 +265,7 @@ export default function SEORocketPage() {
 		reset();
 		setCurrentResults([]);
 		setCurrentReports({});
+		setResultsPage(1);
 		navigate('/dashboard/seo-rocket');
 	};
 
@@ -467,6 +474,36 @@ export default function SEORocketPage() {
 					)}
 				</div>
 			</main>
+
+			<Walkthrough
+				steps={[
+					{
+						title: 'Welcome to SEO Rocket!',
+						content:
+							'This tool helps you analyze and optimize your website for search engines. Let’s take a quick tour.',
+					},
+					{
+						target: '[data-walkthrough="seo-url-input"]',
+						title: 'Enter Website URL',
+						content:
+							'Start by entering the URL of the website you want to audit. You can choose to analyze a single page or the entire site.',
+					},
+					{
+						target: '[data-walkthrough="seo-analyze-btn"]',
+						title: 'Start Discovery',
+						content:
+							'Click "Discover" to fetch the sitemap and identify all available pages for analysis.',
+					},
+					{
+						target: '[data-walkthrough="seo-history-link"]',
+						title: 'Access History',
+						content:
+							'Your previous audits are saved here. You can revisit them anytime to track improvements.',
+					},
+				]}
+				onComplete={() => completeWalkthrough('seo-rocket')}
+				isVisible={!user?.completedWalkthroughs?.includes('seo-rocket')}
+			/>
 		</div>
 	);
 }

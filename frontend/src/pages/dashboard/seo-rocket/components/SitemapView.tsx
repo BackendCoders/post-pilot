@@ -12,6 +12,8 @@ import {
 	CheckSquare,
 	MinusSquare,
 	Search,
+	ChevronLeft,
+	ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +24,7 @@ import {
 	CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import type { SitePageCountResult, CategorizedUrls } from '@/types/seo.types';
 
 interface SitemapViewProps {
@@ -35,6 +38,8 @@ interface SitemapViewProps {
 }
 
 type CategoryKey = keyof CategorizedUrls;
+
+const ITEMS_PER_PAGE = 50;
 
 const categoryConfig: {
 	key: CategoryKey;
@@ -93,11 +98,39 @@ export default function SitemapView({
 		'all',
 	);
 	const [_expandedUrls, setExpandedUrls] = useState<Set<string>>(new Set());
+	const [searchQuery, setSearchQuery] = useState('');
+	const [currentPage, setCurrentPage] = useState(1);
 
-	const filteredUrls = useMemo(() => {
+	// Filter by category
+	const categoryFilteredUrls = useMemo(() => {
 		if (activeCategory === 'all') return sitemap.urls;
 		return sitemap.categorizedUrls[activeCategory];
 	}, [sitemap, activeCategory]);
+
+	// Filter by search query
+	const filteredUrls = useMemo(() => {
+		if (!searchQuery.trim()) return categoryFilteredUrls;
+		const q = searchQuery.toLowerCase();
+		return categoryFilteredUrls.filter((url) => url.toLowerCase().includes(q));
+	}, [categoryFilteredUrls, searchQuery]);
+
+	// Pagination
+	const totalPages = Math.ceil(filteredUrls.length / ITEMS_PER_PAGE);
+	const paginatedUrls = useMemo(() => {
+		const start = (currentPage - 1) * ITEMS_PER_PAGE;
+		return filteredUrls.slice(start, start + ITEMS_PER_PAGE);
+	}, [filteredUrls, currentPage]);
+
+	// Reset page when filter changes
+	const handleCategoryChange = (cat: CategoryKey | 'all') => {
+		setActiveCategory(cat);
+		setCurrentPage(1);
+	};
+
+	const handleSearchChange = (value: string) => {
+		setSearchQuery(value);
+		setCurrentPage(1);
+	};
 
 	const toggleExpanded = (url: string) => {
 		setExpandedUrls((prev) => {
@@ -160,7 +193,7 @@ export default function SitemapView({
 				{/* Filter Pills */}
 				<div className='flex gap-1.5 mt-2 flex-wrap pb-2'>
 					<button
-						onClick={() => setActiveCategory('all')}
+						onClick={() => handleCategoryChange('all')}
 						className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide transition-all duration-200 border ${
 							activeCategory === 'all'
 								? 'bg-primary border-primary text-primary-foreground shadow-sm'
@@ -175,7 +208,7 @@ export default function SitemapView({
 						return (
 							<button
 								key={cat.key}
-								onClick={() => setActiveCategory(cat.key)}
+								onClick={() => handleCategoryChange(cat.key)}
 								className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide transition-all duration-200 border ${
 									activeCategory === cat.key
 										? 'bg-primary border-primary text-primary-foreground shadow-sm'
@@ -191,14 +224,75 @@ export default function SitemapView({
 						);
 					})}
 				</div>
+
+				{/* Search Input */}
+				<div className='relative mt-1'>
+					<Search className='absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none' />
+					<Input
+						type='text'
+						placeholder='Search URLs...'
+						value={searchQuery}
+						onChange={(e) => handleSearchChange(e.target.value)}
+						className='pl-9 h-9 text-sm rounded-xl border-border bg-card'
+					/>
+				</div>
 			</CardHeader>
 
 			<CardContent className='px-0 space-y-4'>
 				{/* URL List Container */}
-				<div className='border border-border rounded-xl bg-card overflow-hidden'>
+				<div
+					data-walkthrough='seo-sitemap-list'
+					className='border border-border rounded-xl bg-card overflow-hidden'
+				>
+					{/* Pagination Info Bar */}
+					<div className='flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/50 text-[11px] text-muted-foreground'>
+						<span>
+							Showing{' '}
+							<span className='font-semibold text-foreground'>
+								{filteredUrls.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+							</span>
+							–
+							<span className='font-semibold text-foreground'>
+								{Math.min(currentPage * ITEMS_PER_PAGE, filteredUrls.length)}
+							</span>{' '}
+							of{' '}
+							<span className='font-semibold text-foreground'>
+								{filteredUrls.length}
+							</span>{' '}
+							URLs
+						</span>
+						{totalPages > 1 && (
+							<div className='flex items-center gap-1.5'>
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+									disabled={currentPage === 1}
+									className='h-6 w-6 p-0 rounded-lg'
+								>
+									<ChevronLeft className='h-3.5 w-3.5' />
+								</Button>
+								<span className='font-mono text-[10px] min-w-[60px] text-center'>
+									{currentPage} / {totalPages}
+								</span>
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={() =>
+										setCurrentPage((p) => Math.min(totalPages, p + 1))
+									}
+									disabled={currentPage === totalPages}
+									className='h-6 w-6 p-0 rounded-lg'
+								>
+									<ChevronRight className='h-3.5 w-3.5' />
+								</Button>
+							</div>
+						)}
+					</div>
+
 					<div className='max-h-[380px] overflow-y-auto custom-scrollbar divide-y divide-border/50'>
-						{filteredUrls.length > 0 ? (
-							filteredUrls.map((url) => {
+						{paginatedUrls.length > 0 ? (
+							paginatedUrls.map((url) => {
 								const isSelected = selectedUrls.includes(url);
 								const category = getCategoryForUrl(url);
 								const catConfig = categoryConfig.find(
@@ -253,10 +347,82 @@ export default function SitemapView({
 							})
 						) : (
 							<div className='py-12 flex flex-col items-center justify-center text-muted-foreground italic text-sm'>
-								No URLs found in this category.
+								{searchQuery
+									? 'No URLs match your search.'
+									: 'No URLs found in this category.'}
 							</div>
 						)}
 					</div>
+
+					{/* Bottom Pagination */}
+					{totalPages > 1 && (
+						<div className='flex items-center justify-center gap-1.5 px-3 py-2 bg-muted/30 border-t border-border/50'>
+							<Button
+								variant='outline'
+								size='sm'
+								onClick={() => setCurrentPage(1)}
+								disabled={currentPage === 1}
+								className='h-7 px-2 text-[10px] rounded-lg'
+							>
+								First
+							</Button>
+							<Button
+								variant='outline'
+								size='sm'
+								onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+								disabled={currentPage === 1}
+								className='h-7 w-7 p-0 rounded-lg'
+							>
+								<ChevronLeft className='h-3.5 w-3.5' />
+							</Button>
+
+							{/* Page number buttons */}
+							{Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+								let pageNum: number;
+								if (totalPages <= 5) {
+									pageNum = i + 1;
+								} else if (currentPage <= 3) {
+									pageNum = i + 1;
+								} else if (currentPage >= totalPages - 2) {
+									pageNum = totalPages - 4 + i;
+								} else {
+									pageNum = currentPage - 2 + i;
+								}
+								return (
+									<Button
+										key={pageNum}
+										variant={currentPage === pageNum ? 'default' : 'outline'}
+										size='sm'
+										onClick={() => setCurrentPage(pageNum)}
+										className='h-7 w-7 p-0 rounded-lg text-[10px] font-semibold'
+									>
+										{pageNum}
+									</Button>
+								);
+							})}
+
+							<Button
+								variant='outline'
+								size='sm'
+								onClick={() =>
+									setCurrentPage((p) => Math.min(totalPages, p + 1))
+								}
+								disabled={currentPage === totalPages}
+								className='h-7 w-7 p-0 rounded-lg'
+							>
+								<ChevronRight className='h-3.5 w-3.5' />
+							</Button>
+							<Button
+								variant='outline'
+								size='sm'
+								onClick={() => setCurrentPage(totalPages)}
+								disabled={currentPage === totalPages}
+								className='h-7 px-2 text-[10px] rounded-lg'
+							>
+								Last
+							</Button>
+						</div>
+					)}
 				</div>
 
 				{/* Footer Action */}

@@ -64,7 +64,12 @@ export const seoAnalysisService = {
     pageHistory: PageHistoryResult[];
   }> {
     const pageResults = results.map((page) => {
-      const analysisReport = generateSeoReport(page);
+      let analysisReport = null;
+      try {
+        analysisReport = generateSeoReport(page);
+      } catch (e) {
+        console.warn(`Failed to generate report for ${page.url}:`, e);
+      }
       return {
         url: page.url,
         analysisData: {
@@ -73,22 +78,22 @@ export const seoAnalysisService = {
           metaKeywords: page.metaKeywords || null,
           canonical: page.canonical || null,
           robotsMeta: page.robotsMeta || null,
-          headings: page.headings,
-          images: page.images.map((img) => ({
+          headings: page.headings || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
+          images: (page.images || []).map((img) => ({
             src: img.src,
             alt: img.alt,
             size: img.size,
             type: img.type,
           })),
-          wordCount: page.wordCount,
-          internalLinkCount: page.internalLinkCount,
-          externalLinkCount: page.externalLinkCount,
-          links: page.links,
-          socialLinks: page.socialLinks,
-          redirectUrls: page.redirectUrls,
-          redirectCount: page.redirectCount,
+          wordCount: page.wordCount || 0,
+          internalLinkCount: page.internalLinkCount || 0,
+          externalLinkCount: page.externalLinkCount || 0,
+          links: page.links || [],
+          socialLinks: page.socialLinks || [],
+          redirectUrls: page.redirectUrls || [],
+          redirectCount: page.redirectCount || 0,
           textSample: page.textSample || '',
-          paragraphExcerpt: page.paragraphExcerpt,
+          paragraphExcerpt: page.paragraphExcerpt || [],
           isError: page.isError,
           performanceMetrics: page.performanceMetrics || null,
         },
@@ -151,26 +156,30 @@ export const seoAnalysisService = {
           metaKeywords: analysisData.metaKeywords || null,
           canonical: analysisData.canonical || null,
           robotsMeta: analysisData.robotsMeta || null,
-          headings: analysisData.headings,
-          images: analysisData.images.map((img) => ({
+          headings: analysisData.headings || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
+          images: (analysisData.images || []).map((img) => ({
             src: img.src,
             alt: img.alt,
             size: img.size,
             type: img.type,
           })),
-          wordCount: analysisData.wordCount,
-          internalLinkCount: analysisData.internalLinkCount,
-          externalLinkCount: analysisData.externalLinkCount,
-          links: analysisData.links,
-          socialLinks: analysisData.socialLinks,
-          redirectUrls: analysisData.redirectUrls,
-          redirectCount: analysisData.redirectCount,
+          wordCount: analysisData.wordCount || 0,
+          internalLinkCount: analysisData.internalLinkCount || 0,
+          externalLinkCount: analysisData.externalLinkCount || 0,
+          links: analysisData.links || [],
+          socialLinks: analysisData.socialLinks || [],
+          redirectUrls: analysisData.redirectUrls || [],
+          redirectCount: analysisData.redirectCount || 0,
           textSample: analysisData.textSample || '',
-          paragraphExcerpt: analysisData.paragraphExcerpt,
+          paragraphExcerpt: analysisData.paragraphExcerpt || [],
           isError: analysisData.isError,
           performanceMetrics: analysisData.performanceMetrics || null,
         };
-        pageResult.analysisReport = generateSeoReport(analysisData);
+        try {
+          pageResult.analysisReport = generateSeoReport(analysisData);
+        } catch (e) {
+          console.warn(`Failed to generate report for ${analysisData.url}:`, e);
+        }
         pageResult.analysisCount += 1;
         pageResult.lastAnalyzedAt = new Date();
 
@@ -183,6 +192,13 @@ export const seoAnalysisService = {
       }
     }
 
+    let singleReport = null;
+    try {
+      singleReport = generateSeoReport(analysisData);
+    } catch (e) {
+      console.warn(`Failed to generate report for ${normalizedUrl}:`, e);
+    }
+
     const newPageResult = {
       url: normalizedUrl,
       analysisData: {
@@ -191,26 +207,26 @@ export const seoAnalysisService = {
         metaKeywords: analysisData.metaKeywords || null,
         canonical: analysisData.canonical || null,
         robotsMeta: analysisData.robotsMeta || null,
-        headings: analysisData.headings,
-        images: analysisData.images.map((img) => ({
+        headings: analysisData.headings || { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
+        images: (analysisData.images || []).map((img) => ({
           src: img.src,
           alt: img.alt,
           size: img.size,
           type: img.type,
         })),
-        wordCount: analysisData.wordCount,
-        internalLinkCount: analysisData.internalLinkCount,
-        externalLinkCount: analysisData.externalLinkCount,
-        links: analysisData.links,
-        socialLinks: analysisData.socialLinks,
-        redirectUrls: analysisData.redirectUrls,
-        redirectCount: analysisData.redirectCount,
+        wordCount: analysisData.wordCount || 0,
+        internalLinkCount: analysisData.internalLinkCount || 0,
+        externalLinkCount: analysisData.externalLinkCount || 0,
+        links: analysisData.links || [],
+        socialLinks: analysisData.socialLinks || [],
+        redirectUrls: analysisData.redirectUrls || [],
+        redirectCount: analysisData.redirectCount || 0,
         textSample: analysisData.textSample || '',
-        paragraphExcerpt: analysisData.paragraphExcerpt,
+        paragraphExcerpt: analysisData.paragraphExcerpt || [],
         isError: analysisData.isError,
         performanceMetrics: analysisData.performanceMetrics || null,
       },
-      analysisReport: generateSeoReport(analysisData),
+      analysisReport: singleReport,
       analysisCount: 1,
       firstAnalyzedAt: new Date(),
       lastAnalyzedAt: new Date(),
@@ -400,15 +416,34 @@ export const seoAnalysisService = {
 
   async getAnalysisById(
     analysisId: string,
-    userId: string
+    userId: string,
+    options: { page?: number; limit?: number } = {}
   ): Promise<Record<string, unknown> | null> {
+    const { page = 1, limit = 20 } = options;
+
     const analysis = await SeoAnalysis.findOne({
       _id: new mongoose.Types.ObjectId(analysisId),
       user: new mongoose.Types.ObjectId(userId),
       isDeleted: false,
     }).lean();
 
-    return analysis;
+    if (!analysis) return null;
+
+    const totalResults = analysis.results?.length || 0;
+    const totalPages = Math.ceil(totalResults / limit);
+    const skip = (page - 1) * limit;
+    const paginatedResults = (analysis.results || []).slice(skip, skip + limit);
+
+    return {
+      ...analysis,
+      results: paginatedResults,
+      pagination: {
+        page,
+        limit,
+        totalResults,
+        totalPages,
+      },
+    };
   },
 
   async softDeleteAnalysis(

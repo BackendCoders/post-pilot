@@ -121,3 +121,10 @@ export const changePassword = async function ({
 	});
 	return res.data;
 };
+
+export const completeWalkthrough = async function (walkthroughKey: string) {
+	const res = await api.patch<IApiResponse>('/api/users/walkthrough', {
+		walkthroughKey,
+	});
+	return res.data;
+};

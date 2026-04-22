@@ -6,6 +6,7 @@ import {
 	updateProfile,
 	changePassword,
 	googleAuth,
+	completeWalkthrough,
 } from '@/service/auth.service';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
@@ -130,6 +131,16 @@ export const useChangePassword = function () {
 		},
 		onError: (err) => {
 			toast.error(getErrorMessage(err));
+		},
+	});
+};
+
+export const useCompleteWalkthrough = function () {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: completeWalkthrough,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['auth'] });
 		},
 	});
 };

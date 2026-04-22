@@ -54,8 +54,10 @@ export const seoService = {
 		return response.data;
 	},
 
-	getAnalysisById: async (id: string) => {
-		const response = await api.get<{ success: boolean; data: any }>(`/api/seo/analysis/${id}`);
+	getAnalysisById: async (id: string, params?: { page?: number; limit?: number }) => {
+		const response = await api.get<{ success: boolean; data: any }>(`/api/seo/analysis/${id}`, {
+			params,
+		});
 		return response.data;
 	},
 

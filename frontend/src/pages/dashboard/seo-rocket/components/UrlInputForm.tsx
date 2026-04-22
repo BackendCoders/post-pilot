@@ -70,6 +70,7 @@ export default function UrlInputForm({
 							placeholder='https://example.com'
 							value={url}
 							onChange={(e) => setUrl(e.target.value)}
+							data-walkthrough='seo-url-input'
 							className='h-11 pl-3 pr-28 rounded-xl border-border bg-card shadow-sm transition-all focus-visible:ring-primary/20'
 						/>
 						<div className='absolute right-1.5 top-1.5'>
@@ -77,6 +78,7 @@ export default function UrlInputForm({
 								type='submit'
 								size='sm'
 								disabled={!url.trim() || isLoading}
+								data-walkthrough='seo-analyze-btn'
 								className='h-8 rounded-lg px-4 font-semibold transition-all active:scale-95'
 							>
 								{isLoading ? (
