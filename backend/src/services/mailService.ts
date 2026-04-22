@@ -79,6 +79,42 @@ class MailService {
 
     return this.sendMail(adminEmail, emailSubject, html);
   }
+
+  async sendSystemLog(logData: {
+    level: string;
+    message: string;
+    stack?: string;
+    context?: any;
+  }) {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const emailSubject = `[BACKEND LOG] ${logData.level.toUpperCase()}: ${logData.message.slice(0, 50)}${logData.message.length > 50 ? '...' : ''}`;
+
+    const html = `
+      <div style="font-family: monospace; max-width: 800px; margin: auto; border: 1px solid #ddd; padding: 20px; background: #fafafa;">
+        <h2 style="color: ${logData.level === 'error' ? '#cc0000' : '#333'}; border-bottom: 2px solid #ddd; padding-bottom: 10px;">
+          System Log Alert: ${logData.level.toUpperCase()}
+        </h2>
+        <p><strong>Message:</strong> ${logData.message}</p>
+        <p><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+        
+        ${logData.context ? `
+          <h3>Context:</h3>
+          <pre style="background: #eee; padding: 10px; border: 1px solid #ccc; overflow: auto;">
+            ${JSON.stringify(logData.context, null, 2)}
+          </pre>
+        ` : ''}
+
+        ${logData.stack ? `
+          <h3>Stack Trace:</h3>
+          <pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 5px; overflow: auto; font-size: 12px; line-height: 1.5;">
+            ${logData.stack}
+          </pre>
+        ` : ''}
+      </div>
+    `;
+
+    return this.sendMail(adminEmail, emailSubject, html);
+  }
 }
 
 export const mailService = new MailService();

@@ -1,6 +1,15 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, AlertCircle, MessageSquare, Loader2, Star } from 'lucide-react';
+import {
+	X,
+	Send,
+	AlertCircle,
+	MessageSquare,
+	Loader2,
+	Star,
+} from 'lucide-react';
 import { useSubmitSupport } from '../query/support.query';
 
 interface SupportModalProps {
@@ -20,7 +29,6 @@ export default function SupportModal({
 	const [rating, setRating] = useState<number>(0);
 	const [hoveredRating, setHoveredRating] = useState<number>(0);
 
-	// Sync state when modal opens or initialType changes
 	useEffect(() => {
 		if (isOpen) {
 			setType(initialType);
@@ -35,7 +43,6 @@ export default function SupportModal({
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		// Capture some basic metadata for error reports
 		const metadata =
 			type === 'error'
 				? {
@@ -54,7 +61,6 @@ export default function SupportModal({
 			metadata,
 		});
 
-		// Reset and close
 		setSubject('');
 		setMessage('');
 		onClose();
@@ -64,86 +70,93 @@ export default function SupportModal({
 
 	return (
 		<AnimatePresence>
-			<div className='fixed inset-0 z-10000 flex items-center justify-center p-4'>
+			<div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
 				<motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
 					onClick={onClose}
-					className='absolute inset-0 bg-black/60 backdrop-blur-sm'
+					className='absolute inset-0 bg-black/40 backdrop-blur-[2px]'
 				/>
 
 				<motion.div
-					initial={{ opacity: 0, scale: 0.95, y: 20 }}
+					initial={{ opacity: 0, scale: 0.98, y: 8 }}
 					animate={{ opacity: 1, scale: 1, y: 0 }}
-					exit={{ opacity: 0, scale: 0.95, y: 20 }}
-					className='relative w-full max-width-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800'
+					exit={{ opacity: 0, scale: 0.98, y: 8 }}
+					className='relative w-full max-w-[440px] overflow-hidden rounded-xl border border-border bg-card shadow-xl transition-all duration-200'
 				>
 					{/* Header */}
-					<div className='p-6 border-bottom border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50'>
-						<div>
-							<h2 className='text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2'>
+					<div className='flex items-center justify-between border-b border-border bg-background/50 px-5 py-4'>
+						<div className='flex items-center gap-2.5'>
+							<div
+								className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
+									type === 'feedback'
+										? 'border-blue-500/20 bg-blue-500/10 text-blue-500'
+										: 'border-destructive/20 bg-destructive/10 text-destructive'
+								}`}
+							>
 								{type === 'feedback' ? (
-									<MessageSquare className='w-5 h-5 text-blue-500' />
+									<MessageSquare size={16} />
 								) : (
-									<AlertCircle className='w-5 h-5 text-rose-500' />
+									<AlertCircle size={16} />
 								)}
-								{type === 'feedback' ? 'Share Feedback' : 'Report an Issue'}
-							</h2>
-							<p className='text-sm text-slate-500 dark:text-slate-400 mt-1'>
-								{type === 'feedback'
-									? 'We love to hear your thoughts on how to improve.'
-									: 'Found a bug? Let us know and we will fix it ASAP.'}
-							</p>
+							</div>
+							<div>
+								<h2 className='text-[15px] font-semibold tracking-tight text-foreground'>
+									{type === 'feedback' ? 'Share Feedback' : 'Report an Issue'}
+								</h2>
+								<p className='text-[12px] text-muted-foreground'>
+									{type === 'feedback'
+										? 'How can we improve your experience?'
+										: 'Help us improve by describing the bug.'}
+								</p>
+							</div>
 						</div>
 						<button
 							onClick={onClose}
-							className='p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors'
+							className='rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:scale-95'
 						>
-							<X className='w-5 h-5 text-slate-500' />
+							<X size={16} />
 						</button>
 					</div>
 
 					<form
 						onSubmit={handleSubmit}
-						className='p-6 space-y-5'
+						className='p-5 space-y-4'
 					>
-						{/* Type Selector */}
-						<div className='flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-2'>
+						{/* Toggle Switch */}
+						<div className='flex rounded-lg border border-border bg-background p-1'>
 							<button
 								type='button'
 								onClick={() => setType('feedback')}
-								className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
+								className={`flex flex-1 items-center justify-center gap-2 rounded-md py-1.5 text-xs font-medium transition-all ${
 									type === 'feedback'
-										? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-lg shadow-blue-500/10'
-										: 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+										? 'bg-card text-foreground shadow-sm border border-border'
+										: 'text-muted-foreground hover:text-foreground'
 								}`}
 							>
-								<MessageSquare className='w-4 h-4' />
 								Feedback
 							</button>
 							<button
 								type='button'
 								onClick={() => setType('error')}
-								className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
+								className={`flex flex-1 items-center justify-center gap-2 rounded-md py-1.5 text-xs font-medium transition-all ${
 									type === 'error'
-										? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-lg shadow-rose-500/10'
-										: 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+										? 'bg-card text-foreground shadow-sm border border-border'
+										: 'text-muted-foreground hover:text-foreground'
 								}`}
 							>
-								<AlertCircle className='w-4 h-4' />
 								Bug Report
 							</button>
 						</div>
 
-						{/* Feedback Rating */}
+						{/* Rating Section */}
 						{type === 'feedback' && (
-							<div className='space-y-3 p-4 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100/50 dark:border-blue-500/10'>
-								<label className='text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2'>
-									<Star className='w-4 h-4 text-amber-500 fill-amber-500' />
-									How would you rate your experience?
-								</label>
-								<div className='flex items-center gap-2'>
+							<div className='rounded-xl border border-border bg-background/30 p-3 flex flex-col items-center gap-2'>
+								<span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
+									Rate your experience
+								</span>
+								<div className='flex items-center gap-1.5'>
 									{[1, 2, 3, 4, 5].map((star) => (
 										<button
 											key={star}
@@ -151,92 +164,99 @@ export default function SupportModal({
 											onMouseEnter={() => setHoveredRating(star)}
 											onMouseLeave={() => setHoveredRating(0)}
 											onClick={() => setRating(star)}
-											className='transition-transform active:scale-90'
+											className='group relative transition-transform active:scale-90'
 										>
 											<Star
-												className={`w-8 h-8 transition-colors ${
+												size={22}
+												className={`transition-all duration-200 ${
 													star <= (hoveredRating || rating)
-														? 'text-amber-500 fill-amber-500'
-														: 'text-slate-300 dark:text-slate-600'
+														? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]'
+														: 'text-muted-foreground/30'
 												}`}
 											/>
 										</button>
 									))}
-									{rating > 0 && (
-										<span className='ml-2 text-sm font-semibold text-amber-600 dark:text-amber-400'>
-											{rating === 1 && 'Poor'}
-											{rating === 2 && 'Fair'}
-											{rating === 3 && 'Good'}
-											{rating === 4 && 'Very Good'}
-											{rating === 5 && 'Excellent!'}
-										</span>
-									)}
 								</div>
+								{rating > 0 && (
+									<p className='text-[11px] font-medium text-amber-500 animate-in fade-in slide-in-from-top-1'>
+										{
+											['Poor', 'Fair', 'Good', 'Very Good', 'Excellent!'][
+												rating - 1
+											]
+										}
+									</p>
+								)}
 							</div>
 						)}
 
-						{/* Subject */}
-						<div className='space-y-2'>
-							<label className='text-sm font-semibold text-slate-700 dark:text-slate-300'>
-								Subject
-							</label>
-							<input
-								type='text'
-								required
-								value={subject}
-								onChange={(e) => setSubject(e.target.value)}
-								placeholder={
-									type === 'feedback'
-										? 'What is on your mind?'
-										: 'Brief description of the problem'
-								}
-								className='w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all'
-							/>
+						{/* Inputs */}
+						<div className='space-y-3'>
+							<div className='space-y-1.5'>
+								<label className='text-[13px] font-medium text-foreground'>
+									Subject
+								</label>
+								<input
+									type='text'
+									required
+									value={subject}
+									onChange={(e) => setSubject(e.target.value)}
+									placeholder={
+										type === 'feedback'
+											? 'Short summary...'
+											: 'What went wrong?'
+									}
+									className='w-full rounded-xl border border-border bg-background px-3 py-2 text-[13px] transition-all placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/10'
+								/>
+							</div>
+
+							<div className='space-y-1.5'>
+								<label className='text-[13px] font-medium text-foreground'>
+									Details
+								</label>
+								<textarea
+									required
+									value={message}
+									onChange={(e) => setMessage(e.target.value)}
+									rows={3}
+									placeholder={
+										type === 'feedback'
+											? 'Tell us more...'
+											: 'Describe the steps to reproduce...'
+									}
+									className='w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-[13px] transition-all placeholder:text-muted-foreground/60 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/10'
+								/>
+							</div>
 						</div>
 
-						{/* Message */}
-						<div className='space-y-2'>
-							<label className='text-sm font-semibold text-slate-700 dark:text-slate-300'>
-								Details
-							</label>
-							<textarea
-								required
-								value={message}
-								onChange={(e) => setMessage(e.target.value)}
-								rows={4}
-								placeholder={
-									type === 'feedback'
-										? 'Tell us what you like or what we can do better...'
-										: 'Please describe the steps to reproduce the issue...'
-								}
-								className='w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none'
-							/>
-						</div>
-
-						{/* Footer Actions */}
-						<div className='pt-2 flex items-center gap-3'>
+						{/* Footer */}
+						<div className='flex items-center gap-2 pt-2'>
 							<button
 								type='button'
 								onClick={onClose}
-								className='flex-1 px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all'
+								className='flex-1 rounded-xl border border-border py-2 text-[13px] font-medium transition-all hover:bg-secondary active:scale-[0.98]'
 							>
 								Cancel
 							</button>
 							<button
 								type='submit'
 								disabled={submitMutation.isPending}
-								className={`flex-[2] flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all ${
+								className={`flex-[2] flex items-center justify-center gap-2 rounded-xl py-2 text-[13px] font-medium text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-50 ${
 									type === 'feedback'
-										? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-										: 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
-								} disabled:opacity-70 disabled:cursor-not-allowed shadow-lg`}
+										? 'bg-primary hover:opacity-90'
+										: 'bg-destructive hover:opacity-90'
+								}`}
 							>
 								{submitMutation.isPending ? (
-									<Loader2 className='w-5 h-5 animate-spin' />
+									<Loader2
+										size={16}
+										className='animate-spin'
+									/>
 								) : (
 									<>
-										<Send className='w-5 h-5' />
-										Submit {type === 'feedback' ? 'Feedback' : 'Report'}
+										<Send size={14} />
+										<span>
+											Submit {type === 'feedback' ? 'Feedback' : 'Report'}
+										</span>
 									</>
 								)}
 							</button>

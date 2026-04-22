@@ -127,7 +127,9 @@ export default function GoogleModernLayout() {
 	const { data: user } = useAuth();
 	const { handleLogout } = useLogout();
 	const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-	const [supportInitialType, setSupportInitialType] = useState<'feedback' | 'error'>('feedback');
+	const [supportInitialType, setSupportInitialType] = useState<
+		'feedback' | 'error'
+	>('feedback');
 
 	// Dynamic Breadcrumb Logic
 	const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -165,7 +167,7 @@ export default function GoogleModernLayout() {
 							<>
 								<div className='flex flex-col flex-1 overflow-hidden'>
 									<span className='text-sm font-bold tracking-tight truncate'>
-										Backend Coders
+										Seo Rocket Pro
 									</span>
 									<span className='text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider'>
 										Production
@@ -272,7 +274,8 @@ export default function GoogleModernLayout() {
 												data-walkthrough={
 													sub.path === '/dashboard/seo-rocket/history'
 														? 'seo-history-link'
-														: sub.path === '/dashboard/lead-generation/manage-saved-leads'
+														: sub.path ===
+															  '/dashboard/lead-generation/manage-saved-leads'
 															? 'lead-history-link'
 															: undefined
 												}
@@ -300,7 +303,7 @@ export default function GoogleModernLayout() {
 						isSidebarCollapsed && 'px-2',
 					)}
 				>
-					<div className="mb-2 space-y-1">
+					<div className='mb-2 space-y-1'>
 						<button
 							onClick={() => {
 								setSupportInitialType('feedback');
@@ -310,7 +313,7 @@ export default function GoogleModernLayout() {
 								'w-full flex items-center rounded-xl transition-all text-xs font-medium group text-muted-foreground hover:bg-muted hover:text-foreground p-2',
 								isSidebarCollapsed ? 'justify-center' : 'gap-3',
 							)}
-							title="Give Feedback"
+							title='Give Feedback'
 						>
 							<MessageSquare size={16} />
 							{!isSidebarCollapsed && <span>Give Feedback</span>}
@@ -324,7 +327,7 @@ export default function GoogleModernLayout() {
 								'w-full flex items-center rounded-xl transition-all text-xs font-medium group text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 p-2',
 								isSidebarCollapsed ? 'justify-center' : 'gap-3',
 							)}
-							title="Report an Issue"
+							title='Report an Issue'
 						>
 							<AlertCircle size={16} />
 							{!isSidebarCollapsed && <span>Report an Issue</span>}

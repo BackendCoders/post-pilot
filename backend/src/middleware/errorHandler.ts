@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { ICustomError } from '../types/index';
 import { logger } from '../utils/logger';
+import { mailService } from '../services/mailService';
 
 export const errorHandler = (
   error: ICustomError,
@@ -22,6 +23,21 @@ export const errorHandler = (
     ip: req.ip,
     userAgent: req.get('User-Agent'),
   });
+
+  // Send email alert for critical server errors (500)
+  if (statusCode === 500) {
+    mailService.sendSystemLog({
+      level: 'error',
+      message: message,
+      stack: error.stack,
+      context: {
+        url: req.url,
+        method: req.method,
+        userId: req.user?.userId,
+        ip: req.ip,
+      },
+    }).catch(err => logger.error('Failed to send error alert email', { err }));
+  }
 
   // Mongoose validation error
   if (error instanceof mongoose.Error.ValidationError) {
