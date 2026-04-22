@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Building2, CheckSquare, MapPin, Square, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getStatusLabel } from './leadWorkspace.constants';
-import { Button } from '@/components/ui/button';
 import NoteDialog from './NoteDialog';
 
 type Props = {

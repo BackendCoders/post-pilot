@@ -16,7 +16,7 @@ export const useGetSocials = function () {
 		queryFn: () =>
 			getSocialBasedOnUserId(authUser.id).then((data) => {
 				if (data) return getSocialBasedOnUserId(authUser.id);
-				return createSocials({ user: authUser.id });
+				return createSocials({ user: authUser.id } as any);
 			}),
 	});
 };

@@ -324,7 +324,7 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 												createCategoryMutation.mutate(
 													{ title: newCategoryName.trim() },
 													{
-														onSuccess: (res) => {
+														onSuccess: (_res) => {
 															setFormData((prev) => ({
 																...prev,
 																category: newCategoryName.trim(),

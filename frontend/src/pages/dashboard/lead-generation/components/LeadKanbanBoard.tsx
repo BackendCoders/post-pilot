@@ -27,7 +27,6 @@ export default function LeadKanbanBoard({
 	onToggleColumnSelection,
 	onOpenLead,
 	onMoveLeads,
-	onOpenNote,
 }: Props) {
 	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 	const [noteLead, setNoteLead] = useState<ILead | null>(null);
@@ -112,7 +111,7 @@ export default function LeadKanbanBoard({
 
 	const configMap = useMemo(
 		() => ({
-'lead-card': {
+			'lead-card': {
 				isDraggable: true,
 				render: ({ data }: { data: { id: string; title: string; content?: { leadId?: string; thumbnailUrl?: string; note?: string; status?: string } } }) => {
 					const leadId = data.content?.leadId || getLeadIdFromCard(data.id);

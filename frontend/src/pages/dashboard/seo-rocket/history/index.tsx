@@ -9,14 +9,13 @@ import {
 	RotateCcw,
 	ExternalLink,
 	Clock,
-	User,
 	Globe,
 	FileText,
 	Briefcase,
 	Search,
 } from 'lucide-react';
 import { seoService } from '@/service/seo.service';
-import type { SeoAnalysisHistoryItem, SeoAnalysisHistoryResponse } from '@/types/seo.types';
+import type { SeoAnalysisHistoryItem } from '@/types/seo.types';
 
 const ANALYSIS_TYPE_LABELS: Record<string, string> = {
 	single_page: 'Single Page',
@@ -38,7 +37,9 @@ export default function SEORocketHistory() {
 	const [page, setPage] = useState(1);
 	const [loading, setLoading] = useState(true);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
-	const [showDeleted, setShowDeleted] = useState(searchParams.get('deleted') === 'true');
+	const [showDeleted, setShowDeleted] = useState(
+		searchParams.get('deleted') === 'true',
+	);
 
 	const fetchHistory = async () => {
 		setLoading(true);
@@ -95,7 +96,11 @@ export default function SEORocketHistory() {
 	};
 
 	const handleHardDelete = async (id: string) => {
-		if (!confirm('Are you sure you want to permanently delete this analysis? This cannot be undone.')) {
+		if (
+			!confirm(
+				'Are you sure you want to permanently delete this analysis? This cannot be undone.',
+			)
+		) {
 			return;
 		}
 		setDeletingId(id);
@@ -133,7 +138,9 @@ export default function SEORocketHistory() {
 					<div>
 						<h1 className='text-2xl font-bold'>Analysis History</h1>
 						<p className='text-sm text-muted-foreground'>
-							{showDeleted ? 'View deleted analyses' : 'View your previous analyses'}
+							{showDeleted
+								? 'View deleted analyses'
+								: 'View your previous analyses'}
 						</p>
 					</div>
 				</div>
@@ -158,7 +165,10 @@ export default function SEORocketHistory() {
 				</div>
 			) : analyses.length === 0 ? (
 				<div className='text-center py-20'>
-					<Search size={48} className='mx-auto text-muted-foreground/30 mb-4' />
+					<Search
+						size={48}
+						className='mx-auto text-muted-foreground/30 mb-4'
+					/>
 					<h3 className='text-lg font-medium'>No analyses found</h3>
 					<p className='text-muted-foreground'>
 						{showDeleted
@@ -190,7 +200,11 @@ export default function SEORocketHistory() {
 									<div className='flex-1 min-w-0'>
 										<div className='flex items-center gap-2 mb-2'>
 											<span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1'>
-												{analysisTypeIcons[analysis.analysisType as keyof typeof analysisTypeIcons]}
+												{
+													analysisTypeIcons[
+														analysis.analysisType as keyof typeof analysisTypeIcons
+													]
+												}
 												{ANALYSIS_TYPE_LABELS[analysis.analysisType]}
 											</span>
 											<span className='text-xs text-muted-foreground flex items-center gap-1'>
@@ -212,7 +226,8 @@ export default function SEORocketHistory() {
 											<ExternalLink size={12} />
 										</a>
 										<p className='text-xs text-muted-foreground mt-1'>
-											{analysis.successfulPages} successful, {analysis.failedPages} failed
+											{analysis.successfulPages} successful,{' '}
+											{analysis.failedPages} failed
 										</p>
 									</div>
 									<div className='flex items-center gap-2'>
@@ -247,7 +262,7 @@ export default function SEORocketHistory() {
 												<button
 													onClick={() =>
 														navigate(
-															`/dashboard/seo-rocket/results?id=${analysis._id}`
+															`/dashboard/seo-rocket/results?id=${analysis._id}`,
 														)
 													}
 													className='p-2 rounded-lg hover:bg-muted transition-colors'

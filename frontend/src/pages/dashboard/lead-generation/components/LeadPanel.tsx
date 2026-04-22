@@ -9,7 +9,6 @@ import {
 	PanelLeftOpen,
 	Search,
 	Square,
-	Pencil,
 	Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

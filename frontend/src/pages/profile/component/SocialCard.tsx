@@ -1,8 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Settings2, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Settings2, X } from 'lucide-react';
+
 
 interface SocialCardProps {
 	Icon: React.ReactNode;
@@ -21,7 +21,6 @@ function SocialCard({
 	onConnect,
 	apiLabel,
 }: SocialCardProps) {
-	const navigate = useNavigate();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [inputToken, setInputToken] = useState(authToken || '');
 	const isConnected = Boolean(authToken);

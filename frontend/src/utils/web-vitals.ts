@@ -177,7 +177,7 @@ export function mergeWithBackendMetrics(
 		lcp: webVitals.lcp,
 		cls: webVitals.cls,
 		inp: webVitals.inp,
-		ttfb: webVitals.ttfb,
+		ttfb: webVitals.ttfb ?? baseMetrics.ttfb,
 		fcpRating: getFcpRating(webVitals.fcp),
 		lcpRating: getLcpRating(webVitals.lcp),
 		clsRating: getClsRating(webVitals.cls),

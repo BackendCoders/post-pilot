@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Bold, Italic, Strikethrough, Code } from 'lucide-react';
 
 export const KEYWORD_GROUPS = {
@@ -40,7 +40,6 @@ type Props = {
 };
 
 export default function MessageEditor({ value, onChange }: Props) {
-	const [cursorPos, setCursorPos] = useState(0);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const insertAtCursor = (keyword: string) => {
@@ -87,34 +86,34 @@ export default function MessageEditor({ value, onChange }: Props) {
 	return (
 		<div className='bg-muted/30 p-5 border border-border/50 rounded-2xl space-y-4'>
 			<div className='flex items-center gap-1 pb-2 border-b border-border/40'>
-				<button 
-					onClick={() => insertFormat('*')} 
-					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95' 
+				<button
+					onClick={() => insertFormat('*')}
+					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95'
 					title='Bold (*text*)'
 				>
-					<Bold size={15}/>
+					<Bold size={15} />
 				</button>
-				<button 
-					onClick={() => insertFormat('_')} 
-					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95' 
+				<button
+					onClick={() => insertFormat('_')}
+					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95'
 					title='Italic (_text_)'
 				>
-					<Italic size={15}/>
+					<Italic size={15} />
 				</button>
-				<button 
-					onClick={() => insertFormat('~')} 
-					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95' 
+				<button
+					onClick={() => insertFormat('~')}
+					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95'
 					title='Strikethrough (~text~)'
 				>
-					<Strikethrough size={15}/>
+					<Strikethrough size={15} />
 				</button>
 				<div className='w-px h-4 bg-border/50 mx-1' />
-				<button 
-					onClick={() => insertFormat('```')} 
-					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95' 
+				<button
+					onClick={() => insertFormat('```')}
+					className='p-1.5 transition-colors hover:bg-muted rounded-md text-muted-foreground hover:text-foreground active:scale-95'
 					title='Monospace (```text```)'
 				>
-					<Code size={15}/>
+					<Code size={15} />
 				</button>
 			</div>
 
@@ -124,15 +123,8 @@ export default function MessageEditor({ value, onChange }: Props) {
 				placeholder='Type your message...'
 				value={value}
 				onChange={(e) => {
-					setCursorPos(e.target.selectionStart);
 					onChange(e.target.value);
 				}}
-				onSelect={(e) =>
-					setCursorPos((e.target as HTMLTextAreaElement).selectionStart)
-				}
-				onClick={(e) =>
-					setCursorPos((e.target as HTMLTextAreaElement).selectionStart)
-				}
 			/>
 
 			<div>

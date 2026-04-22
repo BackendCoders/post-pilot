@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, House } from 'lucide-react';
 import { cn } from "@/lib/utils"; // Standard Tailwind utility
 

@@ -347,7 +347,6 @@ export default function ReachDialog({ isOpen, onClose, selectedLeads }: Props) {
 														<AlertTriangle
 															size={16}
 															className='text-amber-500 shrink-0 mt-0.5'
-															title={`Missing: ${missingVars.join(', ')}`}
 														/>
 													)}
 												</div>

@@ -24,7 +24,11 @@ import {
 } from '@/query/seo-analysis.query';
 import { seoService } from '@/service/seo.service';
 import { generateReportsFromScrapedData } from '@/utils/seo-report-generator';
-import type { ScrapedPageData, SeoAnalysisMode, SeoReport } from '@/types/seo.types';
+import type {
+	ScrapedPageData,
+	SeoAnalysisMode,
+	SeoReport,
+} from '@/types/seo.types';
 
 type ViewType = 'input' | 'sitemap' | 'results' | 'single';
 
@@ -37,7 +41,9 @@ export default function SEORocketPage() {
 	const [rescrapingUrl, setRescrapingUrl] = useState<string | null>(null);
 	const [isScrapingSingle, setIsScrapingSingle] = useState(false);
 	const [currentResults, setCurrentResults] = useState<ScrapedPageData[]>([]);
-	const [currentReports, setCurrentReports] = useState<Record<string, SeoReport>>({});
+	const [currentReports, setCurrentReports] = useState<
+		Record<string, SeoReport>
+	>({});
 	const [resultsPage, setResultsPage] = useState(1);
 	const isScrapingSingleRef = useRef(false);
 	const urlParamRef = useRef<string | null>(null);
@@ -100,6 +106,7 @@ export default function SEORocketPage() {
 				emails: r.analysisData.emails || [],
 				phoneNumbers: r.analysisData.phoneNumbers || [],
 				performanceMetrics: r.analysisData.performanceMetrics || null,
+				analysisReport: r.analysisReport || null,
 			}));
 			setCurrentResults(pageData);
 

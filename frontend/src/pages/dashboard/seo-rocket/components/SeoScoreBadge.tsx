@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
+
 import type { SeoReport } from '@/types/seo.types';
 
 interface SeoScoreBadgeProps {

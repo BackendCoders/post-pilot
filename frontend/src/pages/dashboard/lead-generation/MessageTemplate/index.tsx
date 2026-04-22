@@ -63,7 +63,6 @@ export default function TemplateManager() {
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [currentTemplate, setCurrentTemplate] =
 		useState<IMessageTemplate>(templateStruct);
-	const [cursorPos, setCursorPos] = useState(0);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const { data: templatesResponse, isFetching: loadingTemplate } =
@@ -322,22 +321,11 @@ export default function TemplateManager() {
 										placeholder='Type your message...'
 										value={currentTemplate.content}
 										onChange={(e) => {
-											setCursorPos(e.target.selectionStart);
 											setCurrentTemplate((p) => ({
 												...p,
 												content: e.target.value,
 											}));
 										}}
-										onSelect={(e) =>
-											setCursorPos(
-												(e.target as HTMLTextAreaElement).selectionStart,
-											)
-										}
-										onClick={(e) =>
-											setCursorPos(
-												(e.target as HTMLTextAreaElement).selectionStart,
-											)
-										}
 									/>
 
 									<div className='pt-2'>

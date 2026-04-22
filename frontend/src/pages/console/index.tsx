@@ -13,7 +13,6 @@ import {
 	Hash,
 	CirclePlay,
 	CircleFadingPlus,
-	ChevronLeft,
 } from 'lucide-react';
 
 // ─── Types & Constants ────────────────────────────────────────────────────────
