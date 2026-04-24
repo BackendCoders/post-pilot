@@ -193,21 +193,26 @@ export default function SEORocketPage() {
 
 	const handleAnalyze = useCallback(
 		async (urls: string[]) => {
-			setSelectedUrls(urls);
+			const limitedUrls = urls.slice(0, 50);
+			setSelectedUrls(limitedUrls);
+
+			if (urls.length > 50) {
+				toast.warning('Only 50 webpages can be analyzed in free tier. First 50 pages selected.');
+			}
 
 			try {
-				const result = await bulkScrape(urls);
+				const result = await bulkScrape(limitedUrls);
 				console.log('Bulk scrape result:', result);
 
 				setCurrentResults(result.data || []);
 
-				const isFullSite = sitemap?.urls && urls.length === sitemap.urls.length;
-				const requestedUrl = urlParam || urls[0] || '';
+				const isFullSite = sitemap?.urls && limitedUrls.length === sitemap.urls.length;
+				const requestedUrl = urlParam || limitedUrls[0] || '';
 
 				const saveResult = await api.post('/api/seo/analysis', {
 					requestedUrl,
 					analysisType: isFullSite ? 'full_site' : 'partial_site',
-					analyzedUrls: urls,
+					analyzedUrls: limitedUrls,
 					results: result.data || [],
 				});
 

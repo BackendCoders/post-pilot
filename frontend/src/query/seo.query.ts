@@ -131,7 +131,11 @@ export const useSeoAnalysis = () => {
 
 	const selectAll = useCallback(() => {
 		if (sitemap) {
-			setSelectedUrls(sitemap.urls);
+			const limitedUrls = sitemap.urls.slice(0, 50);
+			setSelectedUrls(limitedUrls);
+			if (sitemap.urls.length > 50) {
+				toast.warning('Only 50 webpages can be analyzed in free tier. First 50 pages selected.');
+			}
 		}
 	}, [sitemap]);
 
