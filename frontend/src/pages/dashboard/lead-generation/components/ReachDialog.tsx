@@ -23,7 +23,7 @@ import MessageEditor from './MessageEditor';
 type Props = {
 	isOpen: boolean;
 	onClose: () => void;
-	selectedLeads: ILead[];
+	selectedLeads: Partial<ILead>[];
 	category?: string;
 };
 
@@ -50,7 +50,7 @@ const ALWAYS_AVAILABLE = new Set([
 	'unsubscribeUrl',
 ]);
 
-const getMissingVariables = (content: string, lead: ILead): string[] => {
+const getMissingVariables = (content: string, lead: Partial<ILead>): string[] => {
 	const allVars = getUnresolvedVariables(content);
 	return allVars.filter((v) => {
 		if (ALWAYS_AVAILABLE.has(v)) return false;
@@ -141,7 +141,7 @@ export default function ReachDialog({ isOpen, onClose, selectedLeads }: Props) {
 
 	const leadsWithPhone = selectedLeads.filter((lead) => lead.phone);
 
-	const generateResolvedMessage = (lead: ILead, content: string) => {
+	const generateResolvedMessage = (lead: Partial<ILead>, content: string) => {
 		if (!content) return '';
 
 		const now = new Date();
@@ -191,7 +191,7 @@ export default function ReachDialog({ isOpen, onClose, selectedLeads }: Props) {
 		return phone.replace(/[^0-9]/g, '');
 	};
 
-	const openWhatsApp = async (lead: ILead) => {
+	const openWhatsApp = async (lead: Partial<ILead>) => {
 		if (!customContent || !lead.phone) return;
 		const message = generateResolvedMessage(lead, customContent);
 		const encodedMessage = encodeURIComponent(message);

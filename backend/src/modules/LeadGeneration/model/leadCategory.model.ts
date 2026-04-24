@@ -4,6 +4,8 @@ export interface ILeadCategory {
   user: Types.ObjectId;
   title: string;
   description?: string;
+  autoConvertOnReply: boolean;
+  autoProcessOnSend: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -25,6 +27,14 @@ const leadCategorySchema = new Schema<ILeadCategory>(
       type: String,
       trim: true,
       default: null,
+    },
+    autoConvertOnReply: {
+      type: Boolean,
+      default: false,
+    },
+    autoProcessOnSend: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

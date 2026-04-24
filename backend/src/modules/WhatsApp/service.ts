@@ -12,6 +12,9 @@ import User from '../../models/User';
 import { logger } from '../../utils/logger';
 import QRCode from 'qrcode';
 import Lead from '../LeadGeneration/model/lead.model';
+import LeadMessage from '../LeadGeneration/model/leadMessage.model';
+import LeadCategory from '../LeadGeneration/model/leadCategory.model';
+import { socketService } from '../../services/socket.service';
 
 const SESSION_DIR = './whatsapp-sessions';
 
@@ -67,7 +70,7 @@ class WhatsAppService {
     try {
       const users = await User.find({ whatsappConnected: true }).select('_id');
       logger.info(`Found ${users.length} connected WhatsApp sessions to resume`);
-      
+
       for (const user of users) {
         await this.startConnection(user._id.toString(), true);
         // Add a small delay between initializations to avoid rate limits
@@ -102,7 +105,7 @@ class WhatsAppService {
       });
       try {
         existingSocket.end(undefined);
-      } catch (e) {}
+      } catch (e) { }
       this.sockets.delete(userId);
     }
 
@@ -243,61 +246,68 @@ class WhatsAppService {
       // Listen for incoming messages to detect replies from leads
       sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
-        
+
         for (const msg of messages) {
           if (!msg.key.fromMe && msg.key.remoteJid) {
-            const phoneNumber = msg.key.remoteJid.split('@')[0].replace(/[^0-9]/g, '');
+            const phoneNumber = msg.key.remoteJidAlt ? msg.key.remoteJidAlt.split('@')[0].replace(/[^0-9]/g, '') : msg.key.remoteJid.split('@')[0].replace(/[^0-9]/g, '');
+            if (!phoneNumber) {
+              console.log("NO PHONE NO.");
+              continue;
+            };
+
             const phoneLast10 = phoneNumber.slice(-10);
-            
+
             // Debug: Log incoming phone number
             logger.info('Incoming message from', { phoneNumber, phoneLast10 });
-            
-            // Check if this phone number exists in processed leads (also check saved status)
-            let lead = await Lead.findOne({
-              phone: { $regex: new RegExp(phoneLast10, 'i') },
-              status: 'processed'
-            });
-            
-            // If not in processed, check saved leads
-            if (!lead) {
-              lead = await Lead.findOne({
-                phone: { $regex: new RegExp(phoneLast10, 'i') },
-                status: 'saved'
-              });
-              
-              if (lead) {
-                logger.info('Found lead in saved status, updating to processed', { 
-                  phone: phoneNumber,
-                  leadId: lead._id,
-                  oldStatus: lead.status 
-                });
-                
-                await Lead.findByIdAndUpdate(lead._id, {
-                  $set: { status: 'processed' }
-                });
+
+            // Check if this phone number exists in leads
+            let lead = await this.findLeadByPhone(userId, phoneNumber);
+
+            if (lead) {
+              // Fetch category settings for automation
+              const category = await LeadCategory.findById(lead.leadCategory);
+
+              // 1. Auto Process on Send (if not already processed/converted)
+              // This is usually handled on outgoing, but good to have a fallback here if needed.
+              // However, user specifically asked for "Converted when message received".
+
+              // 2. Auto Converted on Reply
+              if (category?.autoConvertOnReply) {
+                logger.info('Auto-promoting lead to converted based on category setting', { leadId: lead._id });
+                await Lead.findByIdAndUpdate(lead._id, { $set: { status: 'converted' } });
+              }
+
+              // Check if message already logged
+              const existingMsg = await LeadMessage.findOne({ whatsappMessageId: msg.key.id });
+              if (existingMsg) {
+                logger.info('Message already logged, skipping', { whatsappMessageId: msg.key.id });
                 continue;
               }
-            }
-            
-            if (lead) {
-              logger.info('Found processed lead, updating to converted', { 
+
+              // Log incoming message
+              const incomingMsg = await LeadMessage.create({
+                user: userId,
+                lead: lead._id,
                 phone: phoneNumber,
-                leadId: lead._id,
-                oldStatus: lead.status 
+                direction: 'incoming',
+                content: msg.message?.conversation
+                  || msg.message?.extendedTextMessage?.text
+                  || (msg.message?.imageMessage ? '[Image]' : msg.message?.documentMessage ? '[Document]' : '[Media]'),
+                contentType: msg.message?.imageMessage ? 'image' : msg.message?.documentMessage ? 'document' : 'text',
+                status: 'delivered',
+                whatsappMessageId: msg.key.id,
               });
-              
-              // Update lead status to 'converted' to indicate they replied
-              const result = await Lead.findByIdAndUpdate(lead._id, {
-                $set: { status: 'converted' }
-              });
-              
-              logger.info('Lead status updated to converted', { 
+
+              // Emit real-time update
+              socketService.emitToLeadChat(lead._id.toString(), 'new_message', incomingMsg);
+              socketService.emitToUser(userId, 'new_message', incomingMsg);
+
+              logger.info('Lead status updated to converted and message logged', {
                 leadId: lead._id,
-                phone: phoneNumber,
-                result: result ? 'success' : 'failed'
+                phone: phoneNumber
               });
             } else {
-              logger.info('No matching lead found in saved/processed status', { phoneNumber, phoneLast10 });
+              logger.info('No matching lead found for incoming message', { phoneNumber, phoneLast10 });
             }
           }
         }
@@ -379,9 +389,67 @@ class WhatsAppService {
     return cleaned;
   }
 
+
+  private async findLeadByPhone(userId: string, phone: string) {
+    const phoneDigits = phone.replace(/\D/g, '');
+    const phoneLast10 = phoneDigits.slice(-10);
+
+    logger.info('Finding lead by phone', { userId, phone, phoneDigits, phoneLast10 });
+
+    // Try finding by status priority to handle duplicate phone numbers
+    // Priority: saved > processed > any
+    let lead = await Lead.findOne({
+      user: userId,
+      phone: { $regex: new RegExp(phoneLast10, 'i') },
+      status: 'saved'
+    });
+
+    if (!lead) {
+      lead = await Lead.findOne({
+        user: userId,
+        phone: { $regex: new RegExp(phoneLast10, 'i') },
+        status: 'processed'
+      });
+    }
+
+    if (!lead) {
+      lead = await Lead.findOne({
+        user: userId,
+        phone: { $regex: new RegExp(phoneLast10, 'i') }
+      });
+    }
+
+    if (lead) {
+      logger.info('Lead found via regex with status priority', { leadId: lead._id, status: lead.status });
+    } else {
+      logger.info('Lead not found via regex, trying manual match on all user leads');
+      const userLeads = await Lead.find({ user: userId }).select('phone');
+      logger.info(`Checking ${userLeads.length} leads for user`);
+
+      const matchedLead = userLeads.find(l => {
+        if (!l.phone) return false;
+        const leadDigits = l.phone.replace(/\D/g, '');
+        const match = leadDigits.endsWith(phoneLast10);
+        if (match) logger.info('Manual match found', { leadPhone: l.phone, leadId: l._id });
+        return match;
+      });
+
+      if (matchedLead) {
+        lead = await Lead.findById(matchedLead._id);
+      } else {
+        lead = null;
+      }
+    }
+
+    if (!lead) {
+      logger.warn(`Lead NOT found for`, { phone, phoneLast10 });
+    }
+
+    return lead;
+  }
+
   async sendMessage(userId: string, to: string, text: string): Promise<any> {
     let sock = this.getSocket(userId);
-    console.log(sock);
     if (!sock) {
       const isConnected = await this.checkIsConnected(userId);
       if (isConnected) {
@@ -391,7 +459,7 @@ class WhatsAppService {
         await new Promise((resolve) => setTimeout(resolve, 3000));
         sock = this.getSocket(userId);
       }
-      
+
       if (!sock) {
         throw new Error(
           'WhatsApp session not active. Please reconnect to WhatsApp.'
@@ -407,6 +475,44 @@ class WhatsAppService {
       // presence subscriber if necessary, but sendMessage works directly
       const result = await sock.sendMessage(jid, { text });
       logger.info('WhatsApp message sent', { userId, to, jid });
+
+      // Log outgoing message
+      const lead = await this.findLeadByPhone(userId, to);
+
+      if (lead) {
+        // Fetch category settings for automation
+        const category = await LeadCategory.findById(lead.leadCategory);
+
+        logger.info('Checking auto-process on send for single message', {
+          leadId: lead._id,
+          categoryId: category?._id,
+          autoProcessSetting: category?.autoProcessOnSend,
+          currentLeadStatus: lead.status
+        });
+
+        if (category?.autoProcessOnSend && lead.status === 'saved') {
+          logger.info('Auto-promoting lead to processed based on category setting', { leadId: lead._id });
+          await Lead.findByIdAndUpdate(lead._id, { $set: { status: 'processed' } });
+        }
+
+        const outgoingMsg = await LeadMessage.create({
+          user: userId,
+          lead: lead._id,
+          phone: to,
+          direction: 'outgoing',
+          content: text,
+          contentType: 'text',
+          status: 'sent',
+          whatsappMessageId: result?.key?.id,
+        });
+
+        // Emit real-time update
+        socketService.emitToLeadChat(lead._id.toString(), 'new_message', outgoingMsg);
+        socketService.emitToUser(userId, 'new_message', outgoingMsg);
+      } else {
+        logger.warn('Skipping message log: Lead not found', { to });
+      }
+
       return result;
     } catch (error) {
       logger.error('Failed to send WhatsApp message', { userId, to, error });
@@ -419,7 +525,6 @@ class WhatsAppService {
     phoneNumbers: string[],
     text: string
   ): Promise<any> {
-    console.log(userId);
     let sock = this.getSocket(userId);
     if (!sock) {
       const isConnected = await this.checkIsConnected(userId);
@@ -446,16 +551,49 @@ class WhatsAppService {
     for (const phone of phoneNumbers) {
       try {
         const jid = this.formatPhoneNumber(phone);
-        await sock.sendMessage(jid, { text });
+        const result = await sock.sendMessage(jid, { text });
         results.successful.push(phone);
 
-        // Update lead status to 'processed' if it was 'saved'
-        await Lead.updateOne(
-          { phone, user: userId, status: 'saved' },
-          { $set: { status: 'processed' } }
-        ).catch((err: unknown) => {
-          logger.error('Failed to update lead status', { phone, error: err });
-        });
+        logger.info('Bulk message sent to', { phone, jid });
+
+        // Log outgoing message
+        const lead = await this.findLeadByPhone(userId, phone);
+
+        if (lead) {
+          logger.info('Logging bulk message for lead', { leadId: lead._id });
+
+          // Fetch category settings for automation
+          const category = await LeadCategory.findById(lead.leadCategory);
+
+          logger.info('Checking auto-process on send for bulk message', {
+            leadId: lead._id,
+            categoryId: category?._id,
+            autoProcessSetting: category?.autoProcessOnSend,
+            currentLeadStatus: lead.status
+          });
+
+          if (category?.autoProcessOnSend && lead.status === 'saved') {
+            logger.info('Auto-promoting lead to processed based on category setting', { leadId: lead._id });
+            await Lead.findByIdAndUpdate(lead._id, { $set: { status: 'processed' } });
+          }
+
+          const outgoingMsg = await LeadMessage.create({
+            user: userId,
+            lead: lead._id,
+            phone: phone,
+            direction: 'outgoing',
+            content: text,
+            contentType: 'text',
+            status: 'sent',
+            whatsappMessageId: result?.key?.id,
+          });
+
+          // Emit real-time update
+          socketService.emitToLeadChat(lead._id.toString(), 'new_message', outgoingMsg);
+          socketService.emitToUser(userId, 'new_message', outgoingMsg);
+        } else {
+          logger.warn('Could not log bulk message: Lead not found', { phone });
+        }
 
         // Wait 1-3 seconds between messages
         const delay = Math.floor(Math.random() * 2000) + 1000;

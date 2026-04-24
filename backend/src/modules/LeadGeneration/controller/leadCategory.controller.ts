@@ -11,6 +11,8 @@ export const createLeadCategory = asyncHandler(
       user,
       title: req.body.title,
       description: req.body.description,
+      autoConvertOnReply: req.body.autoConvertOnReply,
+      autoProcessOnSend: req.body.autoProcessOnSend,
     });
 
     res.status(201).json({
@@ -113,6 +115,12 @@ export const updateLeadCategory = asyncHandler(
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
       payload.description = req.body.description;
+    }
+    if (typeof req.body.autoConvertOnReply !== 'undefined') {
+      payload.autoConvertOnReply = req.body.autoConvertOnReply;
+    }
+    if (typeof req.body.autoProcessOnSend !== 'undefined') {
+      payload.autoProcessOnSend = req.body.autoProcessOnSend;
     }
 
     const updatedCategory = await LeadCategory.findByIdAndUpdate(

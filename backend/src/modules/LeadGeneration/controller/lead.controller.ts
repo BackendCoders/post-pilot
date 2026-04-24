@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { asyncHandler } from '../../../middleware';
 import Lead from '../model/lead.model';
 import LeadCategory from '../model/leadCategory.model';
+import LeadMessage from '../model/leadMessage.model';
 import axios from 'axios';
 import {
   deleteImageFromCloudinary,
@@ -177,9 +178,21 @@ export const listLeads = asyncHandler(async (req: Request, res: Response) => {
     Lead.countDocuments(filter).exec(),
   ]);
 
+  const leadIds = items.map((item) => item._id);
+  const messageCounts = await LeadMessage.aggregate([
+    { $match: { lead: { $in: leadIds }, direction: 'outgoing' } },
+    { $group: { _id: '$lead', count: { $sum: 1 } } },
+  ]);
+
+  const countMap = new Map(messageCounts.map((m) => [m._id.toString(), m.count]));
+  const leadsWithMessageCount = items.map((lead) => ({
+    ...lead.toObject(),
+    messageCount: countMap.get(lead._id.toString()) || 0,
+  }));
+
   res.status(200).json({
     success: true,
-    data: items,
+    data: leadsWithMessageCount,
     message: 'Leads fetched successfully',
     pagination: {
       page,

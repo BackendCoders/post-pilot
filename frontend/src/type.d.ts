@@ -63,6 +63,8 @@ interface ILeadCategory {
 	user: string;
 	title: string;
 	description?: string | null;
+	autoConvertOnReply?: boolean;
+	autoProcessOnSend?: boolean;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -84,6 +86,7 @@ interface ILead {
 	category?: string;
 	googleMapUrl?: string;
 	note?: string;
+	messageCount?: number;
 	status: (typeof LEAD_STATUSES)[number];
 	createdAt?: Date;
 	updatedAt?: Date;

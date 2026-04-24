@@ -2,3 +2,8 @@ node_modules
 superpowers/
 docs/
 backend/whatsapp-sessions
+.gemini/
+graphify-out/
+.agent/
+graphify-out/
+frontend/dist/

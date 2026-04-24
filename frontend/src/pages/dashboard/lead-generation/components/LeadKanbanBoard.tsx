@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { CheckSquare, Square, Pencil } from 'lucide-react';
+import { CheckSquare, Square, Notebook } from 'lucide-react';
 import { Kanban, type BoardData } from 'react-kanban-kit';
 import { LEAD_COLUMNS, statusFromColumnId } from './leadWorkspace.constants';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,10 @@ type Props = {
 	onToggleLeadSelection: (id: string) => void;
 	onToggleColumnSelection: (ids: string[]) => void;
 	onOpenLead: (lead: ILead) => void;
-	onMoveLeads: (ids: string[], status: 'saved' | 'processed' | 'converted' | 'rejected') => void;
+	onMoveLeads: (
+		ids: string[],
+		status: 'saved' | 'processed' | 'converted' | 'rejected',
+	) => void;
 };
 
 const getCardId = (leadId: string) => `lead-${leadId}`;
@@ -101,7 +104,13 @@ export default function LeadKanbanBoard({
 					type: 'lead-card',
 					children: [],
 					totalChildrenCount: 0,
-					content: { leadId: lead._id, thumbnailUrl: lead.thumbnailUrl, note: lead.note, status: lead.status },
+					content: {
+						leadId: lead._id,
+						thumbnailUrl: lead.thumbnailUrl,
+						note: lead.note,
+						status: lead.status,
+						messageCount: lead.messageCount,
+					},
 				};
 			}
 		}
@@ -113,11 +122,26 @@ export default function LeadKanbanBoard({
 		() => ({
 			'lead-card': {
 				isDraggable: true,
-				render: ({ data }: { data: { id: string; title: string; content?: { leadId?: string; thumbnailUrl?: string; note?: string; status?: string } } }) => {
+				render: ({
+					data,
+				}: {
+					data: {
+						id: string;
+						title: string;
+						content?: {
+							leadId?: string;
+							thumbnailUrl?: string;
+							note?: string;
+							status?: string;
+							messageCount?: number;
+						};
+					};
+				}) => {
 					const leadId = data.content?.leadId || getLeadIdFromCard(data.id);
 					const isSelected = selectedLeadIds.has(leadId);
 					const hasNote = !!data.content?.note;
 					const isConverted = data.content?.status === 'converted';
+					const messageCount = data.content?.messageCount || 0;
 
 					const handleNoteClick = (event: React.MouseEvent) => {
 						event.stopPropagation();
@@ -129,52 +153,79 @@ export default function LeadKanbanBoard({
 					};
 
 					return (
-						<div className={cn(
-							'relative rounded-xl border bg-card px-3 py-3 shadow-sm hover:shadow-md transition-all group',
-							isConverted ? 'border-green-300 dark:border-green-600' : 'border-border'
-						)}>
-							<button
-								type='button'
-								onClick={(event) => {
-									event.stopPropagation();
-									onToggleLeadSelection(leadId);
-								}}
-								className='mb-2 inline-flex'
-							>
-								{isSelected ? (
-									<CheckSquare className='h-4 w-4 text-primary' />
-								) : (
-									<Square className='h-4 w-4 text-muted-foreground' />
-								)}
-							</button>
-							<button
-								type='button'
-								onClick={handleNoteClick}
-								className={cn(
-									'absolute top-2 right-2 p-1 rounded-md transition-all',
-									hasNote
-										? 'opacity-100 bg-background/80 hover:bg-background'
-										: 'opacity-0 group-hover:opacity-100 bg-background/80 hover:bg-background',
-								)}
-								title={hasNote ? data.content?.note : 'Add note'}
-							>
-								<Pencil
-									size={12}
-									className={cn(
-										'transition-colors',
-										hasNote ? 'text-primary' : 'text-muted-foreground',
-									)}
-								/>
-							</button>
-							{data.content?.thumbnailUrl && (
-								<img
-									src={data.content.thumbnailUrl}
-									alt={data.title}
-									draggable={false}
-									className='pointer-events-none select-none mb-2 h-24 w-full rounded-lg object-cover border border-border'
-								/>
+						<div
+							className={cn(
+								'group relative flex flex-col gap-2 rounded-xl border bg-card p-2.5 shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.98]',
+								isConverted
+									? 'border-green-500/30 bg-green-500/2 dark:border-green-500/50'
+									: 'border-border',
 							)}
-							<p className='line-clamp-2 text-sm font-semibold leading-snug'>{data.title}</p>
+						>
+							{/* Header Actions */}
+							<div className='flex items-center justify-between'>
+								<button
+									type='button'
+									onClick={(event) => {
+										event.stopPropagation();
+										onToggleLeadSelection(leadId);
+									}}
+									className='group/checkbox flex items-center gap-1.5 outline-none'
+								>
+									<div className='relative flex items-center justify-center'>
+										{isSelected ? (
+											<CheckSquare className='h-4 w-4 text-primary transition-transform duration-200 group-active/checkbox:scale-90' />
+										) : (
+											<Square className='h-4 w-4 text-muted-foreground transition-colors group-hover/checkbox:text-foreground' />
+										)}
+									</div>
+								</button>
+								{messageCount > 0 && (
+									<span
+										title={`Messages Sent: ${messageCount}`}
+										className='absolute right-2 top-3.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-primary-foreground'
+									>
+										{messageCount}
+									</span>
+								)}
+
+								{(hasNote || messageCount > 0) && (
+									<button
+										type='button'
+										onClick={handleNoteClick}
+										className={cn(
+											'inline-flex mr-5 items-center justify-center rounded-md p-1 transition-all duration-200 hover:bg-background border border-transparent hover:border-border',
+											hasNote
+												? 'opacity-100 text-primary'
+												: 'opacity-0 group-hover:opacity-100 text-muted-foreground',
+										)}
+										title={hasNote ? data.content?.note : 'Add note'}
+									>
+										<Notebook
+											size={14}
+											className='transition-colors'
+										/>
+									</button>
+								)}
+							</div>
+
+							{/* Media Content */}
+							{data.content?.thumbnailUrl && (
+								<div className='overflow-hidden rounded-lg border border-border/50'>
+									<img
+										src={data.content.thumbnailUrl}
+										alt={data.title}
+										draggable={false}
+										className='h-20 w-full select-none object-cover transition-transform duration-500 group-hover:scale-105'
+									/>
+								</div>
+							)}
+
+							{/* Typography */}
+							<div className='space-y-1'>
+								<p className='line-clamp-2 font-sans text-sm font-medium leading-tight tracking-tight text-foreground'>
+									{data.title}
+								</p>
+							</div>
 						</div>
 					);
 				},
@@ -214,7 +265,8 @@ export default function LeadKanbanBoard({
 							if (!draggedLead || !draggedLead._id) return;
 
 							const moveMany =
-								selectedLeadIds.has(draggedLead._id) && selectedLeadIds.size > 1;
+								selectedLeadIds.has(draggedLead._id) &&
+								selectedLeadIds.size > 1;
 							if (moveMany) {
 								const ids = leads
 									.filter(

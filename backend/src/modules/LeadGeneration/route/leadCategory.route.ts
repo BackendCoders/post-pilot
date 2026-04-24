@@ -3,6 +3,7 @@ import z from 'zod';
 import { authenticate, validateRequest } from '../../../middleware';
 import {
   createLeadCategory,
+  deleteLeadCategory,
   getLeadCategory,
   listLeadCategories,
   updateLeadCategory,
@@ -56,5 +57,6 @@ router.patch(
   validateRequest(updateLeadCategorySchema),
   updateLeadCategory
 );
+router.delete('/:id', validateRequest(leadIdSchema), deleteLeadCategory);
 
 export default router;

@@ -9,7 +9,7 @@ import { useUpdateLeadNote } from '@/query/leads.query';
 type Props = {
 	isOpen: boolean;
 	onClose: () => void;
-	lead: ILead | null;
+	lead: Partial<ILead> | null;
 };
 
 export default function NoteDialog({ isOpen, onClose, lead }: Props) {

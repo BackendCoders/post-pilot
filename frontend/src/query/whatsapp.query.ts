@@ -44,6 +44,8 @@ export const useWhatsappSendMessagebulk = () => {
 		onSuccess: () => {
 			toast.success('Messages Sent successfully');
 			queryClient.invalidateQueries({ queryKey: ['leads'] });
+			queryClient.invalidateQueries({ queryKey: ['conversations'] });
+			queryClient.invalidateQueries({ queryKey: ['messageThread'] });
 		},
 		onError: () => {
 			toast.error(

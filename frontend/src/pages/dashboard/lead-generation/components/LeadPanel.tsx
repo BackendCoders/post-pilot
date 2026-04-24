@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	CheckSquare,
 	Filter,
@@ -10,15 +10,21 @@ import {
 	Search,
 	Square,
 	Plus,
+	Settings2,
+	MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
 	useBulkUpdateLeads,
 	useDeleteBulkLeads,
 	useLeads,
 } from '@/query/leads.query';
-import { useGetLeadCategory } from '@/query/leadsCategory.query';
+import { useGetLeadCategory, useUpdateLeadCategory } from '@/query/leadsCategory.query';
+import { useUnreadCount } from '@/query/leadMessage.query';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import LeadWorkspaceToggle from './LeadWorkspaceToggle';
 import type { LeadViewMode } from './leadWorkspace.constants';
 import LeadKanbanBoard from './LeadKanbanBoard';
@@ -27,10 +33,12 @@ import LeadFloatingDock from './LeadFloatingDock';
 import LeadDetailsPanel from './LeadDetailsPanel';
 import ReachDialog from './ReachDialog';
 import EditLeadDialog from './EditLeadDialog';
+import ManageCategoriesDialog from './ManageCategoriesDialog';
 
 export type LeadPanelSection = 'saved' | 'processed' | 'converted' | 'rejected';
 
 export default function LeadPanel({ section }: { section: LeadPanelSection }) {
+	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
 		searchParams.get('category') || '',
@@ -50,12 +58,15 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 		useState(false);
 	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
 	const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
+	const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
 
 	const { data: categoriesResponse, isLoading: isLoadingCategories } =
 		useGetLeadCategory();
 	const { data: leadsResponse, isLoading: isLoadingLeads } = useLeads();
+	const { data: unreadData } = useUnreadCount();
 	const { mutate: deleteLeadBulk } = useDeleteBulkLeads();
 	const { mutate: updateLeadBulkStatus } = useBulkUpdateLeads();
+	const updateCategoryMutation = useUpdateLeadCategory();
 
 	const categories = categoriesResponse?.data || [];
 	const leads = (leadsResponse?.data as ILead[]) || [];
@@ -136,6 +147,27 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 		if (section === 'rejected') return 'Rejected Leads Workspace';
 		return 'Saved Leads Workspace';
 	}, [section]);
+
+	const activeCategory = useMemo(() => 
+		categories.find(c => c._id === selectedCategoryId),
+	[categories, selectedCategoryId]);
+
+	const handleToggleAutomation = (field: 'autoConvertOnReply' | 'autoProcessOnSend', value: boolean) => {
+		if (!selectedCategoryId) return;
+		updateCategoryMutation.mutate({
+			id: selectedCategoryId,
+			data: { [field]: value }
+		});
+	};
+
+	// Keep selectedLead in sync with updated data from the leads query
+	useEffect(() => {
+		if (!selectedLead || !leads.length) return;
+		const updatedLead = leads.find((l) => l._id === selectedLead._id);
+		if (updatedLead && (updatedLead.status !== selectedLead.status || updatedLead.updatedAt !== selectedLead.updatedAt)) {
+			setSelectedLead(updatedLead);
+		}
+	}, [leads, selectedLead]);
 
 	useEffect(() => {
 		if (!selectedLead) return;
@@ -494,11 +526,45 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 							{!isWorkspaceSidebarCollapsed && <span>All Leads</span>}
 						</button>
 
+						<button
+							onClick={() => navigate('/dashboard/lead-generation/messages')}
+							className={cn(
+								'w-full flex items-center rounded-[12px] text-sm transition-all duration-200 active:scale-95 px-4 py-3 gap-3',
+								isWorkspaceSidebarCollapsed
+									? 'justify-center'
+									: 'px-4 py-3 gap-3',
+								'text-muted-foreground hover:bg-muted hover:text-foreground'
+							)}
+							title='Lead Messages'
+						>
+							<MessageSquare size={18} className="text-primary/60" />
+							{!isWorkspaceSidebarCollapsed && (
+								<div className="flex flex-1 items-center justify-between">
+									<span>Lead Messages</span>
+									{unreadData && unreadData.unreadCount > 0 && (
+										<Badge variant="destructive" className="h-5 min-w-5 justify-center px-1 text-[10px] rounded-full animate-in zoom-in duration-300">
+											{unreadData.unreadCount}
+										</Badge>
+									)}
+								</div>
+							)}
+						</button>
+
 						{!isWorkspaceSidebarCollapsed && (
-							<div className='px-4 pb-2 pt-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground'>
+						<div className='px-4 pb-2 pt-4 flex items-center justify-between'>
+							<span className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground'>
 								Categories
-							</div>
-						)}
+							</span>
+							<button
+								type='button'
+								onClick={() => setIsManageCategoriesOpen(true)}
+								className='rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-all'
+								title='Manage categories'
+							>
+								<Settings2 size={13} />
+							</button>
+						</div>
+					)}
 
 						{isLoadingCategories ? (
 							<div className='p-4 text-xs text-muted-foreground'>
@@ -598,25 +664,69 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 					</div>
 				</header>
 
-				<div className='border-b border-border bg-muted/20 px-8 py-3 flex items-center gap-4'>
-					<button
-						type='button'
-						onClick={
-							viewMode === 'list' ? toggleSelectAllVisible : toggleSelectAll
-						}
-						className='text-muted-foreground transition-colors hover:text-primary active:scale-90'
-					>
-						{allVisibleSelected ? (
-							<CheckSquare className='h-5 w-5 text-primary' />
-						) : (
-							<Square className='h-5 w-5' />
-						)}
-					</button>
-					<span className='text-[11px] font-bold uppercase tracking-widest text-muted-foreground'>
-						{selectedLeadIds.size > 0
-							? `${selectedLeadIds.size} selected`
-							: 'Select one or more leads to move across panels'}
-					</span>
+				<div className='border-b border-border bg-muted/20 px-8 py-3 flex items-center justify-between'>
+					<div className='flex items-center gap-4'>
+						<button
+							type='button'
+							onClick={
+								viewMode === 'list' ? toggleSelectAllVisible : toggleSelectAll
+							}
+							className='text-muted-foreground transition-colors hover:text-primary active:scale-90'
+						>
+							{allVisibleSelected ? (
+								<CheckSquare className='h-5 w-5 text-primary' />
+							) : (
+								<Square className='h-5 w-5' />
+							)}
+						</button>
+						<span className='text-[11px] font-bold uppercase tracking-widest text-muted-foreground'>
+							{selectedLeadIds.size > 0
+								? `${selectedLeadIds.size} selected`
+								: 'Select one or more leads to move across panels'}
+						</span>
+					</div>
+
+					{activeCategory && (
+						<div className='flex items-center gap-6 bg-background/50 py-1 px-4 rounded-full border border-border/50'>
+							<span className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60'>
+								{activeCategory.title} Automation:
+							</span>
+							<div className='flex items-center gap-4'>
+								<div className='flex items-center space-x-2 group/tip'>
+									<Checkbox 
+										id="panel-auto-convert" 
+										checked={activeCategory.autoConvertOnReply}
+										onCheckedChange={(checked) => handleToggleAutomation('autoConvertOnReply', !!checked)}
+										className='h-3.5 w-3.5'
+									/>
+									<Label 
+										htmlFor="panel-auto-convert" 
+										className='text-[10px] font-bold cursor-pointer text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1'
+										title="Auto promote leads to 'Converted' when they reply to a message"
+									>
+										Auto-Convert
+										<div className="w-3 h-3 rounded-full border border-muted-foreground/30 flex items-center justify-center text-[7px] text-muted-foreground/40">?</div>
+									</Label>
+								</div>
+								<div className='flex items-center space-x-2 group/tip'>
+									<Checkbox 
+										id="panel-auto-process" 
+										checked={activeCategory.autoProcessOnSend}
+										onCheckedChange={(checked) => handleToggleAutomation('autoProcessOnSend', !!checked)}
+										className='h-3.5 w-3.5'
+									/>
+									<Label 
+										htmlFor="panel-auto-process" 
+										className='text-[10px] font-bold cursor-pointer text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1'
+										title="Auto promote 'Saved' leads to 'Processing' when you send them a message"
+									>
+										Auto-Process
+										<div className="w-3 h-3 rounded-full border border-muted-foreground/30 flex items-center justify-center text-[7px] text-muted-foreground/40">?</div>
+									</Label>
+								</div>
+							</div>
+						</div>
+					)}
 				</div>
 				{viewMode === 'list' && (
 					<div className='border-b border-border bg-background px-8 py-3'>
@@ -721,6 +831,11 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 					selectedLeads={leads.filter(
 						(lead) => lead._id && selectedLeadIds.has(lead._id),
 					)}
+				/>
+
+				<ManageCategoriesDialog
+					isOpen={isManageCategoriesOpen}
+					onClose={() => setIsManageCategoriesOpen(false)}
 				/>
 
 				<EditLeadDialog

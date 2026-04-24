@@ -9,18 +9,22 @@ import {
 	X,
 	MessageSquare,
 	ExternalLink,
-	Pencil,
+	NotebookPen,
 	Edit,
+	Trash2,
+	Loader2,
+	AlertTriangle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useDeleteLead } from '@/query/leads.query';
 import { getStatusLabel } from './leadWorkspace.constants';
 import ReachDialog from './ReachDialog';
 import NoteDialog from './NoteDialog';
 import EditLeadDialog from './EditLeadDialog';
 
 type Props = {
-	lead: ILead | null;
+	lead: Partial<ILead> | null;
 	onClose: () => void;
 };
 
@@ -29,6 +33,8 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
 	const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+	const deleteMutation = useDeleteLead();
 
 	if (!lead) return null;
 
@@ -167,6 +173,18 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 									<p className='text-[10px] text-muted-foreground'>via WhatsApp</p>
 								</div>
 							</button>
+							<button
+								onClick={() => navigate(`/dashboard/lead-generation/messages?leadId=${lead._id}`)}
+								className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 transition-all"
+							>
+								<div className="p-2 rounded-full bg-primary/10">
+									<MessageSquare size={18} className="text-primary" />
+								</div>
+								<div className='text-left flex-1'>
+									<span className='text-sm font-medium'>Message History</span>
+									<p className='text-[10px] text-muted-foreground'>View conversation thread</p>
+								</div>
+							</button>
 							{!lead.phone && (
 								<p className='text-xs text-center text-red-500'>
 									Phone number not available
@@ -217,7 +235,7 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 											onClick={() => setIsNoteDialogOpen(true)}
 											className='h-8 w-8 shrink-0 rounded-lg'
 										>
-											<Pencil size={14} />
+											<NotebookPen size={14} />
 										</Button>
 									</div>
 								) : (
@@ -226,11 +244,69 @@ export default function LeadDetailsPanel({ lead, onClose }: Props) {
 										onClick={() => setIsNoteDialogOpen(true)}
 										className='w-full h-auto py-2 text-muted-foreground hover:text-foreground'
 									>
-										<Pencil size={14} className='mr-2' />
+										<NotebookPen size={14} className='mr-2' />
 										<span className='text-xs'>Add a note</span>
 									</Button>
 								)}
 							</div>
+						</div>
+
+						{/* Delete Lead */}
+						<div className='pt-4 border-t border-border'>
+							{isConfirmingDelete ? (
+								<div className='rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3'>
+									<div className='flex items-start gap-3'>
+										<AlertTriangle size={16} className='text-destructive mt-0.5 shrink-0' />
+										<div>
+											<p className='text-sm font-medium'>Delete this lead?</p>
+											<p className='text-xs text-muted-foreground mt-1'>
+												"{lead.title || 'Untitled'}" will be permanently removed. This cannot be undone.
+											</p>
+										</div>
+									</div>
+									<div className='flex items-center justify-end gap-2'>
+										<Button
+											size='sm'
+											variant='outline'
+											onClick={() => setIsConfirmingDelete(false)}
+											className='h-8 text-xs'
+										>
+											Cancel
+										</Button>
+										<Button
+											size='sm'
+											variant='destructive'
+											disabled={deleteMutation.isPending}
+											onClick={() => {
+												if (!lead._id) return;
+												deleteMutation.mutate(lead._id, {
+													onSuccess: () => {
+														setIsConfirmingDelete(false);
+														onClose();
+													},
+												});
+											}}
+											className='h-8 text-xs'
+										>
+											{deleteMutation.isPending ? (
+												<Loader2 size={12} className='mr-1.5 animate-spin' />
+											) : (
+												<Trash2 size={12} className='mr-1.5' />
+											)}
+											Delete
+										</Button>
+									</div>
+								</div>
+							) : (
+								<Button
+									variant='ghost'
+									className='w-full text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl'
+									onClick={() => setIsConfirmingDelete(true)}
+								>
+									<Trash2 size={14} className='mr-2' />
+									Delete Lead
+								</Button>
+							)}
 						</div>
 					</div>
 				</div>

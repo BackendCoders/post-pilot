@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -19,12 +20,17 @@ import leadGenerationRoutes from './modules/LeadGeneration/route';
 import whatsappRoutes from './modules/WhatsApp';
 import supportRoutes from './routes/support';
 import { whatsappService } from './modules/WhatsApp/service';
+import { socketService } from './services/socket.service';
 
 // Load environment variables
 dotenv.config({ path: '../.env' });
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
+
+// Initialize WebSockets
+socketService.init(server);
 
 // Connect to database
 connectDB().then(() => {
@@ -109,7 +115,7 @@ app.use(notFound);
 // Global error handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`, { port: PORT });
 });
 

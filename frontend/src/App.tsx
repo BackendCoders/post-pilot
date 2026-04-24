@@ -6,6 +6,7 @@ import {
 } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DarkModeProvider } from './context/DarkModeContext';
+import { SocketProvider } from './context/SocketContext';
 
 import HomePage from './pages/home/page';
 // import ProfilePage from './pages/profile';
@@ -31,6 +32,7 @@ import LeadOverview from './pages/dashboard/lead-generation/overview';
 import ProfilePage from '@/pages/dashboard/profile';
 import SEORocketHistory from './pages/dashboard/seo-rocket/history';
 import SeoOverview from './pages/dashboard/seo-rocket/overview';
+import LeadInbox from './pages/dashboard/lead-generation/inbox';
 
 const router = createBrowserRouter([
 	{
@@ -118,6 +120,7 @@ const router = createBrowserRouter([
 							{ path: 'manage-complete-leads', element: <ConvertedLeads /> },
 							{ path: 'manage-rejected-leads', element: <RejectedLeads /> },
 							{ path: 'template', element: <MessageTemplate /> },
+							{ path: 'messages', element: <LeadInbox /> },
 							{
 								path: 'brief-analysis/:leadId',
 								element: <LeadBriefAnalysisPage />,
@@ -139,8 +142,10 @@ function App() {
 		<ErrorBoundary>
 			<QueryClientProvider client={queryClient}>
 				<DarkModeProvider>
-					<Toaster />
-					<RouterProvider router={router} />
+					<SocketProvider>
+						<Toaster />
+						<RouterProvider router={router} />
+					</SocketProvider>
 				</DarkModeProvider>
 			</QueryClientProvider>
 		</ErrorBoundary>

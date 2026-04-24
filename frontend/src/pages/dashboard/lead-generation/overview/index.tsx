@@ -178,10 +178,26 @@ export default function LeadOverview() {
 
 	const donutSegments = (
 		[
-			{ label: 'Saved', value: statusCounts.saved, colorVar: '--chart-1' as const },
-			{ label: 'Processed', value: statusCounts.processed, colorVar: '--chart-2' as const },
-			{ label: 'Converted', value: statusCounts.converted, colorVar: '--chart-3' as const },
-			{ label: 'Rejected', value: statusCounts.rejected, colorVar: '--chart-5' as const },
+			{
+				label: 'Saved',
+				value: statusCounts.saved,
+				colorVar: '--chart-1' as const,
+			},
+			{
+				label: 'Processed',
+				value: statusCounts.processed,
+				colorVar: '--chart-2' as const,
+			},
+			{
+				label: 'Converted',
+				value: statusCounts.converted,
+				colorVar: '--chart-3' as const,
+			},
+			{
+				label: 'Rejected',
+				value: statusCounts.rejected,
+				colorVar: '--chart-5' as const,
+			},
 		] as const
 	).filter((s) => s.value > 0);
 
@@ -214,8 +230,11 @@ export default function LeadOverview() {
 	})();
 
 	const leadsLast7 = activitySeries.slice(-7).reduce((s, d) => s + d.count, 0);
-	const leadsPrev7 = activitySeries.slice(0, 7).reduce((s, d) => s + d.count, 0);
-	const wowDelta = leadsPrev7 > 0 ? (leadsLast7 - leadsPrev7) / leadsPrev7 : null;
+	const leadsPrev7 = activitySeries
+		.slice(0, 7)
+		.reduce((s, d) => s + d.count, 0);
+	const wowDelta =
+		leadsPrev7 > 0 ? (leadsLast7 - leadsPrev7) / leadsPrev7 : null;
 
 	/* ── top categories ── */
 
@@ -318,7 +337,10 @@ export default function LeadOverview() {
 								Current distribution across CRM stages
 							</p>
 						</div>
-						<PieChart size={18} className='text-muted-foreground' />
+						<PieChart
+							size={18}
+							className='text-muted-foreground'
+						/>
 					</div>
 
 					<div className='mt-5 grid grid-cols-1 md:grid-cols-[140px_1fr] gap-6 items-center'>
@@ -339,8 +361,16 @@ export default function LeadOverview() {
 							{(
 								[
 									{ label: 'Saved', key: 'saved', colorVar: '--chart-1' },
-									{ label: 'Processed', key: 'processed', colorVar: '--chart-2' },
-									{ label: 'Converted', key: 'converted', colorVar: '--chart-3' },
+									{
+										label: 'Processed',
+										key: 'processed',
+										colorVar: '--chart-2',
+									},
+									{
+										label: 'Converted',
+										key: 'converted',
+										colorVar: '--chart-3',
+									},
 									{ label: 'Rejected', key: 'rejected', colorVar: '--chart-5' },
 								] as const
 							).map((row) => (
@@ -356,7 +386,9 @@ export default function LeadOverview() {
 										<span className='text-muted-foreground'>{row.label}</span>
 									</div>
 									<ProgressBar
-										value={totalLeads > 0 ? statusCounts[row.key] / totalLeads : 0}
+										value={
+											totalLeads > 0 ? statusCounts[row.key] / totalLeads : 0
+										}
 										colorVar={row.colorVar}
 									/>
 									<div className='text-right font-semibold tabular-nums'>
@@ -373,11 +405,12 @@ export default function LeadOverview() {
 					<div className='flex items-center justify-between'>
 						<div>
 							<h3 className='font-semibold'>Lead Activity</h3>
-							<p className='text-xs text-muted-foreground mt-1'>
-								Last 14 days
-							</p>
+							<p className='text-xs text-muted-foreground mt-1'>Last 14 days</p>
 						</div>
-						<Activity size={18} className='text-muted-foreground' />
+						<Activity
+							size={18}
+							className='text-muted-foreground'
+						/>
 					</div>
 
 					<div className='mt-4 rounded-lg bg-muted/30 border border-border/60 p-3'>
@@ -395,20 +428,28 @@ export default function LeadOverview() {
 					<div className='mt-3 grid grid-cols-2 gap-3 text-sm'>
 						<div className='rounded-lg bg-muted/40 p-3'>
 							<div className='text-muted-foreground text-xs'>Last 7 days</div>
-							<div className='text-lg font-semibold tabular-nums'>{leadsLast7}</div>
+							<div className='text-lg font-semibold tabular-nums'>
+								{leadsLast7}
+							</div>
 							<div className='mt-1 flex items-center gap-1 text-xs text-muted-foreground'>
 								{wowDelta === null ? (
 									<span>Not enough history</span>
 								) : wowDelta >= 0 ? (
 									<>
-										<TrendingUp size={14} style={{ color: 'var(--chart-3)' }} />
+										<TrendingUp
+											size={14}
+											style={{ color: 'var(--chart-3)' }}
+										/>
 										<span className='tabular-nums'>
 											+{Math.round(wowDelta * 100)}% WoW
 										</span>
 									</>
 								) : (
 									<>
-										<TrendingDown size={14} style={{ color: 'var(--chart-5)' }} />
+										<TrendingDown
+											size={14}
+											style={{ color: 'var(--chart-5)' }}
+										/>
 										<span className='tabular-nums'>
 											{Math.round(wowDelta * 100)}% WoW
 										</span>
@@ -440,7 +481,10 @@ export default function LeadOverview() {
 								Most frequent lead categories
 							</p>
 						</div>
-						<Tags size={18} className='text-muted-foreground' />
+						<Tags
+							size={18}
+							className='text-muted-foreground'
+						/>
 					</div>
 
 					<div className='mt-4 space-y-3'>
@@ -454,10 +498,15 @@ export default function LeadOverview() {
 									'--chart-5',
 								] as const;
 								return (
-									<div key={c.name} className='space-y-1'>
+									<div
+										key={c.name}
+										className='space-y-1'
+									>
 										<div className='flex items-center justify-between text-sm'>
 											<span className='text-muted-foreground'>{c.name}</span>
-											<span className='font-semibold tabular-nums'>{c.count}</span>
+											<span className='font-semibold tabular-nums'>
+												{c.count}
+											</span>
 										</div>
 										<ProgressBar
 											value={totalLeads > 0 ? c.count / totalLeads : 0}
@@ -514,7 +563,10 @@ export default function LeadOverview() {
 											STATUS_COLORS[status as keyof typeof STATUS_COLORS] ??
 											'--chart-1';
 										return (
-											<tr key={lead._id || i} className='hover:bg-muted/30 transition-colors'>
+											<tr
+												key={lead._id || i}
+												className='hover:bg-muted/30 transition-colors'
+											>
 												<td className='py-2.5 pr-4'>
 													<span className='font-medium truncate block max-w-[200px]'>
 														{lead.title || 'Untitled'}
@@ -522,7 +574,10 @@ export default function LeadOverview() {
 												</td>
 												<td className='py-2.5 pr-4 text-muted-foreground truncate max-w-[180px] hidden sm:table-cell'>
 													<span className='flex items-center gap-1'>
-														<MapPin size={12} className='shrink-0' />
+														<MapPin
+															size={12}
+															className='shrink-0'
+														/>
 														{lead.address || '—'}
 													</span>
 												</td>
@@ -544,7 +599,10 @@ export default function LeadOverview() {
 												<td className='py-2.5 pr-4 hidden md:table-cell'>
 													{typeof lead.rating === 'number' ? (
 														<span className='flex items-center gap-1 text-amber-500'>
-															<Star size={12} className='fill-current' />
+															<Star
+																size={12}
+																className='fill-current'
+															/>
 															{lead.rating.toFixed(1)}
 														</span>
 													) : (
@@ -573,7 +631,10 @@ export default function LeadOverview() {
 				<div className='flex flex-wrap items-center justify-between gap-3'>
 					<div>
 						<h3 className='font-semibold flex items-center gap-2'>
-							<Users size={16} className='text-primary' />
+							<Users
+								size={16}
+								className='text-primary'
+							/>
 							Quick Actions
 						</h3>
 						<p className='text-sm text-muted-foreground mt-1'>

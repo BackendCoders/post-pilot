@@ -1,12 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, Save, Plus, Check, ChevronsUpDown, FolderPlus } from 'lucide-react';
+import {
+	X,
+	Loader2,
+	Save,
+	Plus,
+	Check,
+	ChevronsUpDown,
+	FolderPlus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useUpdateLead, useCreateLead } from '@/query/leads.query';
-import { useGetLeadCategory, useCreateLeadCategory } from '@/query/leadsCategory.query';
+import {
+	useGetLeadCategory,
+	useCreateLeadCategory,
+} from '@/query/leadsCategory.query';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -19,11 +30,16 @@ import {
 type Props = {
 	isOpen: boolean;
 	onClose: () => void;
-	lead?: ILead | null;
+	lead?: Partial<ILead> | null;
 	onCreated?: () => void;
 };
 
-export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Props) {
+export default function EditLeadDialog({
+	isOpen,
+	onClose,
+	lead,
+	onCreated,
+}: Props) {
 	const [formData, setFormData] = useState({
 		title: '',
 		phone: '',
@@ -69,12 +85,27 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 
 	useEffect(() => {
 		if (lead) {
+			// Resolve category title: prefer lead.category, fallback to populated leadCategory object
+			let categoryTitle = lead.category || '';
+			if (!categoryTitle && lead.leadCategory) {
+				const lc = lead.leadCategory as unknown as
+					| { _id?: string; title?: string }
+					| string;
+				if (typeof lc === 'object' && lc.title) {
+					categoryTitle = lc.title;
+				} else if (typeof lc === 'string') {
+					// leadCategory is an ID string — try to find the matching category title
+					const match = categories.find((cat: ILeadCategory) => cat._id === lc);
+					if (match) categoryTitle = match.title;
+				}
+			}
+
 			setFormData({
 				title: lead.title || '',
 				phone: lead.phone || '',
 				website: lead.website || '',
 				address: lead.address || '',
-				category: lead.category || '',
+				category: categoryTitle,
 				googleMapUrl: lead.googleMapUrl || '',
 				note: lead.note || '',
 				latitude: lead.latitude?.toString() || '',
@@ -85,7 +116,7 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 		} else {
 			resetForm();
 		}
-	}, [lead, isOpen]);
+	}, [lead, isOpen, categories]);
 
 	const handleChange = (
 		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -169,7 +200,9 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 	const handleSave = async () => {
 		if (isCreateMode) {
 			try {
-				await createMutation.mutateAsync(buildLeadData() as unknown as Omit<ILead, '_id'>);
+				await createMutation.mutateAsync(
+					buildLeadData() as unknown as Omit<ILead, '_id'>,
+				);
 				onClose();
 				resetForm();
 				onCreated?.();
@@ -179,7 +212,10 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 		} else {
 			if (!lead?._id) return;
 			try {
-				await updateMutation.mutateAsync({ leadId: lead._id, data: buildLeadData() as unknown as Partial<ILead> });
+				await updateMutation.mutateAsync({
+					leadId: lead._id,
+					data: buildLeadData() as unknown as Partial<ILead>,
+				});
 				onClose();
 			} catch (error) {
 				console.error('Failed to update lead:', error);
@@ -279,7 +315,10 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 										<ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
 									</Button>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent align='start' className='w-[300px] p-2 rounded-2xl border border-border/50 shadow-xl'>
+								<DropdownMenuContent
+									align='start'
+									className='w-[300px] p-2 rounded-2xl border border-border/50 shadow-xl'
+								>
 									<DropdownMenuLabel className='text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 px-2 mt-1'>
 										Select Category
 									</DropdownMenuLabel>
@@ -324,6 +363,7 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 												createCategoryMutation.mutate(
 													{ title: newCategoryName.trim() },
 													{
+														// eslint-disable-next-line @typescript-eslint/no-unused-vars
 														onSuccess: (_res) => {
 															setFormData((prev) => ({
 																...prev,
@@ -465,7 +505,10 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 				</div>
 
 				<div className='mt-6 flex justify-end gap-2'>
-					<Button variant='outline' onClick={onClose}>
+					<Button
+						variant='outline'
+						onClick={onClose}
+					>
 						Cancel
 					</Button>
 					<Button
@@ -480,12 +523,18 @@ export default function EditLeadDialog({ isOpen, onClose, lead, onCreated }: Pro
 						)}
 						{isCreateMode ? (
 							<>
-								<Plus size={16} className='mr-2' />
+								<Plus
+									size={16}
+									className='mr-2'
+								/>
 								Create Lead
 							</>
 						) : (
 							<>
-								<Save size={16} className='mr-2' />
+								<Save
+									size={16}
+									className='mr-2'
+								/>
 								Save Changes
 							</>
 						)}

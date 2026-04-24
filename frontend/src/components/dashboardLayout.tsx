@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useLogout } from '@/query/auth.query';
+import { useUnreadCount } from '@/query/leadMessage.query';
 import SupportModal from './SupportModal';
 
 /**
@@ -108,6 +109,10 @@ const NAV_ITEMS = [
 			// 	path: '/dashboard/lead-generation/manage-rejected-leads',
 			// },
 			{
+				label: 'Messages',
+				path: '/dashboard/lead-generation/messages',
+			},
+			{
 				label: 'Message Template',
 				path: '/dashboard/lead-generation/template',
 			},
@@ -130,6 +135,8 @@ export default function GoogleModernLayout() {
 	const [supportInitialType, setSupportInitialType] = useState<
 		'feedback' | 'error'
 	>('feedback');
+	const { data: unreadData } = useUnreadCount();
+	const unreadCount = unreadData?.unreadCount || 0;
 
 	// Dynamic Breadcrumb Logic
 	const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -433,6 +440,20 @@ export default function GoogleModernLayout() {
 								className='rounded-full'
 							>
 								{isDark ? <Sun size={20} /> : <Moon size={20} />}
+							</Button>
+							<Button
+								variant='ghost'
+								size='icon'
+								onClick={() => navigate('/dashboard/lead-generation/messages')}
+								className='rounded-full text-muted-foreground relative'
+								title='Messages'
+							>
+								<MessageSquare size={20} />
+								{unreadCount > 0 && (
+									<span className='absolute top-2 right-2 min-w-[16px] h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full ring-2 ring-background flex items-center justify-center px-1'>
+										{unreadCount}
+									</span>
+								)}
 							</Button>
 							<Button
 								variant='ghost'
