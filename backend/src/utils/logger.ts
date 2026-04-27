@@ -32,7 +32,14 @@ class EmailTransport extends Transport {
 
   log(info: any, callback: () => void) {
     setImmediate(async () => {
-      if (info.level === 'error') {
+      // Safeguard: Don't send email alerts for errors that are already about the email service
+      // to avoid infinite loops if the SMTP server is down.
+      const isEmailError = 
+        info.message?.toLowerCase().includes('email') || 
+        info.message?.toLowerCase().includes('smtp') ||
+        info.service === 'mail-service';
+
+      if (info.level === 'error' && !isEmailError) {
         try {
           // Dynamic import to avoid circular dependency
           const { mailService } = await import('../services/mailService');
@@ -43,12 +50,14 @@ class EmailTransport extends Transport {
             context: info.metadata || info
           });
         } catch (err) {
+          // Use console.error instead of logger.error here to avoid loops
           console.error('Failed to send error email alert:', err);
         }
       }
     });
     callback();
   }
+
 }
 
 // Create the logger

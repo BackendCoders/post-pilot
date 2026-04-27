@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
+
+dotenv.config();
 
 class MailService {
   private transporter: nodemailer.Transporter;
@@ -26,6 +29,7 @@ class MailService {
       return { success: true, message: 'SMTP connection verified successfully' };
     } catch (error) {
       logger.error('SMTP connection verification failed', {
+        service: 'mail-service',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       return {
@@ -49,6 +53,7 @@ class MailService {
       return info;
     } catch (error) {
       logger.error('Error sending email', {
+        service: 'mail-service',
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         details: error
