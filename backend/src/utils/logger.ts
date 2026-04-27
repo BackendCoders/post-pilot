@@ -1,5 +1,6 @@
 import winston from 'winston';
 import path from 'path';
+import Transport from 'winston-transport';
 
 // Define log levels
 const levels = {
@@ -19,6 +20,36 @@ const colors = {
 };
 
 winston.addColors(colors);
+
+// Custom transport for Email Alerts
+class EmailTransport extends Transport {
+  constructor(opts?: Transport.TransportStreamOptions) {
+    super(opts);
+  }
+
+
+
+
+  log(info: any, callback: () => void) {
+    setImmediate(async () => {
+      if (info.level === 'error') {
+        try {
+          // Dynamic import to avoid circular dependency
+          const { mailService } = await import('../services/mailService');
+          await mailService.sendSystemLog({
+            level: info.level,
+            message: info.message,
+            stack: info.stack,
+            context: info.metadata || info
+          });
+        } catch (err) {
+          console.error('Failed to send error email alert:', err);
+        }
+      }
+    });
+    callback();
+  }
+}
 
 // Create the logger
 export const logger = winston.createLogger({
@@ -40,8 +71,11 @@ export const logger = winston.createLogger({
     new winston.transports.File({
       filename: path.join(process.cwd(), 'logs', 'combined.log'),
     }),
+    // Send email for high severity errors
+    new EmailTransport({ level: 'error' }),
   ],
 });
+
 
 // If we're not in production then log to the console with colors
 if (process.env.NODE_ENV !== 'production') {

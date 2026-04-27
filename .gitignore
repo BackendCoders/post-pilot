@@ -7,3 +7,6 @@ graphify-out/
 .agent/
 graphify-out/
 frontend/dist/
+frontend/.env
+backend/.env
+.env

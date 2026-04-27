@@ -19,6 +19,23 @@ class MailService {
     });
   }
 
+  async verifyConnection() {
+    try {
+      await this.transporter.verify();
+      logger.info('SMTP connection verified successfully');
+      return { success: true, message: 'SMTP connection verified successfully' };
+    } catch (error) {
+      logger.error('SMTP connection verification failed', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return {
+        success: false,
+        message: 'SMTP connection failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
   async sendMail(to: string, subject: string, html: string) {
     try {
       const info = await this.transporter.sendMail({
