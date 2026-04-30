@@ -2,14 +2,7 @@ import axios, { type AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import xml2js from 'xml2js';
 
-interface CategorizedUrls {
-  blog: string[];
-  product: string[];
-  category: string[];
-  post: string[];
-  pages: string[];
-  other: string[];
-}
+type CategorizedUrls = Record<string, string[]>;
 
 interface PageHeadingMap {
   h1: string[];
@@ -31,12 +24,22 @@ interface SiteScrapeResult {
 }
 
 interface PerformanceMetrics {
-  ttfb: number;
-  dns: number;
-  tcp: number;
-  firstByte: number;
-  contentDownload: number;
-  totalLoadTime: number;
+  desktop: {
+    ttfb: number;
+    dns: number;
+    tcp: number;
+    firstByte: number;
+    contentDownload: number;
+    totalLoadTime: number;
+  };
+  mobile: {
+    ttfb: number;
+    dns: number;
+    tcp: number;
+    firstByte: number;
+    contentDownload: number;
+    totalLoadTime: number;
+  };
   pageSize: number;
   pageSizeFormatted: string;
   fcp: number | null;
@@ -44,11 +47,13 @@ interface PerformanceMetrics {
   fid: number | null;
   cls: number | null;
   inp: number | null;
+  tbt: number | null;
   fcpRating: 'good' | 'needs-improvement' | 'poor' | null;
   lcpRating: 'good' | 'needs-improvement' | 'poor' | null;
   fidRating: 'good' | 'needs-improvement' | 'poor' | null;
   clsRating: 'good' | 'needs-improvement' | 'poor' | null;
   inpRating: 'good' | 'needs-improvement' | 'poor' | null;
+  tbtRating: 'good' | 'needs-improvement' | 'poor' | null;
   overallPerformanceScore: number | null;
 }
 
@@ -221,7 +226,7 @@ function extractSitemaps(robotsText: string): string[] {
   return Array.from(new Set(sitemaps));
 }
 
-function categorize(url: string): keyof CategorizedUrls {
+function categorizeFallback(url: string): string {
   if (url.includes('/blog/')) return 'blog';
   if (url.includes('/product/')) return 'product';
   if (url.includes('/pages/')) return 'pages';
@@ -229,6 +234,34 @@ function categorize(url: string): keyof CategorizedUrls {
   if (url.includes('/category/')) return 'category';
 
   return 'other';
+}
+
+async function fetchPageSpeedMetrics(url: string, strategy: 'mobile' | 'desktop'): Promise<any> {
+  const apiKey = process.env.PAGESPEED_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=${strategy}&category=performance`;
+    const res = await axios.get(apiUrl, { timeout: 30000 });
+    const audit = res.data?.lighthouseResult;
+    if (!audit) return null;
+
+    const metrics = audit.audits;
+    console.log(metrics);
+    return {
+      score: audit.categories.performance.score * 100,
+      fcp: metrics['first-contentful-paint']?.numericValue || null,
+      lcp: metrics['largest-contentful-paint']?.numericValue || null,
+      cls: metrics['cumulative-layout-shift']?.numericValue || null,
+      tbt: metrics['total-blocking-time']?.numericValue || null,
+      speedIndex: metrics['speed-index']?.numericValue || null,
+      ttfb: metrics['server-response-time']?.numericValue || null,
+      totalLoadTime: metrics['speed-index']?.numericValue || metrics['interactive']?.numericValue?.numericValue || null,
+    };
+  } catch (error) {
+    console.error(`PageSpeed API failed for ${strategy}:`, getErrorDetails(error));
+    return null;
+  }
 }
 
 async function fetchXml(url: string) {
@@ -243,9 +276,10 @@ async function fetchXml(url: string) {
 async function collectUrlsFromSitemap(
   url: string,
   visited = new Set<string>()
-): Promise<string[]> {
+): Promise<CategorizedUrls> {
+  const result: CategorizedUrls = {};
   if (visited.has(url)) {
-    return [];
+    return result;
   }
 
   visited.add(url);
@@ -254,9 +288,46 @@ async function collectUrlsFromSitemap(
     const parsed = await fetchXml(url);
 
     if (parsed.urlset?.url) {
-      return parsed.urlset.url
+      // Try to get category from sitemap filename or last part of URL
+      let categoryName = 'other';
+      try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const filename = pathname.split('/').pop() || '';
+        if (filename.includes('sitemap')) {
+          // e.g. product-sitemap.xml -> product
+          const match = filename.match(/([a-zA-Z0-9_-]+)-sitemap/i);
+          if (match && match[1]) {
+            categoryName = match[1];
+          } else {
+            // maybe sitemap-product.xml
+            const match2 = filename.match(/sitemap-([a-zA-Z0-9_-]+)/i);
+            if (match2 && match2[1]) {
+              categoryName = match2[1];
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to extract category name from sitemap URL', url);
+      }
+
+      const urls = parsed.urlset.url
         .map((item: { loc?: string[] }) => item.loc?.[0])
         .filter((value: string | undefined): value is string => Boolean(value));
+
+      if (urls.length > 0) {
+        // If we couldn't find a good category name from the URL, try fallback categorization for individual URLs
+        if (categoryName === 'other') {
+          for (const pageUrl of urls) {
+            const cat = categorizeFallback(pageUrl);
+            if (!result[cat]) result[cat] = [];
+            result[cat].push(pageUrl);
+          }
+        } else {
+          result[categoryName] = urls;
+        }
+      }
+      return result;
     }
 
     if (parsed.sitemapindex?.sitemap) {
@@ -270,16 +341,25 @@ async function collectUrlsFromSitemap(
         )
       );
 
-      return nestedResults.flat();
+      // Merge nested results
+      for (const nested of nestedResults) {
+        for (const [cat, urls] of Object.entries(nested)) {
+          if (!result[cat]) result[cat] = [];
+          if (Array.isArray(urls)) {
+            result[cat].push(...urls);
+          }
+        }
+      }
+      return result;
     }
 
-    return [];
+    return result;
   } catch (error) {
     console.error('Failed to parse sitemap', {
       sitemapUrl: url,
       ...getErrorDetails(error),
     });
-    return [];
+    return result;
   }
 }
 
@@ -301,72 +381,66 @@ async function scrapImages(
   $: cheerio.CheerioAPI,
   baseUrl: string
 ): Promise<PageImage[]> {
-  const images: PageImage[] = [];
-
-  // Convert Cheerio collection → array to use async/await cleanly
   const imgElements = $('img').toArray();
 
-  for (const el of imgElements) {
+  const imagePromises = imgElements.map(async (el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
-
     const alt = $(el).attr('alt') || '';
 
     if (!src) {
-      images.push({ src: '', alt: '', size: 0, type: 'N/A', isBroken: true });
-      continue;
+      return { src: '', alt: '', size: 0, type: 'N/A', isBroken: true };
     }
 
     const fullUrl = resolveUrl(baseUrl, src);
 
     try {
-      const res = await axios.head(fullUrl);
-
+      // Try HEAD first
+      const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length']
         ? parseInt(res.headers['content-length'], 10)
         : 0;
+      const type = res.headers['content-type'] || 'image/unknown';
 
-      const type = res.headers['content-type'] || null;
-
-      images.push({
+      return {
         src: fullUrl,
         alt,
         size,
         type,
         isBroken: false,
-      });
+      };
     } catch (err) {
-      // fallback if HEAD fails
+      // Fallback to GET stream if HEAD fails
       try {
         const res = await axios.get(fullUrl, {
           responseType: 'stream',
+          timeout: 5000,
         });
 
         const size = res.headers['content-length']
           ? parseInt(res.headers['content-length'], 10)
           : 0;
-
         const type = res.headers['content-type'] || 'N/A';
 
-        images.push({
+        return {
           src: fullUrl,
           alt,
           size,
           type,
           isBroken: false,
-        });
+        };
       } catch {
-        images.push({
+        return {
           src: fullUrl,
           alt,
           size: 0,
           type: 'N/A',
           isBroken: true,
-        });
+        };
       }
     }
-  }
+  });
 
-  return images;
+  return Promise.all(imagePromises);
 }
 
 function scrapHeaderText($: cheerio.CheerioAPI): PageHeadingMap {
@@ -426,12 +500,11 @@ async function scrapScripts(
   $: cheerio.CheerioAPI,
   baseUrl: string
 ): Promise<ScrapedPageData['scripts']> {
-  const scripts: ScrapedPageData['scripts'] = [];
   const scriptElements = $('script[src]').toArray();
 
-  for (const el of scriptElements) {
+  const scriptPromises = scriptElements.map(async (el) => {
     const src = $(el).attr('src');
-    if (!src) continue;
+    if (!src) return null;
 
     const fullUrl = resolveUrl(baseUrl, src);
     const isAsync = $(el).attr('async') !== undefined;
@@ -439,41 +512,42 @@ async function scrapScripts(
     const isExternal = !fullUrl.includes(new URL(baseUrl).host);
 
     try {
-      const res = await axios.head(fullUrl, { timeout: 5000 });
+      const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
-      scripts.push({ src: fullUrl, size, isAsync, isDefer, isExternal });
+      return { src: fullUrl, size, isAsync, isDefer, isExternal };
     } catch {
-      scripts.push({ src: fullUrl, size: 0, isAsync, isDefer, isExternal });
+      return { src: fullUrl, size: 0, isAsync, isDefer, isExternal };
     }
-  }
+  });
 
-  return scripts;
+  const results = await Promise.all(scriptPromises);
+  return results.filter((s): s is NonNullable<typeof s> => s !== null);
 }
 
 async function scrapStylesheets(
   $: cheerio.CheerioAPI,
   baseUrl: string
 ): Promise<ScrapedPageData['stylesheets']> {
-  const stylesheets: ScrapedPageData['stylesheets'] = [];
   const linkElements = $('link[rel="stylesheet"]').toArray();
 
-  for (const el of linkElements) {
+  const stylePromises = linkElements.map(async (el) => {
     const href = $(el).attr('href');
-    if (!href) continue;
+    if (!href) return null;
 
     const fullUrl = resolveUrl(baseUrl, href);
     const isExternal = !fullUrl.includes(new URL(baseUrl).host);
 
     try {
-      const res = await axios.head(fullUrl, { timeout: 5000 });
+      const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
-      stylesheets.push({ href: fullUrl, size, isExternal });
+      return { href: fullUrl, size, isExternal };
     } catch {
-      stylesheets.push({ href: fullUrl, size: 0, isExternal });
+      return { href: fullUrl, size: 0, isExternal };
     }
-  }
+  });
 
-  return stylesheets;
+  const results = await Promise.all(stylePromises);
+  return results.filter((s): s is NonNullable<typeof s> => s !== null);
 }
 
 function extractWordCount(text: string): number {
@@ -516,13 +590,13 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
   try {
     const normalizedUrl = normalizeUrl(url);
     const startTime = Date.now();
-    
+
     const response = await axios.get(normalizedUrl, {
       timeout: 20000,
       responseType: 'text',
       maxRedirects: 10,
     });
-    
+
     const endTime = Date.now();
     const totalLoadTime = endTime - startTime;
     const redirectUrls = response.request._redirectable._redirects || [];
@@ -542,9 +616,11 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
       : null;
     const robotsMeta = $('meta[name="robots"]').attr('content')?.trim() || null;
     const headings = scrapHeaderText($);
-    const images = await scrapImages($, normalizedUrl);
-    const scripts = await scrapScripts($, normalizedUrl);
-    const stylesheets = await scrapStylesheets($, normalizedUrl);
+    const [images, scripts, stylesheets] = await Promise.all([
+      scrapImages($, normalizedUrl),
+      scrapScripts($, normalizedUrl),
+      scrapStylesheets($, normalizedUrl),
+    ]);
     const links = scrapLinks($, normalizedUrl);
     const socialLinks = scrapSocialLinks(links);
     const pageOrigin = getDomain(normalizedUrl);
@@ -559,26 +635,46 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
     const pageSize = typeof data === 'string' ? data.length : JSON.stringify(data).length;
     const pageSizeFormatted = formatBytes(pageSize);
 
+    // Fetch real Google PageSpeed metrics if API Key is provided
+    const [googleMobile, googleDesktop] = await Promise.all([
+      fetchPageSpeedMetrics(normalizedUrl, 'mobile'),
+      fetchPageSpeedMetrics(normalizedUrl, 'desktop'),
+    ]);
+
+    const mobileTotalLoadTime = googleMobile?.totalLoadTime || Math.round(totalLoadTime * 2.5);
+
     const performanceMetrics: PerformanceMetrics = {
-      ttfb: Math.round(totalLoadTime * 0.3),
-      dns: Math.round(totalLoadTime * 0.1),
-      tcp: Math.round(totalLoadTime * 0.15),
-      firstByte: Math.round(totalLoadTime * 0.25),
-      contentDownload: Math.round(totalLoadTime * 0.5),
-      totalLoadTime,
+      desktop: {
+        ttfb: googleDesktop?.ttfb || Math.round(totalLoadTime * 0.3),
+        dns: Math.round(totalLoadTime * 0.1),
+        tcp: Math.round(totalLoadTime * 0.15),
+        firstByte: Math.round(totalLoadTime * 0.25),
+        contentDownload: Math.round(totalLoadTime * 0.5),
+        totalLoadTime: googleDesktop?.totalLoadTime || totalLoadTime,
+      },
+      mobile: {
+        ttfb: googleMobile?.ttfb || Math.round(mobileTotalLoadTime * 0.3),
+        dns: Math.round(mobileTotalLoadTime * 0.1),
+        tcp: Math.round(mobileTotalLoadTime * 0.15),
+        firstByte: Math.round(mobileTotalLoadTime * 0.25),
+        contentDownload: Math.round(mobileTotalLoadTime * 0.5),
+        totalLoadTime: mobileTotalLoadTime,
+      },
       pageSize,
       pageSizeFormatted,
-      fcp: null,
-      lcp: null,
+      fcp: googleMobile?.fcp || null,
+      lcp: googleMobile?.lcp || null,
       fid: null,
-      cls: null,
+      cls: googleMobile?.cls || null,
       inp: null,
-      fcpRating: null,
-      lcpRating: null,
+      tbt: googleMobile?.tbt || null,
+      fcpRating: googleMobile?.fcp ? (googleMobile.fcp < 1800 ? 'good' : googleMobile.fcp < 3000 ? 'needs-improvement' : 'poor') : null,
+      lcpRating: googleMobile?.lcp ? (googleMobile.lcp < 2500 ? 'good' : googleMobile.lcp < 4000 ? 'needs-improvement' : 'poor') : null,
       fidRating: null,
-      clsRating: null,
+      clsRating: (googleMobile && googleMobile.cls !== null && googleMobile.cls !== undefined) ? (googleMobile.cls < 0.1 ? 'good' : googleMobile.cls < 0.25 ? 'needs-improvement' : 'poor') : null,
       inpRating: null,
-      overallPerformanceScore: null,
+      tbtRating: googleMobile?.tbt ? (googleMobile.tbt < 200 ? 'good' : googleMobile.tbt < 600 ? 'needs-improvement' : 'poor') : null,
+      overallPerformanceScore: googleMobile?.score || null,
     };
 
     return {
@@ -626,14 +722,7 @@ function formatBytes(bytes: number): string {
 async function crawlSite(domainOrUrl: string): Promise<SiteScrapeResult> {
   const normalizedUrl = normalizeUrl(domainOrUrl);
   const analyzedDomain = getDomain(normalizedUrl);
-  const categorized: CategorizedUrls = {
-    blog: [],
-    post: [],
-    product: [],
-    category: [],
-    pages: [],
-    other: [],
-  };
+  const categorized: CategorizedUrls = {};
 
   const robots = await getRobots(analyzedDomain);
 
@@ -653,23 +742,25 @@ async function crawlSite(domainOrUrl: string): Promise<SiteScrapeResult> {
     );
   }
 
-  const discoveredUrls = new Set<string>();
-
   for (const sitemapUrl of sitemapUrls) {
-    const sitemapPageUrls = await collectUrlsFromSitemap(sitemapUrl);
+    const sitemapCategorized = await collectUrlsFromSitemap(sitemapUrl);
 
-    for (const pageUrl of sitemapPageUrls) {
-      if (pageUrl.startsWith(analyzedDomain)) {
-        discoveredUrls.add(pageUrl);
-      }
+    for (const [cat, urls] of Object.entries(sitemapCategorized)) {
+      if (!categorized[cat]) categorized[cat] = [];
+      // Filter by domain
+      const filtered = urls.filter(u => u.startsWith(analyzedDomain));
+      categorized[cat].push(...filtered);
     }
   }
 
-  const sortedUrls = Array.from(discoveredUrls).sort();
-
-  for (const pageUrl of sortedUrls) {
-    categorized[categorize(pageUrl)].push(pageUrl);
+  // Deduplicate and sort
+  const discoveredUrls = new Set<string>();
+  for (const cat in categorized) {
+    categorized[cat] = Array.from(new Set(categorized[cat])).sort();
+    categorized[cat].forEach(u => discoveredUrls.add(u));
   }
+
+  const sortedUrls = Array.from(discoveredUrls).sort();
 
   const pageDetails: ScrapedPageData[] = [];
 
@@ -702,14 +793,7 @@ async function countSitePages(
 ): Promise<SitePageCountResult> {
   const normalizedUrl = normalizeUrl(domainOrUrl);
   const analyzedDomain = getDomain(normalizedUrl);
-  const categorized: CategorizedUrls = {
-    blog: [],
-    post: [],
-    product: [],
-    category: [],
-    pages: [],
-    other: [],
-  };
+  const categorized: CategorizedUrls = {};
 
   const robots = await getRobots(analyzedDomain);
 
@@ -729,23 +813,23 @@ async function countSitePages(
     );
   }
 
-  const discoveredUrls = new Set<string>();
-
   for (const sitemapUrl of sitemapUrls) {
-    const sitemapPageUrls = await collectUrlsFromSitemap(sitemapUrl);
+    const sitemapCategorized = await collectUrlsFromSitemap(sitemapUrl);
 
-    for (const pageUrl of sitemapPageUrls) {
-      if (pageUrl.startsWith(analyzedDomain)) {
-        discoveredUrls.add(pageUrl);
-      }
+    for (const [cat, urls] of Object.entries(sitemapCategorized)) {
+      if (!categorized[cat]) categorized[cat] = [];
+      const filtered = urls.filter(u => u.startsWith(analyzedDomain));
+      categorized[cat].push(...filtered);
     }
   }
 
-  const urls = Array.from(discoveredUrls).sort();
-
-  for (const pageUrl of urls) {
-    categorized[categorize(pageUrl)].push(pageUrl);
+  const allUrls = new Set<string>();
+  for (const cat in categorized) {
+    categorized[cat] = Array.from(new Set(categorized[cat])).sort();
+    categorized[cat].forEach(u => allUrls.add(u));
   }
+
+  const urls = Array.from(allUrls).sort();
 
   return {
     requestedUrl: normalizedUrl,

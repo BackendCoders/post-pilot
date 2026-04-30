@@ -4,10 +4,6 @@ import { useState, useMemo } from 'react';
 import {
 	Check,
 	FileText,
-	ShoppingCart,
-	BookOpen,
-	Layers,
-	File,
 	Globe,
 	CheckSquare,
 	MinusSquare,
@@ -25,7 +21,8 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import type { SitePageCountResult, CategorizedUrls } from '@/types/seo.types';
+import { useSeoAnalysis } from '@/query/seo.query';
+import type { SitePageCountResult } from '@/types/seo.types';
 
 interface SitemapViewProps {
 	sitemap: SitePageCountResult;
@@ -37,53 +34,28 @@ interface SitemapViewProps {
 	isAnalyzing: boolean;
 }
 
-type CategoryKey = keyof CategorizedUrls;
 
 const ITEMS_PER_PAGE = 50;
 
-const categoryConfig: {
-	key: CategoryKey;
-	label: string;
-	icon: React.ReactNode;
-	color: string;
-}[] = [
-	{
-		key: 'blog',
-		label: 'Blog',
-		icon: <BookOpen className='h-3 w-3' />,
-		color: 'bg-blue-500',
-	},
-	{
-		key: 'product',
-		label: 'Products',
-		icon: <ShoppingCart className='h-3 w-3' />,
-		color: 'bg-green-500',
-	},
-	{
-		key: 'category',
-		label: 'Categories',
-		icon: <Layers className='h-3 w-3' />,
-		color: 'bg-purple-500',
-	},
-	{
-		key: 'post',
-		label: 'Posts',
-		icon: <FileText className='h-3 w-3' />,
-		color: 'bg-orange-500',
-	},
-	{
-		key: 'pages',
-		label: 'Pages',
-		icon: <File className='h-3 w-3' />,
-		color: 'bg-zinc-500',
-	},
-	{
-		key: 'other',
-		label: 'Other',
-		icon: <Globe className='h-3 w-3' />,
-		color: 'bg-slate-400',
-	},
-];
+// Dynamic category configuration will be derived from sitemap data
+const getCategoryColor = (category: string) => {
+	const colors = [
+		'bg-blue-500',
+		'bg-green-500',
+		'bg-purple-500',
+		'bg-orange-500',
+		'bg-zinc-500',
+		'bg-slate-400',
+		'bg-pink-500',
+		'bg-cyan-500',
+		'bg-yellow-500',
+	];
+	let hash = 0;
+	for (let i = 0; i < category.length; i++) {
+		hash = category.charCodeAt(i) + ((hash << 5) - hash);
+	}
+	return colors[Math.abs(hash) % colors.length];
+};
 
 export default function SitemapView({
 	sitemap,
@@ -94,7 +66,8 @@ export default function SitemapView({
 	onAnalyze,
 	isAnalyzing,
 }: SitemapViewProps) {
-	const [activeCategory, setActiveCategory] = useState<CategoryKey | 'all'>(
+	const { selectByCategory } = useSeoAnalysis();
+	const [activeCategory, setActiveCategory] = useState<string | 'all'>(
 		'all',
 	);
 	const [_expandedUrls, setExpandedUrls] = useState<Set<string>>(new Set());
@@ -104,7 +77,7 @@ export default function SitemapView({
 	// Filter by category
 	const categoryFilteredUrls = useMemo(() => {
 		if (activeCategory === 'all') return sitemap.urls;
-		return sitemap.categorizedUrls[activeCategory];
+		return sitemap.categorizedUrls[activeCategory] || [];
 	}, [sitemap, activeCategory]);
 
 	// Filter by search query
@@ -122,7 +95,7 @@ export default function SitemapView({
 	}, [filteredUrls, currentPage]);
 
 	// Reset page when filter changes
-	const handleCategoryChange = (cat: CategoryKey | 'all') => {
+	const handleCategoryChange = (cat: string | 'all') => {
 		setActiveCategory(cat);
 		setCurrentPage(1);
 	};
@@ -141,9 +114,9 @@ export default function SitemapView({
 		});
 	};
 
-	const getCategoryForUrl = (url: string): CategoryKey => {
-		for (const cat of categoryConfig) {
-			if (sitemap.categorizedUrls[cat.key].includes(url)) return cat.key;
+	const getCategoryForUrl = (url: string): string => {
+		for (const [cat, urls] of Object.entries(sitemap.categorizedUrls)) {
+			if (urls.includes(url)) return cat;
 		}
 		return 'other';
 	};
@@ -185,7 +158,7 @@ export default function SitemapView({
 							className='h-8 text-xs rounded-xl hover:border-primary/50 transition-all'
 						>
 							<CheckSquare className='h-3.5 w-3.5 mr-1.5' />
-							Select All
+							Select Top 5
 						</Button>
 					</div>
 				</div>
@@ -202,24 +175,37 @@ export default function SitemapView({
 					>
 						ALL
 					</button>
-					{categoryConfig.map((cat) => {
-						const count = sitemap.categorizedUrls[cat.key].length;
+					{Object.entries(sitemap.categorizedUrls).map(([cat, urls]) => {
+						const count = urls.length;
 						if (count === 0) return null;
+						const color = getCategoryColor(cat);
 						return (
 							<button
-								key={cat.key}
-								onClick={() => handleCategoryChange(cat.key)}
+								key={cat}
+								onClick={() => handleCategoryChange(cat)}
 								className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide transition-all duration-200 border ${
-									activeCategory === cat.key
+									activeCategory === cat
 										? 'bg-primary border-primary text-primary-foreground shadow-sm'
 										: 'bg-card border-border text-muted-foreground hover:border-primary/50'
 								}`}
 							>
 								<span
-									className={`w-1.5 h-1.5 rounded-full ${cat.color} ${activeCategory === cat.key ? 'bg-white' : ''}`}
+									className={`w-1.5 h-1.5 rounded-full ${color} ${activeCategory === cat ? 'bg-white' : ''}`}
 								/>
-								{cat.label.toUpperCase()}
+								{cat.toUpperCase()}
 								<span className={`ml-0.5 opacity-60 font-mono`}>{count}</span>
+								{activeCategory === cat && (
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											selectByCategory(cat);
+										}}
+										className='ml-1.5 p-0.5 bg-white/20 hover:bg-white/40 rounded transition-colors'
+										title={`Select top 5 from ${cat}`}
+									>
+										<CheckSquare className='h-2.5 w-2.5' />
+									</button>
+								)}
 							</button>
 						);
 					})}
@@ -295,9 +281,6 @@ export default function SitemapView({
 							paginatedUrls.map((url) => {
 								const isSelected = selectedUrls.includes(url);
 								const category = getCategoryForUrl(url);
-								const catConfig = categoryConfig.find(
-									(c) => c.key === category,
-								);
 
 								return (
 									<div
@@ -331,7 +314,7 @@ export default function SitemapView({
 													variant='outline'
 													className='h-4 px-1.5 text-[9px] font-bold uppercase tracking-tighter border-border/60'
 												>
-													{catConfig?.label}
+													{category}
 												</Badge>
 											</div>
 										</div>
@@ -436,14 +419,14 @@ export default function SitemapView({
 						<p className='text-sm font-semibold tracking-tight'>
 							{selectedUrls.length}{' '}
 							<span className='text-muted-foreground font-normal'>
-								pages ready for analysis
+								/ 3 pages selected
 							</span>
 						</p>
 					</div>
 
 					<Button
 						onClick={() => onAnalyze(selectedUrls)}
-						disabled={selectedUrls.length === 0 || isAnalyzing}
+						disabled={selectedUrls.length === 0 || selectedUrls.length > 3 || isAnalyzing}
 						className='w-full sm:w-auto rounded-xl px-8 h-11 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all'
 					>
 						{isAnalyzing ? (

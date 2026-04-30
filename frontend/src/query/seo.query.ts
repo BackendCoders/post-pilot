@@ -6,7 +6,6 @@ import { seoService } from '@/service/seo.service';
 import type {
 	SitePageCountResult,
 	ScrapedPageData,
-	CategorizedUrls,
 } from '@/types/seo.types';
 
 export type AnalysisCallback = (data: { data: ScrapedPageData[]; scrapedCount: number }) => void;
@@ -124,17 +123,22 @@ export const useSeoAnalysis = () => {
 	);
 
 	const toggleUrl = useCallback((url: string) => {
-		setSelectedUrls((prev) =>
-			prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url],
-		);
+		setSelectedUrls((prev) => {
+			if (prev.includes(url)) return prev.filter((u) => u !== url);
+			if (prev.length >= 3) {
+				toast.warning('Maximum 3 pages can be analyzed at once in the free tier.');
+				return prev;
+			}
+			return [...prev, url];
+		});
 	}, []);
 
 	const selectAll = useCallback(() => {
 		if (sitemap) {
-			const limitedUrls = sitemap.urls.slice(0, 50);
+			const limitedUrls = sitemap.urls.slice(0, 3);
 			setSelectedUrls(limitedUrls);
-			if (sitemap.urls.length > 50) {
-				toast.warning('Only 50 webpages can be analyzed in free tier. First 50 pages selected.');
+			if (sitemap.urls.length > 3) {
+				toast.warning('Only 3 webpages can be analyzed at once. First 3 pages selected.');
 			}
 		}
 	}, [sitemap]);
@@ -144,12 +148,16 @@ export const useSeoAnalysis = () => {
 	}, []);
 
 	const selectByCategory = useCallback(
-		(category: keyof CategorizedUrls) => {
+		(category: string) => {
 			if (sitemap) {
 				const urls = sitemap.categorizedUrls[category];
 				setSelectedUrls((prev) => {
 					const otherSelected = prev.filter((u) => !urls.includes(u));
-					return [...otherSelected, ...urls];
+					const next = [...otherSelected, ...urls].slice(0, 3);
+					if (otherSelected.length + urls.length > 3) {
+						toast.warning('Selection limited to 3 pages.');
+					}
+					return next;
 				});
 			}
 		},

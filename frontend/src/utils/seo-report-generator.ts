@@ -313,24 +313,24 @@ function analyzePerformance(data: ScrapedPageData): SectionResult {
 	const perf = data.performanceMetrics;
 
 	const metrics: Record<string, number> = {
-		totalLoadTime: perf?.totalLoadTime || 0,
+		totalLoadTime: perf?.desktop?.totalLoadTime || 0,
 		pageSize: perf?.pageSize || 0,
-		ttfb: perf?.ttfb || 0,
-		dns: perf?.dns || 0,
-		tcp: perf?.tcp || 0,
+		ttfb: perf?.desktop?.ttfb || 0,
+		dns: perf?.desktop?.dns || 0,
+		tcp: perf?.desktop?.tcp || 0,
 	};
 
-	if (perf?.totalLoadTime && perf.totalLoadTime > 5000) {
+	if (perf?.desktop?.totalLoadTime && perf.desktop.totalLoadTime > 5000) {
 		score -= 20;
 		issues.push({
-			message: `Slow page load time (${Math.round(perf.totalLoadTime)}ms)`,
+			message: `Slow page load time (${Math.round(perf.desktop.totalLoadTime)}ms)`,
 			severity: 'high',
 			fix: 'Optimize server response time and reduce page weight',
 		});
-	} else if (perf?.totalLoadTime && perf.totalLoadTime > 3000) {
+	} else if (perf?.desktop?.totalLoadTime && perf.desktop.totalLoadTime > 3000) {
 		score -= 10;
 		issues.push({
-			message: `Moderate page load time (${Math.round(perf.totalLoadTime)}ms)`,
+			message: `Moderate page load time (${Math.round(perf.desktop.totalLoadTime)}ms)`,
 			severity: 'medium',
 			fix: 'Consider optimizing for faster load times',
 		});
@@ -352,28 +352,28 @@ function analyzePerformance(data: ScrapedPageData): SectionResult {
 		});
 	}
 
-	if (perf?.ttfb && perf.ttfb > 1800) {
+	if (perf?.desktop?.ttfb && perf.desktop.ttfb > 1800) {
 		score -= 10;
 		issues.push({
-			message: `High TTFB (${Math.round(perf.ttfb)}ms)`,
+			message: `High TTFB (${Math.round(perf.desktop.ttfb)}ms)`,
 			severity: 'medium',
 			fix: 'Improve server response time',
 		});
 	}
 
-	if (perf?.dns && perf.dns > 500) {
+	if (perf?.desktop?.dns && perf.desktop.dns > 500) {
 		score -= 5;
 		issues.push({
-			message: `Slow DNS lookup (${Math.round(perf.dns)}ms)`,
+			message: `Slow DNS lookup (${Math.round(perf.desktop.dns)}ms)`,
 			severity: 'low',
 			fix: 'Consider using DNS prefetch',
 		});
 	}
 
-	if (perf?.tcp && perf.tcp > 1000) {
+	if (perf?.desktop?.tcp && perf.desktop.tcp > 1000) {
 		score -= 5;
 		issues.push({
-			message: `Slow TCP connection (${Math.round(perf.tcp)}ms)`,
+			message: `Slow TCP connection (${Math.round(perf.desktop.tcp)}ms)`,
 			severity: 'low',
 			fix: 'Consider using a CDN or closer server',
 		});

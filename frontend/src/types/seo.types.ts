@@ -13,12 +13,22 @@ export interface PageImage {
 }
 
 export interface PerformanceMetrics {
-	ttfb: number;
-	dns: number;
-	tcp: number;
-	firstByte: number;
-	contentDownload: number;
-	totalLoadTime: number;
+	desktop: {
+		ttfb: number;
+		dns: number;
+		tcp: number;
+		firstByte: number;
+		contentDownload: number;
+		totalLoadTime: number;
+	};
+	mobile: {
+		ttfb: number;
+		dns: number;
+		tcp: number;
+		firstByte: number;
+		contentDownload: number;
+		totalLoadTime: number;
+	};
 	pageSize: number;
 	pageSizeFormatted: string;
 	fcp: number | null;
@@ -26,11 +36,13 @@ export interface PerformanceMetrics {
 	fid: number | null;
 	cls: number | null;
 	inp: number | null;
+	tbt: number | null;
 	fcpRating: 'good' | 'needs-improvement' | 'poor' | null;
 	lcpRating: 'good' | 'needs-improvement' | 'poor' | null;
 	fidRating: 'good' | 'needs-improvement' | 'poor' | null;
 	clsRating: 'good' | 'needs-improvement' | 'poor' | null;
 	inpRating: 'good' | 'needs-improvement' | 'poor' | null;
+	tbtRating: 'good' | 'needs-improvement' | 'poor' | null;
 	overallPerformanceScore: number | null;
 }
 
@@ -110,14 +122,7 @@ export interface ScrapedPageData {
 	}[];
 }
 
-export interface CategorizedUrls {
-	blog: string[];
-	product: string[];
-	category: string[];
-	post: string[];
-	pages: string[];
-	other: string[];
-}
+export type CategorizedUrls = Record<string, string[]>;
 
 export interface SitePageCountResult {
 	requestedUrl: string;

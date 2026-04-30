@@ -123,10 +123,13 @@ export default function PageAnalysisCard({
 								{ icon: ImageIcon, value: (page.images || []).length, error: imagesWithoutAltCount > 0 },
 								{
 									icon: Gauge,
-									value: page.performanceMetrics?.totalLoadTime
-										? `${Math.round(page.performanceMetrics.totalLoadTime)}ms`
+									value: page.performanceMetrics?.desktop?.totalLoadTime
+										? `${Math.round(page.performanceMetrics.desktop.totalLoadTime)}ms`
 										: '-',
-									warning: page.performanceMetrics?.totalLoadTime && page.performanceMetrics.totalLoadTime > 3000,
+									mobileValue: page.performanceMetrics?.mobile?.totalLoadTime
+										? `${Math.round(page.performanceMetrics.mobile.totalLoadTime)}ms`
+										: null,
+									warning: page.performanceMetrics?.desktop?.totalLoadTime && page.performanceMetrics.desktop.totalLoadTime > 3000,
 								},
 							].map((stat, i) => (
 								<div
@@ -136,6 +139,11 @@ export default function PageAnalysisCard({
 									<stat.icon className={`h-3 w-3 opacity-70 ${stat.warning ? 'text-yellow-600' : ''}`} />
 									<span className={stat.warning ? 'text-yellow-600' : ''}>
 										{stat.value}
+										{stat.mobileValue && (
+											<span className='ml-1 opacity-50 border-l border-border/50 pl-1'>
+												📱 {stat.mobileValue}
+											</span>
+										)}
 									</span>
 									{stat.error && (
 										<span className='ml-0.5 text-[9px] font-bold text-destructive px-1 bg-destructive/10 rounded-sm'>
@@ -413,30 +421,109 @@ export default function PageAnalysisCard({
 										Performance Metrics
 									</h4>
 								</div>
-								<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
-									<PerformanceMetricCard
-										label='Load Time'
-										value={page.performanceMetrics.totalLoadTime ? `${Math.round(page.performanceMetrics.totalLoadTime)}ms` : '-'}
-										rating={page.performanceMetrics.totalLoadTime && page.performanceMetrics.totalLoadTime <= 3000 ? 'good' : page.performanceMetrics.totalLoadTime && page.performanceMetrics.totalLoadTime <= 5000 ? 'needs-improvement' : page.performanceMetrics.totalLoadTime ? 'poor' : null}
-									/>
+								<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+									<div className='space-y-2'>
+										<div className='text-[9px] font-bold text-primary flex items-center gap-1 mb-1 bg-primary/5 p-1 rounded-md w-fit'>
+											💻 DESKTOP
+										</div>
+										<div className='grid grid-cols-2 gap-2'>
+											<PerformanceMetricCard
+												label='Load Time'
+												value={page.performanceMetrics.desktop?.totalLoadTime ? `${Math.round(page.performanceMetrics.desktop.totalLoadTime)}ms` : '-'}
+												rating={page.performanceMetrics.desktop?.totalLoadTime && page.performanceMetrics.desktop.totalLoadTime <= 3000 ? 'good' : page.performanceMetrics.desktop?.totalLoadTime && page.performanceMetrics.desktop.totalLoadTime <= 5000 ? 'needs-improvement' : page.performanceMetrics.desktop?.totalLoadTime ? 'poor' : null}
+											/>
+											<PerformanceMetricCard
+												label='DNS Lookup'
+												value={page.performanceMetrics.desktop?.dns ? `${Math.round(page.performanceMetrics.desktop.dns)}ms` : '-'}
+												rating={null}
+											/>
+											<PerformanceMetricCard
+												label='TCP Connect'
+												value={page.performanceMetrics.desktop?.tcp ? `${Math.round(page.performanceMetrics.desktop.tcp)}ms` : '-'}
+												rating={null}
+											/>
+											<PerformanceMetricCard
+												label='First Byte'
+												value={page.performanceMetrics.desktop?.firstByte ? `${Math.round(page.performanceMetrics.desktop.firstByte)}ms` : '-'}
+												rating={null}
+											/>
+										</div>
+									</div>
+
+									<div className='space-y-2'>
+										<div className='text-[9px] font-bold text-indigo-600 flex items-center gap-1 mb-1 bg-indigo-50 p-1 rounded-md w-fit'>
+											📱 MOBILE
+										</div>
+										<div className='grid grid-cols-2 gap-2'>
+											<PerformanceMetricCard
+												label='Load Time'
+												value={page.performanceMetrics.mobile?.totalLoadTime ? `${Math.round(page.performanceMetrics.mobile.totalLoadTime)}ms` : '-'}
+												rating={page.performanceMetrics.mobile?.totalLoadTime && page.performanceMetrics.mobile.totalLoadTime <= 4000 ? 'good' : page.performanceMetrics.mobile?.totalLoadTime && page.performanceMetrics.mobile.totalLoadTime <= 7000 ? 'needs-improvement' : page.performanceMetrics.mobile?.totalLoadTime ? 'poor' : null}
+											/>
+											<PerformanceMetricCard
+												label='DNS Lookup'
+												value={page.performanceMetrics.mobile?.dns ? `${Math.round(page.performanceMetrics.mobile.dns)}ms` : '-'}
+												rating={null}
+											/>
+											<PerformanceMetricCard
+												label='TCP Connect'
+												value={page.performanceMetrics.mobile?.tcp ? `${Math.round(page.performanceMetrics.mobile.tcp)}ms` : '-'}
+												rating={null}
+											/>
+											<PerformanceMetricCard
+												label='First Byte'
+												value={page.performanceMetrics.mobile?.firstByte ? `${Math.round(page.performanceMetrics.mobile.firstByte)}ms` : '-'}
+												rating={null}
+											/>
+										</div>
+									</div>
+								</div>
+
+								{/* Web Vitals Section */}
+								<div className='mt-4 pt-4 border-t border-dashed border-border/60'>
+									<div className='flex items-center gap-2 mb-3'>
+										<div className='h-3 w-0.5 bg-emerald-500/60 rounded-full' />
+										<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
+											Core Web Vitals (Google)
+										</h4>
+									</div>
+									<div className='grid grid-cols-2 md:grid-cols-4 gap-2'>
+										<PerformanceMetricCard
+											label='First Contentful Paint'
+											value={page.performanceMetrics.fcp ? `${(page.performanceMetrics.fcp / 1000).toFixed(1)}s` : '-'}
+											rating={page.performanceMetrics.fcpRating}
+										/>
+										<PerformanceMetricCard
+											label='Largest Contentful Paint'
+											value={page.performanceMetrics.lcp ? `${(page.performanceMetrics.lcp / 1000).toFixed(1)}s` : '-'}
+											rating={page.performanceMetrics.lcpRating}
+										/>
+										<PerformanceMetricCard
+											label='Total Blocking Time'
+											value={page.performanceMetrics.tbt ? `${Math.round(page.performanceMetrics.tbt)}ms` : '-'}
+											rating={page.performanceMetrics.tbtRating}
+										/>
+										<PerformanceMetricCard
+											label='Layout Shift (CLS)'
+											value={page.performanceMetrics.cls !== null ? page.performanceMetrics.cls.toFixed(3) : '-'}
+											rating={page.performanceMetrics.clsRating}
+										/>
+									</div>
+								</div>
+								<div className='mt-4 grid grid-cols-2 gap-2'>
 									<PerformanceMetricCard
 										label='Page Size'
 										value={page.performanceMetrics.pageSizeFormatted || '-'}
 										rating={page.performanceMetrics.pageSize && page.performanceMetrics.pageSize <= 2_000_000 ? 'good' : page.performanceMetrics.pageSize && page.performanceMetrics.pageSize <= 5_000_000 ? 'needs-improvement' : page.performanceMetrics.pageSize ? 'poor' : null}
 									/>
 									<PerformanceMetricCard
-										label='DNS Lookup'
-										value={page.performanceMetrics.dns ? `${Math.round(page.performanceMetrics.dns)}ms` : '-'}
-										rating={null}
-									/>
-									<PerformanceMetricCard
-										label='TCP Connect'
-										value={page.performanceMetrics.tcp ? `${Math.round(page.performanceMetrics.tcp)}ms` : '-'}
+										label='Resource Count'
+										value={`${(page.scripts?.length || 0) + (page.stylesheets?.length || 0)} files`}
 										rating={null}
 									/>
 								</div>
 								<div className='mt-2 text-[9px] text-muted-foreground/60 italic'>
-									Note: FCP, LCP, CLS, INP require real browser measurement. These are available via Lighthouse or browser DevTools.
+									Note: Core Web Vitals are fetched in real-time from the Google PageSpeed Insights API.
 								</div>
 							</div>
 						)}

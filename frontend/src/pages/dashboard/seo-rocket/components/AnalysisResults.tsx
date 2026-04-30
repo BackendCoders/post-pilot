@@ -111,10 +111,10 @@ export default function AnalysisResults({
 		? Math.round(
 			results
 				.filter((p) => p.performanceMetrics)
-				.reduce((sum, p) => sum + (p.performanceMetrics?.totalLoadTime || 0), 0) / pagesWithPerf
+				.reduce((sum, p) => sum + (p.performanceMetrics?.desktop.totalLoadTime || 0), 0) / pagesWithPerf
 		  )
 		: 0;
-	const slowPages = results.filter((p) => p.performanceMetrics && p.performanceMetrics.totalLoadTime > 3000).length;
+	const slowPages = results.filter((p) => p.performanceMetrics && p.performanceMetrics.desktop.totalLoadTime > 3000).length;
 
 	return (
 		<div

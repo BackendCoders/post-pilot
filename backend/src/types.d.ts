@@ -1,10 +1,20 @@
 export interface IPerformanceMetrics {
-  ttfb: number;
-  dns: number;
-  tcp: number;
-  firstByte: number;
-  contentDownload: number;
-  totalLoadTime: number;
+  desktop: {
+    ttfb: number;
+    dns: number;
+    tcp: number;
+    firstByte: number;
+    contentDownload: number;
+    totalLoadTime: number;
+  };
+  mobile: {
+    ttfb: number;
+    dns: number;
+    tcp: number;
+    firstByte: number;
+    contentDownload: number;
+    totalLoadTime: number;
+  };
   pageSize: number;
   pageSizeFormatted: string;
   fcp: number | null;
@@ -12,11 +22,13 @@ export interface IPerformanceMetrics {
   fid: number | null;
   cls: number | null;
   inp: number | null;
+  tbt: number | null;
   fcpRating: 'good' | 'needs-improvement' | 'poor' | null;
   lcpRating: 'good' | 'needs-improvement' | 'poor' | null;
   fidRating: 'good' | 'needs-improvement' | 'poor' | null;
   clsRating: 'good' | 'needs-improvement' | 'poor' | null;
   inpRating: 'good' | 'needs-improvement' | 'poor' | null;
+  tbtRating: 'good' | 'needs-improvement' | 'poor' | null;
   overallPerformanceScore: number | null;
 }
 

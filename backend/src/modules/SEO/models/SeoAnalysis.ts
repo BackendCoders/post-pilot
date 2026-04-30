@@ -96,12 +96,22 @@ export interface IPageAnalysisData {
 }
 
 export interface IPerformanceMetrics {
-  ttfb: number;
-  dns: number;
-  tcp: number;
-  firstByte: number;
-  contentDownload: number;
-  totalLoadTime: number;
+  desktop: {
+    ttfb: number;
+    dns: number;
+    tcp: number;
+    firstByte: number;
+    contentDownload: number;
+    totalLoadTime: number;
+  };
+  mobile: {
+    ttfb: number;
+    dns: number;
+    tcp: number;
+    firstByte: number;
+    contentDownload: number;
+    totalLoadTime: number;
+  };
   pageSize: number;
   pageSizeFormatted: string;
   fcp: number | null;
@@ -109,22 +119,34 @@ export interface IPerformanceMetrics {
   fid: number | null;
   cls: number | null;
   inp: number | null;
+  tbt: number | null;
   fcpRating: 'good' | 'needs-improvement' | 'poor' | null;
   lcpRating: 'good' | 'needs-improvement' | 'poor' | null;
   fidRating: 'good' | 'needs-improvement' | 'poor' | null;
   clsRating: 'good' | 'needs-improvement' | 'poor' | null;
   inpRating: 'good' | 'needs-improvement' | 'poor' | null;
+  tbtRating: 'good' | 'needs-improvement' | 'poor' | null;
   overallPerformanceScore: number | null;
 }
 
 const performanceMetricsSchema = new Schema(
   {
-    ttfb: { type: Number, default: 0 },
-    dns: { type: Number, default: 0 },
-    tcp: { type: Number, default: 0 },
-    firstByte: { type: Number, default: 0 },
-    contentDownload: { type: Number, default: 0 },
-    totalLoadTime: { type: Number, default: 0 },
+    desktop: {
+      ttfb: { type: Number, default: 0 },
+      dns: { type: Number, default: 0 },
+      tcp: { type: Number, default: 0 },
+      firstByte: { type: Number, default: 0 },
+      contentDownload: { type: Number, default: 0 },
+      totalLoadTime: { type: Number, default: 0 },
+    },
+    mobile: {
+      ttfb: { type: Number, default: 0 },
+      dns: { type: Number, default: 0 },
+      tcp: { type: Number, default: 0 },
+      firstByte: { type: Number, default: 0 },
+      contentDownload: { type: Number, default: 0 },
+      totalLoadTime: { type: Number, default: 0 },
+    },
     pageSize: { type: Number, default: 0 },
     pageSizeFormatted: { type: String, default: '0 Bytes' },
     fcp: { type: Number, default: null },
@@ -132,11 +154,13 @@ const performanceMetricsSchema = new Schema(
     fid: { type: Number, default: null },
     cls: { type: Number, default: null },
     inp: { type: Number, default: null },
+    tbt: { type: Number, default: null },
     fcpRating: { type: String, enum: ['good', 'needs-improvement', 'poor', null], default: null },
     lcpRating: { type: String, enum: ['good', 'needs-improvement', 'poor', null], default: null },
     fidRating: { type: String, enum: ['good', 'needs-improvement', 'poor', null], default: null },
     clsRating: { type: String, enum: ['good', 'needs-improvement', 'poor', null], default: null },
     inpRating: { type: String, enum: ['good', 'needs-improvement', 'poor', null], default: null },
+    tbtRating: { type: String, enum: ['good', 'needs-improvement', 'poor', null], default: null },
     overallPerformanceScore: { type: Number, default: null },
   },
   { _id: false }

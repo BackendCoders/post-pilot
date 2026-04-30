@@ -149,13 +149,23 @@ export function mergeWithBackendMetrics(
 	backendMetrics: PerformanceMetrics | null,
 	webVitals: WebVitalsResult
 ): PerformanceMetrics {
-	const baseMetrics = backendMetrics || {
-		ttfb: 0,
-		dns: 0,
-		tcp: 0,
-		firstByte: 0,
-		contentDownload: 0,
-		totalLoadTime: 0,
+	const baseMetrics: PerformanceMetrics = backendMetrics || {
+		desktop: {
+			ttfb: 0,
+			dns: 0,
+			tcp: 0,
+			firstByte: 0,
+			contentDownload: 0,
+			totalLoadTime: 0,
+		},
+		mobile: {
+			ttfb: 0,
+			dns: 0,
+			tcp: 0,
+			firstByte: 0,
+			contentDownload: 0,
+			totalLoadTime: 0,
+		},
 		pageSize: 0,
 		pageSizeFormatted: '0 Bytes',
 		fcp: null,
@@ -163,11 +173,13 @@ export function mergeWithBackendMetrics(
 		fid: null,
 		cls: null,
 		inp: null,
+		tbt: null,
 		fcpRating: null,
 		lcpRating: null,
 		fidRating: null,
 		clsRating: null,
 		inpRating: null,
+		tbtRating: null,
 		overallPerformanceScore: null,
 	};
 
@@ -177,7 +189,10 @@ export function mergeWithBackendMetrics(
 		lcp: webVitals.lcp,
 		cls: webVitals.cls,
 		inp: webVitals.inp,
-		ttfb: webVitals.ttfb ?? baseMetrics.ttfb,
+		desktop: {
+			...baseMetrics.desktop,
+			ttfb: webVitals.ttfb ?? baseMetrics.desktop.ttfb,
+		},
 		fcpRating: getFcpRating(webVitals.fcp),
 		lcpRating: getLcpRating(webVitals.lcp),
 		clsRating: getClsRating(webVitals.cls),

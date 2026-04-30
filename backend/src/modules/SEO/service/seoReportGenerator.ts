@@ -399,7 +399,7 @@ function analyzePerformance(data: ScrapedPageData): ISectionResult {
   const totalBlockingCount = renderBlockingCount + stylesheets.length;
 
   const metrics: Record<string, number> = {
-    totalLoadTime: perf?.totalLoadTime || 0,
+    totalLoadTime: perf?.desktop?.totalLoadTime || 0,
     pageSize: perf?.pageSize || 0,
     renderBlockingResources: totalBlockingCount,
     largeResources: largeJsCount + largeCssCount,
@@ -434,17 +434,17 @@ function analyzePerformance(data: ScrapedPageData): ISectionResult {
     });
   }
 
-  if (perf?.totalLoadTime && perf.totalLoadTime > 5000) {
+  if (perf?.desktop?.totalLoadTime && perf.desktop.totalLoadTime > 5000) {
     score -= 20;
     issues.push({
-      message: `Slow page load time (${Math.round(perf.totalLoadTime)}ms)`,
+      message: `Slow page load time (${Math.round(perf.desktop.totalLoadTime)}ms)`,
       severity: 'high',
       fix: 'Optimize server response time and reduce page weight',
     });
-  } else if (perf?.totalLoadTime && perf.totalLoadTime > 3000) {
+  } else if (perf?.desktop?.totalLoadTime && perf.desktop.totalLoadTime > 3000) {
     score -= 10;
     issues.push({
-      message: `Moderate page load time (${Math.round(perf.totalLoadTime)}ms)`,
+      message: `Moderate page load time (${Math.round(perf.desktop.totalLoadTime)}ms)`,
       severity: 'medium',
       fix: 'Consider optimizing for faster load times',
     });
