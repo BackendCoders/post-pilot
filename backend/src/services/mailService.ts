@@ -137,6 +137,63 @@ class MailService {
 
     return this.sendMail(adminEmail, emailSubject, html);
   }
+
+  async sendSeoReport(data: {
+    to: string;
+    userName: string;
+    pageUrl: string;
+    report: any; // Using any to avoid importing ISeoReport here if it causes circular deps, or I can import it
+  }) {
+    const { to, userName, pageUrl, report } = data;
+    const subject = `[SEO Rocket] Analysis Report for ${pageUrl}`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 12px; color: #1e293b;">
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 30px; border-radius: 12px; text-align: center; color: white; margin-bottom: 30px;">
+          <h1 style="margin: 0; font-size: 24px;">SEO Analysis Report</h1>
+          <p style="opacity: 0.8; margin: 10px 0 0 0;">Generated for ${pageUrl}</p>
+        </div>
+
+        <p>Hi ${userName},</p>
+        <p>Your SEO analysis for <strong>${pageUrl}</strong> is ready. Here is a summary of our findings:</p>
+
+        <div style="background: #f8fafc; padding: 25px; border-radius: 12px; text-align: center; margin: 30px 0;">
+          <div style="font-size: 48px; font-weight: bold; color: #3b82f6;">${report.totalScore}/100</div>
+          <div style="font-size: 18px; font-weight: bold; margin-top: 5px;">Grade: ${report.grade}</div>
+        </div>
+
+        <h3 style="border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">Section Breakdown</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+          ${Object.entries(report.sections).map(([name, section]: [string, any]) => `
+            <tr>
+              <td style="padding: 10px 0; font-weight: bold; text-transform: capitalize;">${name}</td>
+              <td style="padding: 10px 0; text-align: right;">
+                <span style="background: ${section.score >= 90 ? '#dcfce7' : section.score >= 70 ? '#fef9c3' : '#fee2e2'}; 
+                           color: ${section.score >= 90 ? '#166534' : section.score >= 70 ? '#854d0e' : '#991b1b'};
+                           padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;">
+                  ${section.score}/100
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+
+        <div style="margin-top: 30px; text-align: center;">
+          <a href="${process.env.FRONTEND_URL}/dashboard/seo-rocket" 
+             style="background: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            View Full Audit Details
+          </a>
+        </div>
+
+        <p style="margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+          Best regards,<br>
+          The SEO Rocket Team
+        </p>
+      </div>
+    `;
+
+    return this.sendMail(to, subject, html);
+  }
 }
 
 export const mailService = new MailService();

@@ -102,10 +102,12 @@ export default function SEORocketPage() {
 				externalLinkCount: r.analysisData.externalLinkCount,
 				redirectUrls: r.analysisData.redirectUrls,
 				redirectCount: r.analysisData.redirectCount,
-				isError: r.analysisData.isError,
-				emails: r.analysisData.emails || [],
-				phoneNumbers: r.analysisData.phoneNumbers || [],
+				isError: r.analysisData.isError || false,
+				emails: (r.analysisData as any).emails || [],
+				phoneNumbers: (r.analysisData as any).phoneNumbers || [],
 				performanceMetrics: r.analysisData.performanceMetrics || null,
+				scripts: r.analysisData.scripts || [],
+				stylesheets: r.analysisData.stylesheets || [],
 				analysisReport: r.analysisReport || null,
 			}));
 			setCurrentResults(pageData);

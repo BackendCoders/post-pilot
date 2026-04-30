@@ -2,12 +2,9 @@
 
 import { useState } from 'react';
 import {
-	X,
-	AlertTriangle,
 	Image as ImageIcon,
 	Link as LinkIcon,
 	ExternalLink,
-	AlertCircle,
 	Search,
 	FileWarning,
 	Activity,
@@ -295,8 +292,8 @@ function ImageIssueList({
 				<div className='flex items-center gap-2'>
 					<h5 className='text-sm font-bold text-foreground'>{title}</h5>
 					<Badge
-						variant={severity === 'high' ? 'destructive' : severity === 'medium' ? 'warning' : 'secondary'}
-						className='h-4 px-1 text-[9px] rounded-sm uppercase'
+						variant={severity === 'high' ? 'destructive' : 'outline'}
+						className={`h-4 px-1 text-[9px] rounded-sm uppercase ${severity === 'medium' ? 'border-amber-500 text-amber-600' : ''}`}
 					>
 						{severity || 'info'}
 					</Badge>

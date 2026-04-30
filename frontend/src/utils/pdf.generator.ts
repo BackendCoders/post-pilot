@@ -43,7 +43,7 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 			doc.addPage();
 			yPos = margin;
 			// Add a small header on subsequent pages
-			doc.setFillColor(...COLORS.primary);
+			doc.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 			doc.rect(0, 0, pageWidth, 15, 'F');
 			yPos += 10;
 		}
@@ -51,7 +51,7 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 
 	const drawHeader = () => {
 		// Dark background header
-		doc.setFillColor(...COLORS.primary);
+		doc.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 		doc.rect(0, 0, pageWidth, 60, 'F');
 		
 		doc.setTextColor(255, 255, 255);
@@ -75,10 +75,10 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 		addNewPageIfNeeded(20);
 		doc.setFont('helvetica', 'bold');
 		doc.setFontSize(14);
-		doc.setTextColor(...COLORS.primary);
+		doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 		doc.text(title.toUpperCase(), margin, yPos);
 		
-		doc.setDrawColor(...COLORS.accent);
+		doc.setDrawColor(COLORS.accent[0], COLORS.accent[1], COLORS.accent[2]);
 		doc.setLineWidth(1);
 		doc.line(margin, yPos + 2, margin + 20, yPos + 2);
 		
@@ -100,20 +100,20 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 		const color = getGradeColor(grade);
 		
 		// Large Score Card
-		doc.setFillColor(...COLORS.bg);
+		doc.setFillColor(COLORS.bg[0], COLORS.bg[1], COLORS.bg[2]);
 		doc.roundedRect(margin, yPos, contentWidth, 40, 4, 4, 'F');
 		
-		doc.setTextColor(...color);
+		doc.setTextColor(color[0], color[1], color[2]);
 		doc.setFontSize(36);
 		doc.setFont('helvetica', 'bold');
 		doc.text(avgScore.toString(), margin + 15, yPos + 27);
 		
-		doc.setTextColor(...COLORS.primary);
+		doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 		doc.setFontSize(12);
 		doc.text('OVERALL SCORE', margin + 60, yPos + 18);
 		
 		doc.setFontSize(10);
-		doc.setTextColor(...COLORS.muted);
+		doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2]);
 		doc.text(`Performance Grade: ${grade}`, margin + 60, yPos + 26);
 		
 		yPos += 55;
@@ -133,9 +133,9 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 	stats.forEach((stat, i) => {
 		const x = margin + (i % 2) * (contentWidth / 2);
 		const y = yPos + Math.floor(i / 2) * 15;
-		doc.setTextColor(...COLORS.muted);
+		doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2]);
 		doc.text(stat.label, x, y);
-		doc.setTextColor(...COLORS.primary);
+		doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 		doc.setFont('helvetica', 'bold');
 		doc.text(stat.value, x + 40, y);
 		doc.setFont('helvetica', 'normal');
@@ -148,23 +148,22 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 
 	results.forEach((page, index) => {
 		const report = reports[page.url];
-		const score = report?.totalScore;
 		const grade = report?.grade;
 		
 		addNewPageIfNeeded(80);
 		
 		// Page Header Row
-		doc.setFillColor(...COLORS.bg);
+		doc.setFillColor(COLORS.bg[0], COLORS.bg[1], COLORS.bg[2]);
 		doc.rect(margin, yPos, contentWidth, 12, 'F');
 		
-		doc.setTextColor(...COLORS.primary);
+		doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 		doc.setFont('helvetica', 'bold');
 		doc.setFontSize(10);
 		doc.text(`PAGE ${index + 1}: ${page.url.substring(0, 70)}${page.url.length > 70 ? '...' : ''}`, margin + 5, yPos + 8);
 		
 		if (grade) {
 			const color = getGradeColor(grade);
-			doc.setFillColor(...color);
+			doc.setFillColor(color[0], color[1], color[2]);
 			doc.roundedRect(pageWidth - margin - 25, yPos + 2, 20, 8, 2, 2, 'F');
 			doc.setTextColor(255, 255, 255);
 			doc.setFontSize(8);
@@ -174,7 +173,7 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 		yPos += 20;
 
 		if (page.isError) {
-			doc.setTextColor(...COLORS.red);
+			doc.setTextColor(COLORS.red[0], COLORS.red[1], COLORS.red[2]);
 			doc.setFontSize(9);
 			doc.text('⚠ ERROR: Unable to analyze this page content.', margin + 5, yPos);
 			yPos += 15;
@@ -182,7 +181,7 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 		}
 
 		// Metrics Grid
-		doc.setTextColor(...COLORS.primary);
+		doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
 		doc.setFontSize(9);
 		const metrics = [
 			`Title: ${page.title || 'N/A'}`,
@@ -207,7 +206,7 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 			yPos += 4;
 			issues.forEach(issue => {
 				const color = issue.sev === 'high' ? COLORS.red : COLORS.amber;
-				doc.setTextColor(...color);
+				doc.setTextColor(color[0], color[1], color[2]);
 				doc.setFont('helvetica', 'bold');
 				doc.text(`! ${issue.msg}`, margin + 5, yPos);
 				yPos += 5;
@@ -216,7 +215,7 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 		}
 
 		yPos += 10;
-		doc.setDrawColor(...COLORS.border);
+		doc.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
 		doc.line(margin, yPos, pageWidth - margin, yPos);
 		yPos += 10;
 	});
@@ -224,9 +223,9 @@ const buildPdfContent = (doc: jsPDF, results: ScrapedPageData[], reports: Record
 	// --- FOOTER ---
 	const finalY = pageHeight - 15;
 	doc.setFontSize(8);
-	doc.setTextColor(...COLORS.muted);
+	doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2]);
 	doc.text('Generated by SEO Rocket Premium Engine', margin, finalY);
-	doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - margin, finalY, { align: 'right' });
+	doc.text(`Page ${doc.getNumberOfPages()}`, pageWidth - margin, finalY, { align: 'right' });
 };
 
 export const generateSeoReport = (results: ScrapedPageData[], reports: Record<string, SeoReport> = {}): void => {
