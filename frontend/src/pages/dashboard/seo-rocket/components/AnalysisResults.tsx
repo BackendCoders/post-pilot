@@ -52,7 +52,7 @@ export default function AnalysisResults({
 	const isWhatsAppConnected = whatsappStatus?.state === 'CONNECTED';
 
 	const handleDownloadPdf = () => {
-		generateSeoReport(results);
+		generateSeoReport(results, reports);
 	};
 
 	const handleShareWhatsApp = () => {
@@ -79,7 +79,7 @@ export default function AnalysisResults({
 			return;
 		}
 
-		const { base64, fileName } = generateSeoReportBase64(results);
+		const { base64, fileName } = generateSeoReportBase64(results, reports);
 		setReportData({ base64, fileName });
 		setShowWhatsAppDialog(true);
 	};

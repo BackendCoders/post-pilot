@@ -47,6 +47,7 @@ export interface ISectionResult {
     fix: string;
   }>;
   metrics: Record<string, number>;
+  details?: any;
 }
 
 export interface IPageAnalysisData {
@@ -150,6 +151,7 @@ const pageAnalysisDataSchema = new Schema<IPageAnalysisData>(
         alt: { type: String, default: null },
         size: { type: Number, default: null },
         type: { type: String, default: null },
+        isBroken: { type: Boolean, default: false },
       },
     ],
     wordCount: { type: Number, default: 0 },
@@ -182,6 +184,7 @@ const sectionResultSchema = new Schema(
     maxScore: { type: Number, required: true },
     issues: { type: [issueSchema], default: [] },
     metrics: { type: Schema.Types.Mixed, default: {} },
+    details: { type: Schema.Types.Mixed, default: {} },
   },
   { _id: false }
 );

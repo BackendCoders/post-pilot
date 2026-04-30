@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ScrapedPageData, SeoReport } from '@/types/seo.types';
 import { SeoScoreBadge, SeoSectionScore } from './SeoScoreBadge';
+import SeoDetailView from './SeoDetailView';
 
 interface PageAnalysisCardProps {
 	page: ScrapedPageData;
@@ -38,6 +39,11 @@ export default function PageAnalysisCard({
 	isRescraping,
 }: PageAnalysisCardProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
+	const [activeDetail, setActiveDetail] = useState<{
+		type: 'images' | 'links';
+		title: string;
+		details: any;
+	} | null>(null);
 
 	if (page.isError) {
 		return (
@@ -346,13 +352,13 @@ export default function PageAnalysisCard({
 									{[
 										{ label: 'Meta', section: report.sections.meta },
 										{ label: 'Headings', section: report.sections.headings },
-										{ label: 'Images', section: report.sections.images },
+										{ label: 'Images', section: report.sections.images, type: 'images' },
 										{ label: 'Content', section: report.sections.content },
-										{ label: 'Links', section: report.sections.links },
+										{ label: 'Links', section: report.sections.links, type: 'links' },
 										{ label: 'Technical', section: report.sections.technical },
 										...(report.sections.performance ? [{ label: 'Performance', section: report.sections.performance }] : []),
-									].map(({ label, section }) => (
-										<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5'>
+									].map(({ label, section, type }) => (
+										<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5 flex flex-col'>
 											<div className='flex items-center justify-between mb-2'>
 												<span className='text-[10px] font-bold uppercase flex items-center gap-1'>
 													{label === 'Performance' && <Zap className='h-3 w-3' />}
@@ -367,13 +373,30 @@ export default function PageAnalysisCard({
 											</div>
 											<SeoSectionScore score={section.score} />
 											{section.issues.length > 0 && (
-												<div className='mt-2 space-y-1'>
-													{section.issues.slice(0, 2).map((issue, i) => (
+												<div className='mt-2 space-y-1 flex-1'>
+													{section.issues.slice(0, 1).map((issue, i) => (
 														<div key={i} className='text-[9px] text-muted-foreground truncate'>
 															• {issue.message}
 														</div>
 													))}
 												</div>
+											)}
+											{type && (section.details || section.metrics.invalidLinks > 0 || section.metrics.brokenImages > 0) && (
+												<Button
+													variant='outline'
+													size='xs'
+													className='mt-2 h-6 text-[9px] font-bold uppercase rounded-md bg-background'
+													onClick={(e) => {
+														e.stopPropagation();
+														setActiveDetail({
+															type: type as 'images' | 'links',
+															title: `${label} Audit`,
+															details: section.details,
+														});
+													}}
+												>
+													Audit Issues
+												</Button>
 											)}
 										</div>
 									))}
@@ -418,6 +441,16 @@ export default function PageAnalysisCard({
 							</div>
 						)}
 					</div>
+					
+					{activeDetail && (
+						<SeoDetailView
+							isOpen={!!activeDetail}
+							onClose={() => setActiveDetail(null)}
+							title={activeDetail.title}
+							details={activeDetail.details}
+							type={activeDetail.type}
+						/>
+					)}
 				</CardContent>
 			)}
 		</Card>

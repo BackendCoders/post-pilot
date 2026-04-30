@@ -75,6 +75,7 @@ interface ScrapedPageData {
     alt: string;
     size: number;
     type: string;
+    isBroken?: boolean;
   }[];
   links: string[];
   socialLinks: string[];
@@ -116,6 +117,7 @@ type PageImage = {
   alt: string;
   size: number;
   type: string;
+  isBroken: boolean;
 };
 
 function getErrorDetails(error: unknown) {
@@ -298,7 +300,7 @@ async function scrapImages(
     const alt = $(el).attr('alt') || '';
 
     if (!src) {
-      images.push({ src: '', alt: '', size: 0, type: 'N/A' });
+      images.push({ src: '', alt: '', size: 0, type: 'N/A', isBroken: true });
       continue;
     }
 
@@ -318,6 +320,7 @@ async function scrapImages(
         alt,
         size,
         type,
+        isBroken: false,
       });
     } catch (err) {
       // fallback if HEAD fails
@@ -337,6 +340,7 @@ async function scrapImages(
           alt,
           size,
           type,
+          isBroken: false,
         });
       } catch {
         images.push({
@@ -344,6 +348,7 @@ async function scrapImages(
           alt,
           size: 0,
           type: 'N/A',
+          isBroken: true,
         });
       }
     }

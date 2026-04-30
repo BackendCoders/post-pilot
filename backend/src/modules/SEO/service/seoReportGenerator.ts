@@ -103,6 +103,15 @@ function analyzeHeadings(data: ScrapedPageData): ISectionResult {
 function analyzeImages(data: ScrapedPageData): ISectionResult {
   let score = 100;
   const issues: ISectionResult['issues'] = [];
+  const details: any = {
+    missingAlt: [],
+    weakAlt: [],
+    heavyImages: [],
+    criticalImages: [],
+    nonModernFormats: [],
+    duplicateImages: [],
+    brokenImages: [],
+  };
 
   let missingAlt = 0;
   let weakAlt = 0;
@@ -110,24 +119,44 @@ function analyzeImages(data: ScrapedPageData): ISectionResult {
   let criticalSize = 0;
   let nonModern = 0;
   let duplicates = 0;
+  let broken = 0;
 
   const seen = new Set<string>();
-
   const images = data.images || [];
 
   for (const img of images) {
-    if (!img.alt) missingAlt++;
-    else if (img.alt.split(' ').length < 3) weakAlt++;
+    if (img.isBroken) {
+      broken++;
+      details.brokenImages.push(img.src);
+    }
 
-    if (img.size > 400_000) criticalSize++;
-    else if (img.size > 200_000) heavySize++;
+    if (!img.alt) {
+      missingAlt++;
+      details.missingAlt.push(img.src);
+    } else if (img.alt.split(' ').length < 3) {
+      weakAlt++;
+      details.weakAlt.push({ src: img.src, alt: img.alt });
+    }
+
+    if (img.size > 400_000) {
+      criticalSize++;
+      details.criticalImages.push({ src: img.src, size: img.size });
+    } else if (img.size > 200_000) {
+      heavySize++;
+      details.heavyImages.push({ src: img.src, size: img.size });
+    }
 
     if (!['image/webp', 'image/avif'].includes(img.type)) {
       nonModern++;
+      details.nonModernFormats.push({ src: img.src, type: img.type });
     }
 
-    if (img.src && seen.has(img.src)) duplicates++;
-    else if (img.src) seen.add(img.src);
+    if (img.src && seen.has(img.src)) {
+      duplicates++;
+      details.duplicateImages.push(img.src);
+    } else if (img.src) {
+      seen.add(img.src);
+    }
   }
 
   const metrics: Record<string, number> = {
@@ -138,7 +167,17 @@ function analyzeImages(data: ScrapedPageData): ISectionResult {
     criticalImages: criticalSize,
     nonModernFormats: nonModern,
     duplicateImages: duplicates,
+    brokenImages: broken,
   };
+
+  if (broken) {
+    score -= Math.min(40, broken * 10);
+    issues.push({
+      message: `${broken} broken image${broken > 1 ? 's' : ''} detected`,
+      severity: 'high',
+      fix: 'Fix or remove broken image links',
+    });
+  }
 
   if (missingAlt) {
     score -= Math.min(25, missingAlt * 2);
@@ -194,7 +233,7 @@ function analyzeImages(data: ScrapedPageData): ISectionResult {
     });
   }
 
-  return { score: clamp(score), maxScore: 100, issues, metrics };
+  return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
 
 function analyzeContent(data: ScrapedPageData): ISectionResult {
@@ -240,11 +279,16 @@ function analyzeContent(data: ScrapedPageData): ISectionResult {
 function analyzeLinks(data: ScrapedPageData): ISectionResult {
   let score = 100;
   const issues: ISectionResult['issues'] = [];
+  const details: any = {
+    invalidLinks: [],
+  };
 
   const links = data.links || [];
-  const invalid = links.filter(
-    (l: string) => l.includes('javascript:void') || l === 'tel:' || l === ''
-  );
+  const invalid = links.filter((l: string) => {
+    const isInvalid = l.includes('javascript:void') || l === 'tel:' || l === '';
+    if (isInvalid) details.invalidLinks.push(l);
+    return isInvalid;
+  });
 
   const metrics: Record<string, number> = {
     totalLinks: links.length,
@@ -262,8 +306,9 @@ function analyzeLinks(data: ScrapedPageData): ISectionResult {
     });
   }
 
-  return { score: clamp(score), maxScore: 100, issues, metrics };
+  return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
+
 
 function analyzeTechnical(data: ScrapedPageData): ISectionResult {
   let score = 100;

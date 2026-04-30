@@ -29,6 +29,7 @@ export interface ISectionResult {
     fix: string;
   }>;
   metrics: Record<string, number>;
+  details?: any;
 }
 
 export interface ISeoReport {
@@ -68,6 +69,7 @@ export interface ScrapedPageData {
     alt: string;
     size: number;
     type: string;
+    isBroken?: boolean;
   }[];
   links: string[];
   socialLinks: string[];
@@ -80,3 +82,4 @@ export interface ScrapedPageData {
   externalLinkCount: number;
   performanceMetrics: IPerformanceMetrics | null;
 }
+
