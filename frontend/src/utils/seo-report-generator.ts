@@ -115,21 +115,45 @@ function analyzeImages(data: ScrapedPageData): SectionResult {
 
 	const images = data.images || [];
 
-	for (const img of images) {
-		if (!img.alt) missingAlt++;
-		else if (img.alt.split(' ').length < 3) weakAlt++;
+	const details: any = {
+		missingAlt: [],
+		weakAlt: [],
+		heavyImages: [],
+		criticalImages: [],
+		nonModernFormats: [],
+		duplicateImages: [],
+		brokenImages: [],
+	};
 
-		if (img.size > 400_000) criticalSize++;
-		else if (img.size > 200_000) heavySize++;
+	for (const img of images) {
+		if (!img.alt) {
+			missingAlt++;
+			details.missingAlt.push(img.src);
+		} else if (img.alt.split(' ').length < 3) {
+			weakAlt++;
+			details.weakAlt.push({ src: img.src, alt: img.alt });
+		}
+
+		if (img.size > 400_000) {
+			criticalSize++;
+			details.criticalImages.push({ src: img.src, size: img.size });
+		} else if (img.size > 200_000) {
+			heavySize++;
+			details.heavyImages.push({ src: img.src, size: img.size });
+		}
 
 		if (!['image/webp', 'image/avif'].includes(img.type)) {
 			nonModern++;
+			details.nonModernFormats.push({ src: img.src, type: img.type });
 		}
 
-		if (img.src && seen.has(img.src)) duplicates++;
-		else if (img.src) seen.add(img.src);
+		if (img.src && seen.has(img.src)) {
+			duplicates++;
+			details.duplicateImages.push(img.src);
+		} else if (img.src) {
+			seen.add(img.src);
+		}
 	}
-
 	const metrics: Record<string, number> = {
 		totalImages: images.length,
 		missingAlt,
@@ -138,6 +162,7 @@ function analyzeImages(data: ScrapedPageData): SectionResult {
 		criticalImages: criticalSize,
 		nonModernFormats: nonModern,
 		duplicateImages: duplicates,
+		brokenImages: 0,
 	};
 
 	if (missingAlt) {
@@ -185,16 +210,7 @@ function analyzeImages(data: ScrapedPageData): SectionResult {
 		});
 	}
 
-	if (weakAlt) {
-		score -= Math.min(10, weakAlt * 2);
-		issues.push({
-			message: `${weakAlt} image${weakAlt > 1 ? 's' : ''} with weak alt text`,
-			severity: 'low',
-			fix: 'Add more descriptive alt text (at least 3 words)',
-		});
-	}
-
-	return { score: clamp(score), maxScore: 100, issues, metrics };
+	return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
 
 function analyzeContent(data: ScrapedPageData): SectionResult {
@@ -241,10 +257,16 @@ function analyzeLinks(data: ScrapedPageData): SectionResult {
 	let score = 100;
 	const issues: SectionResult['issues'] = [];
 
+	const details: any = {
+		invalidLinks: [],
+	};
+
 	const links = data.links || [];
-	const invalid = links.filter(
-		(l: string) => l.includes('javascript:void') || l === 'tel:' || l === ''
-	);
+	const invalid = links.filter((l: string) => {
+		const isInvalid = l.includes('javascript:void') || l === 'tel:' || l === '';
+		if (isInvalid) details.invalidLinks.push(l);
+		return isInvalid;
+	});
 
 	const metrics: Record<string, number> = {
 		totalLinks: links.length,
@@ -253,16 +275,7 @@ function analyzeLinks(data: ScrapedPageData): SectionResult {
 		invalidLinks: invalid.length,
 	};
 
-	if (invalid.length) {
-		score -= Math.min(30, invalid.length * 5);
-		issues.push({
-			message: `${invalid.length} invalid links`,
-			severity: 'high',
-			fix: 'Fix or remove broken links',
-		});
-	}
-
-	return { score: clamp(score), maxScore: 100, issues, metrics };
+	return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
 
 function analyzeTechnical(data: ScrapedPageData): SectionResult {
@@ -312,12 +325,65 @@ function analyzePerformance(data: ScrapedPageData): SectionResult {
 
 	const perf = data.performanceMetrics;
 
+	const details: any = {
+		renderBlocking: [],
+		largeResources: [],
+		allResources: [],
+	};
+
+	const scripts = data.scripts || [];
+	const stylesheets = data.stylesheets || [];
+
+	// Analyze Scripts
+	let renderBlockingCount = 0;
+	let largeJsCount = 0;
+	for (const script of scripts) {
+		const isBlocking = !script.isAsync && !script.isDefer;
+		const isLarge = script.size > 100000; // 100KB
+
+		if (isBlocking) {
+			renderBlockingCount++;
+			details.renderBlocking.push({ url: script.src, type: 'js' });
+		}
+		if (isLarge) {
+			largeJsCount++;
+			details.largeResources.push({ url: script.src, size: script.size, type: 'js' });
+		}
+		details.allResources.push({
+			url: script.src,
+			size: script.size,
+			type: 'js',
+			isBlocking,
+		});
+	}
+
+	// Analyze Stylesheets
+	let largeCssCount = 0;
+	for (const css of stylesheets) {
+		const isLarge = css.size > 50000; // 50KB
+		if (isLarge) {
+			largeCssCount++;
+			details.largeResources.push({ url: css.href, size: css.size, type: 'css' });
+		}
+		details.renderBlocking.push({ url: css.href, type: 'css' });
+		details.allResources.push({
+			url: css.href,
+			size: css.size,
+			type: 'css',
+			isBlocking: true,
+		});
+	}
+
+	const totalBlockingCount = renderBlockingCount + stylesheets.length;
+
 	const metrics: Record<string, number> = {
 		totalLoadTime: perf?.desktop?.totalLoadTime || 0,
 		pageSize: perf?.pageSize || 0,
 		ttfb: perf?.desktop?.ttfb || 0,
 		dns: perf?.desktop?.dns || 0,
 		tcp: perf?.desktop?.tcp || 0,
+		renderBlockingResources: totalBlockingCount,
+		largeResources: largeJsCount + largeCssCount,
 	};
 
 	if (perf?.desktop?.totalLoadTime && perf.desktop.totalLoadTime > 5000) {
@@ -370,16 +436,7 @@ function analyzePerformance(data: ScrapedPageData): SectionResult {
 		});
 	}
 
-	if (perf?.desktop?.tcp && perf.desktop.tcp > 1000) {
-		score -= 5;
-		issues.push({
-			message: `Slow TCP connection (${Math.round(perf.desktop.tcp)}ms)`,
-			severity: 'low',
-			fix: 'Consider using a CDN or closer server',
-		});
-	}
-
-	return { score: clamp(score), maxScore: 100, issues, metrics };
+	return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
 
 export function generateReportFromScrapedData(data: ScrapedPageData): SeoReport {

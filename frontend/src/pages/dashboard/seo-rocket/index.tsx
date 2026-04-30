@@ -91,9 +91,9 @@ export default function SEORocketPage() {
 				canonical: r.analysisData.canonical,
 				robotsMeta: r.analysisData.robotsMeta,
 				headings: r.analysisData.headings,
-				images: r.analysisData.images,
+				images: r.analysisData.images as any,
 				links: r.analysisData.links,
-				socialLinks: r.analysisData.socialLinks,
+				socialLinks: r.analysisData.socialLinks || [],
 				paragraphExcerpt: r.analysisData.paragraphExcerpt,
 				textSample: r.analysisData.textSample,
 				wordCount: r.analysisData.wordCount,
@@ -104,10 +104,10 @@ export default function SEORocketPage() {
 				isError: r.analysisData.isError || false,
 				emails: (r.analysisData as any).emails || [],
 				phoneNumbers: (r.analysisData as any).phoneNumbers || [],
-				performanceMetrics: r.analysisData.performanceMetrics || null,
+				performanceMetrics: r.analysisData.performanceMetrics as any,
 				scripts: r.analysisData.scripts || [],
 				stylesheets: r.analysisData.stylesheets || [],
-				analysisReport: r.analysisReport || null,
+				analysisReport: r.analysisReport as any,
 			}));
 			setCurrentResults(pageData);
 
@@ -194,12 +194,12 @@ export default function SEORocketPage() {
 
 	const handleAnalyze = useCallback(
 		async (urls: string[]) => {
-			const limitedUrls = urls.slice(0, 50);
+			const limitedUrls = urls.slice(0, 3);
 			setSelectedUrls(limitedUrls);
 
-			if (urls.length > 50) {
+			if (urls.length > 3) {
 				toast.warning(
-					'Only 50 webpages can be analyzed in free tier. First 50 pages selected.',
+					'Only 3 webpages can be analyzed in free tier. First 3 pages selected.',
 				);
 			}
 

@@ -198,7 +198,7 @@ export default function SitemapView({
 											selectByCategory(cat);
 										}}
 										className='ml-1.5 p-0.5 bg-white/20 hover:bg-white/40 rounded transition-colors'
-										title={`Select top 5 from ${cat}`}
+										title={`Select top 3 from ${cat}`}
 									>
 										<CheckSquare className='h-2.5 w-2.5' />
 									</button>
