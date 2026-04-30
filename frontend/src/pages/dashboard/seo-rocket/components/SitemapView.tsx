@@ -34,7 +34,6 @@ interface SitemapViewProps {
 	isAnalyzing: boolean;
 }
 
-
 const ITEMS_PER_PAGE = 50;
 
 // Dynamic category configuration will be derived from sitemap data
@@ -67,9 +66,7 @@ export default function SitemapView({
 	isAnalyzing,
 }: SitemapViewProps) {
 	const { selectByCategory } = useSeoAnalysis();
-	const [activeCategory, setActiveCategory] = useState<string | 'all'>(
-		'all',
-	);
+	const [activeCategory, setActiveCategory] = useState<string | 'all'>('all');
 	const [_expandedUrls, setExpandedUrls] = useState<Set<string>>(new Set());
 	const [searchQuery, setSearchQuery] = useState('');
 	const [currentPage, setCurrentPage] = useState(1);
@@ -158,7 +155,7 @@ export default function SitemapView({
 							className='h-8 text-xs rounded-xl hover:border-primary/50 transition-all'
 						>
 							<CheckSquare className='h-3.5 w-3.5 mr-1.5' />
-							Select Top 5
+							Select Top 3
 						</Button>
 					</div>
 				</div>
@@ -235,7 +232,9 @@ export default function SitemapView({
 						<span>
 							Showing{' '}
 							<span className='font-semibold text-foreground'>
-								{filteredUrls.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+								{filteredUrls.length === 0
+									? 0
+									: (currentPage - 1) * ITEMS_PER_PAGE + 1}
 							</span>
 							–
 							<span className='font-semibold text-foreground'>
@@ -426,7 +425,11 @@ export default function SitemapView({
 
 					<Button
 						onClick={() => onAnalyze(selectedUrls)}
-						disabled={selectedUrls.length === 0 || selectedUrls.length > 3 || isAnalyzing}
+						disabled={
+							selectedUrls.length === 0 ||
+							selectedUrls.length > 3 ||
+							isAnalyzing
+						}
 						className='w-full sm:w-auto rounded-xl px-8 h-11 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95 transition-all'
 					>
 						{isAnalyzing ? (

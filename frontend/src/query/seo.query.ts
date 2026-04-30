@@ -33,9 +33,9 @@ export const useCountPages = () => {
 
 export const useBulkScrape = () => {
 	return useMutation({
-		mutationFn: async (urls: string[]) => {
-			console.log('useBulkScrape mutationFn called with:', urls);
-			const result = await seoService.bulkScrape(urls);
+		mutationFn: async (params: { urls: string[]; requestedUrl?: string; isFullSite?: boolean }) => {
+			console.log('useBulkScrape mutationFn called with:', params);
+			const result = await seoService.bulkScrape(params);
 			console.log('useBulkScrape got result:', result);
 			return result;
 		},
@@ -108,7 +108,7 @@ export const useSeoAnalysis = () => {
 			setResults([]);
 
 			try {
-				const data = await analyzeUrls(urlsToAnalyze);
+				const data = await analyzeUrls({ urls: urlsToAnalyze });
 				console.log('analyzeUrls success, data:', data);
 				setResults(data.data || []);
 				toast.success(`Analyzed ${data.scrapedCount} page(s)`);

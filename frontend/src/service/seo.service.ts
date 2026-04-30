@@ -23,15 +23,16 @@ export const seoService = {
 		return response.data;
 	},
 
-	bulkScrape: async (urls: string[]) => {
+	bulkScrape: async (params: { urls: string[]; requestedUrl?: string; isFullSite?: boolean }) => {
 		const response = await api.post<{
 			success: boolean;
 			requestedCount: number;
 			scrapedCount: number;
 			failedCount: number;
 			data: ScrapedPageData[];
+			savedAnalysis?: { analysisId: string };
 			message: string;
-		}>('/api/seo/bulk-scrape', { urls });
+		}>('/api/seo/bulk-scrape', params);
 		return response.data;
 	},
 

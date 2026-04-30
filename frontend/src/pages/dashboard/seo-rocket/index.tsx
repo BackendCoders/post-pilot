@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { api } from '@/service/api';
 import UrlInputForm from './components/UrlInputForm';
 import SitemapView from './components/SitemapView';
 import AnalysisResults from './components/AnalysisResults';
@@ -199,28 +198,37 @@ export default function SEORocketPage() {
 			setSelectedUrls(limitedUrls);
 
 			if (urls.length > 50) {
-				toast.warning('Only 50 webpages can be analyzed in free tier. First 50 pages selected.');
+				toast.warning(
+					'Only 50 webpages can be analyzed in free tier. First 50 pages selected.',
+				);
 			}
 
 			try {
-				const result = await bulkScrape(limitedUrls);
-				console.log('Bulk scrape result:', result);
-
-				setCurrentResults(result.data || []);
-
-				const isFullSite = sitemap?.urls && limitedUrls.length === sitemap.urls.length;
+				const isFullSite =
+					sitemap?.urls && limitedUrls.length === sitemap.urls.length;
 				const requestedUrl = urlParam || limitedUrls[0] || '';
 
-				const saveResult = await api.post('/api/seo/analysis', {
+				// Trigger bulk scrape - server will now handle the saving directly
+				const result = await bulkScrape({
+					urls: limitedUrls,
 					requestedUrl,
-					analysisType: isFullSite ? 'full_site' : 'partial_site',
-					analyzedUrls: limitedUrls,
-					results: result.data || [],
+					isFullSite,
 				});
 
-				console.log('Save result:', saveResult.data);
-				const analysisId = saveResult.data.data.analysisId;
-				navigate(`/dashboard/seo-rocket/results?id=${analysisId}`);
+				console.log('Bulk scrape result:', result);
+
+				if (result.success) {
+					setCurrentResults(result.data || []);
+
+					// Navigation now uses the ID returned from the server's auto-save
+					const analysisId = result.savedAnalysis?.analysisId;
+					if (analysisId) {
+						navigate(`/dashboard/seo-rocket/results?id=${analysisId}`);
+					} else {
+						// Fallback if save failed but scrape succeeded
+						navigate('/dashboard/seo-rocket/results');
+					}
+				}
 			} catch (error) {
 				console.error('Analysis failed:', error);
 				toast.error('Analysis failed');

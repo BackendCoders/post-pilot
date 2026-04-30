@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../middleware';
 import { analyzeUrl, countSitePages, scrapeMultipleWebPages } from './scrapper';
+import { seoAnalysisService } from './service/seoAnalysis.service';
 
 export const scrapeSeoTarget = asyncHandler(
   async (req: Request, res: Response) => {
@@ -49,11 +50,32 @@ export const countSeoPages = asyncHandler(
 
 export const scrapeSeoBulkUrls = asyncHandler(
   async (req: Request, res: Response) => {
-    const { urls } = req.body as {
+    const { urls, requestedUrl, isFullSite } = req.body as {
       urls: string[];
+      requestedUrl?: string;
+      isFullSite?: boolean;
     };
 
+    const userId = req.user?.userId?.toString();
+
+    // 1. Scrape the pages
     const data = await scrapeMultipleWebPages(urls);
+
+    // 2. Automatically save to history if user is authenticated
+    let savedAnalysis = null;
+    if (userId) {
+      try {
+        savedAnalysis = await seoAnalysisService.saveAnalysis({
+          userId,
+          requestedUrl: requestedUrl || urls[0] || '',
+          analysisType: isFullSite ? 'full_site' : 'partial_site',
+          analyzedUrls: urls,
+          results: data,
+        });
+      } catch (saveError) {
+        console.error('Failed to auto-save bulk analysis:', saveError);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -61,6 +83,7 @@ export const scrapeSeoBulkUrls = asyncHandler(
       scrapedCount: data.length,
       failedCount: urls.length - data.length,
       data,
+      savedAnalysis,
       message: 'Bulk web page scrape completed successfully',
     });
   }
