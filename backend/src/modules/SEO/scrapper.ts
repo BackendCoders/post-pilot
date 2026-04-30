@@ -87,6 +87,18 @@ interface ScrapedPageData {
   internalLinkCount: number;
   externalLinkCount: number;
   performanceMetrics: PerformanceMetrics | null;
+  scripts: {
+    src: string;
+    size: number;
+    isAsync: boolean;
+    isDefer: boolean;
+    isExternal: boolean;
+  }[];
+  stylesheets: {
+    href: string;
+    size: number;
+    isExternal: boolean;
+  }[];
 }
 
 interface SitePageCountResult {
@@ -410,6 +422,60 @@ function extractParagraphExcerpt($: cheerio.CheerioAPI): string[] {
   return getTextList($, 'p').slice(0, 10);
 }
 
+async function scrapScripts(
+  $: cheerio.CheerioAPI,
+  baseUrl: string
+): Promise<ScrapedPageData['scripts']> {
+  const scripts: ScrapedPageData['scripts'] = [];
+  const scriptElements = $('script[src]').toArray();
+
+  for (const el of scriptElements) {
+    const src = $(el).attr('src');
+    if (!src) continue;
+
+    const fullUrl = resolveUrl(baseUrl, src);
+    const isAsync = $(el).attr('async') !== undefined;
+    const isDefer = $(el).attr('defer') !== undefined;
+    const isExternal = !fullUrl.includes(new URL(baseUrl).host);
+
+    try {
+      const res = await axios.head(fullUrl, { timeout: 5000 });
+      const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
+      scripts.push({ src: fullUrl, size, isAsync, isDefer, isExternal });
+    } catch {
+      scripts.push({ src: fullUrl, size: 0, isAsync, isDefer, isExternal });
+    }
+  }
+
+  return scripts;
+}
+
+async function scrapStylesheets(
+  $: cheerio.CheerioAPI,
+  baseUrl: string
+): Promise<ScrapedPageData['stylesheets']> {
+  const stylesheets: ScrapedPageData['stylesheets'] = [];
+  const linkElements = $('link[rel="stylesheet"]').toArray();
+
+  for (const el of linkElements) {
+    const href = $(el).attr('href');
+    if (!href) continue;
+
+    const fullUrl = resolveUrl(baseUrl, href);
+    const isExternal = !fullUrl.includes(new URL(baseUrl).host);
+
+    try {
+      const res = await axios.head(fullUrl, { timeout: 5000 });
+      const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
+      stylesheets.push({ href: fullUrl, size, isExternal });
+    } catch {
+      stylesheets.push({ href: fullUrl, size: 0, isExternal });
+    }
+  }
+
+  return stylesheets;
+}
+
 function extractWordCount(text: string): number {
   const trimmed = text.trim();
 
@@ -477,6 +543,8 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
     const robotsMeta = $('meta[name="robots"]').attr('content')?.trim() || null;
     const headings = scrapHeaderText($);
     const images = await scrapImages($, normalizedUrl);
+    const scripts = await scrapScripts($, normalizedUrl);
+    const stylesheets = await scrapStylesheets($, normalizedUrl);
     const links = scrapLinks($, normalizedUrl);
     const socialLinks = scrapSocialLinks(links);
     const pageOrigin = getDomain(normalizedUrl);
@@ -535,6 +603,8 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
       emails,
       phoneNumbers: phoneNumber.numbers,
       performanceMetrics,
+      scripts,
+      stylesheets,
     };
   } catch (error: any) {
     console.error('Web page scrape failed', {
@@ -711,6 +781,8 @@ function createErrorPageData(url: string): ScrapedPageData {
     internalLinkCount: 0,
     externalLinkCount: 0,
     performanceMetrics: null,
+    scripts: [],
+    stylesheets: [],
   };
 }
 

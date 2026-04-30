@@ -81,5 +81,17 @@ export interface ScrapedPageData {
   internalLinkCount: number;
   externalLinkCount: number;
   performanceMetrics: IPerformanceMetrics | null;
+  scripts: {
+    src: string;
+    size: number;
+    isAsync: boolean;
+    isDefer: boolean;
+    isExternal: boolean;
+  }[];
+  stylesheets: {
+    href: string;
+    size: number;
+    isExternal: boolean;
+  }[];
 }
 

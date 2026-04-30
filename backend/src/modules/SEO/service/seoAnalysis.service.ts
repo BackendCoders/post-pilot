@@ -94,8 +94,20 @@ export const seoAnalysisService = {
           redirectCount: page.redirectCount || 0,
           textSample: page.textSample || '',
           paragraphExcerpt: page.paragraphExcerpt || [],
-          isError: page.isError,
-          performanceMetrics: page.performanceMetrics || null,
+          isError: page.isError || false,
+          performanceMetrics: page.performanceMetrics,
+          scripts: (page.scripts || []).map(s => ({
+            src: s.src,
+            size: s.size,
+            isAsync: s.isAsync,
+            isDefer: s.isDefer,
+            isExternal: s.isExternal
+          })),
+          stylesheets: (page.stylesheets || []).map(s => ({
+            href: s.href,
+            size: s.size,
+            isExternal: s.isExternal
+          }))
         },
         analysisReport,
         analysisCount: 1,
@@ -172,8 +184,20 @@ export const seoAnalysisService = {
           redirectCount: analysisData.redirectCount || 0,
           textSample: analysisData.textSample || '',
           paragraphExcerpt: analysisData.paragraphExcerpt || [],
-          isError: analysisData.isError,
-          performanceMetrics: analysisData.performanceMetrics || null,
+          isError: analysisData.isError || false,
+          performanceMetrics: analysisData.performanceMetrics,
+          scripts: (analysisData.scripts || []).map(s => ({
+            src: s.src,
+            size: s.size,
+            isAsync: s.isAsync,
+            isDefer: s.isDefer,
+            isExternal: s.isExternal
+          })),
+          stylesheets: (analysisData.stylesheets || []).map(s => ({
+            href: s.href,
+            size: s.size,
+            isExternal: s.isExternal
+          }))
         };
         try {
           pageResult.analysisReport = generateSeoReport(analysisData);
@@ -223,8 +247,20 @@ export const seoAnalysisService = {
         redirectCount: analysisData.redirectCount || 0,
         textSample: analysisData.textSample || '',
         paragraphExcerpt: analysisData.paragraphExcerpt || [],
-        isError: analysisData.isError,
-        performanceMetrics: analysisData.performanceMetrics || null,
+        isError: analysisData.isError || false,
+        performanceMetrics: analysisData.performanceMetrics,
+        scripts: (analysisData.scripts || []).map(s => ({
+          src: s.src,
+          size: s.size,
+          isAsync: s.isAsync,
+          isDefer: s.isDefer,
+          isExternal: s.isExternal
+        })),
+        stylesheets: (analysisData.stylesheets || []).map(s => ({
+          href: s.href,
+          size: s.size,
+          isExternal: s.isExternal
+        }))
       },
       analysisReport: singleReport,
       analysisCount: 1,

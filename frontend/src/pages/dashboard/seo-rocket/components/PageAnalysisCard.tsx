@@ -356,7 +356,7 @@ export default function PageAnalysisCard({
 										{ label: 'Content', section: report.sections.content },
 										{ label: 'Links', section: report.sections.links, type: 'links' },
 										{ label: 'Technical', section: report.sections.technical },
-										...(report.sections.performance ? [{ label: 'Performance', section: report.sections.performance }] : []),
+										...(report.sections.performance ? [{ label: 'Performance', section: report.sections.performance, type: 'performance' }] : []),
 									].map(({ label, section, type }) => (
 										<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5 flex flex-col'>
 											<div className='flex items-center justify-between mb-2'>

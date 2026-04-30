@@ -81,6 +81,18 @@ export interface IPageAnalysisData {
   paragraphExcerpt: string[];
   isError: boolean;
   performanceMetrics: IPerformanceMetrics | null;
+  scripts: Array<{
+    src: string;
+    size: number;
+    isAsync: boolean;
+    isDefer: boolean;
+    isExternal: boolean;
+  }>;
+  stylesheets: Array<{
+    href: string;
+    size: number;
+    isExternal: boolean;
+  }>;
 }
 
 export interface IPerformanceMetrics {
@@ -165,6 +177,22 @@ const pageAnalysisDataSchema = new Schema<IPageAnalysisData>(
     paragraphExcerpt: [{ type: String }],
     isError: { type: Boolean, default: false },
     performanceMetrics: { type: performanceMetricsSchema, default: null },
+    scripts: [
+      {
+        src: { type: String },
+        size: { type: Number },
+        isAsync: { type: Boolean },
+        isDefer: { type: Boolean },
+        isExternal: { type: Boolean },
+      },
+    ],
+    stylesheets: [
+      {
+        href: { type: String },
+        size: { type: Number },
+        isExternal: { type: Boolean },
+      },
+    ],
   },
   { _id: false }
 );

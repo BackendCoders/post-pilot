@@ -354,18 +354,85 @@ function analyzeTechnical(data: ScrapedPageData): ISectionResult {
 function analyzePerformance(data: ScrapedPageData): ISectionResult {
   let score = 100;
   const issues: ISectionResult['issues'] = [];
+  const details: any = {
+    renderBlocking: [],
+    largeResources: [],
+    allResources: [],
+  };
 
   const perf = data.performanceMetrics;
+  const scripts = data.scripts || [];
+  const stylesheets = data.stylesheets || [];
+
+  // Analyze Scripts
+  let renderBlockingCount = 0;
+  let largeJsCount = 0;
+  for (const script of scripts) {
+    const isBlocking = !script.isAsync && !script.isDefer;
+    const isLarge = script.size > 100000; // 100KB
+
+    if (isBlocking) {
+      renderBlockingCount++;
+      details.renderBlocking.push({ url: script.src, type: 'js' });
+    }
+    if (isLarge) {
+      largeJsCount++;
+      details.largeResources.push({ url: script.src, size: script.size, type: 'js' });
+    }
+    details.allResources.push({ url: script.src, size: script.size, type: 'js', isBlocking });
+  }
+
+  // Analyze Stylesheets
+  let largeCssCount = 0;
+  for (const css of stylesheets) {
+    const isLarge = css.size > 50000; // 50KB
+    if (isLarge) {
+      largeCssCount++;
+      details.largeResources.push({ url: css.href, size: css.size, type: 'css' });
+    }
+    // Stylesheets are generally render-blocking unless loaded with print media or async patterns
+    // For simplicity, we flag all as potential render-blocking if they are external
+    details.renderBlocking.push({ url: css.href, type: 'css' });
+    details.allResources.push({ url: css.href, size: css.size, type: 'css', isBlocking: true });
+  }
+
+  const totalBlockingCount = renderBlockingCount + stylesheets.length;
 
   const metrics: Record<string, number> = {
     totalLoadTime: perf?.totalLoadTime || 0,
     pageSize: perf?.pageSize || 0,
-    ttfb: perf?.ttfb || 0,
-    lcp: perf?.lcp || 0,
-    fcp: perf?.fcp || 0,
-    fid: perf?.fid || 0,
-    cls: perf?.cls ? Math.round(perf.cls * 1000) : 0,
+    renderBlockingResources: totalBlockingCount,
+    largeResources: largeJsCount + largeCssCount,
+    scriptsCount: scripts.length,
+    stylesheetsCount: stylesheets.length,
   };
+
+  if (totalBlockingCount > 0) {
+    score -= Math.min(40, totalBlockingCount * 3);
+    issues.push({
+      message: `${totalBlockingCount} render-blocking resource${totalBlockingCount > 1 ? 's' : ''} detected`,
+      severity: 'high',
+      fix: 'Use async/defer for scripts and optimize CSS delivery (e.g., critical CSS)',
+    });
+  }
+
+  if (largeJsCount > 0) {
+    score -= Math.min(10, largeJsCount * 2);
+    issues.push({
+      message: `${largeJsCount} large JavaScript files (>100KB)`,
+      severity: 'medium',
+      fix: 'Optimize JS bundles, use code-splitting, or remove unused code',
+    });
+  }
+
+  if (largeCssCount > 0) {
+    score -= Math.min(10, largeCssCount * 2);
+    issues.push({
+      message: `${largeCssCount} large CSS files (>50KB)`,
+      severity: 'medium',
+      fix: 'Minify CSS and remove unused styles',
+    });
+  }
 
   if (perf?.totalLoadTime && perf.totalLoadTime > 5000) {
     score -= 20;
@@ -383,66 +450,23 @@ function analyzePerformance(data: ScrapedPageData): ISectionResult {
     });
   }
 
-  if (perf?.pageSize && perf.pageSize > 5_000_000) {
-    score -= 15;
+  if (perf?.pageSize && perf.pageSize > 2_000_000) {
+    score -= 25;
     issues.push({
-      message: `Large page size (${perf.pageSizeFormatted})`,
+      message: `Critically large page size (${perf.pageSizeFormatted})`,
       severity: 'high',
-      fix: 'Compress resources and remove unused code',
+      fix: 'Compress resources, use lazy-loading, and remove unused code/libraries',
     });
-  } else if (perf?.pageSize && perf.pageSize > 2_000_000) {
-    score -= 10;
+  } else if (perf?.pageSize && perf.pageSize > 1_000_000) {
+    score -= 15;
     issues.push({
       message: `Heavy page size (${perf.pageSizeFormatted})`,
       severity: 'medium',
-      fix: 'Consider reducing page weight',
+      fix: 'Consider reducing page weight to under 1MB for better mobile performance',
     });
   }
 
-  if (perf?.lcpRating === 'poor') {
-    score -= 15;
-    issues.push({
-      message: `Poor LCP (${Math.round(perf.lcp!)}ms)`,
-      severity: 'high',
-      fix: 'Optimize LCP element and server response',
-    });
-  } else if (perf?.lcpRating === 'needs-improvement') {
-    score -= 8;
-    issues.push({
-      message: `LCP could be improved (${Math.round(perf.lcp!)}ms)`,
-      severity: 'medium',
-      fix: 'Preload key resources',
-    });
-  }
-
-  if (perf?.fcpRating === 'poor') {
-    score -= 10;
-    issues.push({
-      message: `Slow FCP (${Math.round(perf.fcp!)}ms)`,
-      severity: 'medium',
-      fix: 'Reduce render-blocking resources',
-    });
-  }
-
-  if (perf?.cls && perf.cls > 0.25) {
-    score -= 10;
-    issues.push({
-      message: `Poor CLS (${perf.cls.toFixed(3)})`,
-      severity: 'medium',
-      fix: 'Set dimensions for images and embeds',
-    });
-  }
-
-  if (perf?.fidRating === 'poor') {
-    score -= 10;
-    issues.push({
-      message: `Poor FID (${Math.round(perf.fid!)}ms)`,
-      severity: 'medium',
-      fix: 'Break up long tasks and reduce JavaScript',
-    });
-  }
-
-  return { score: clamp(score), maxScore: 100, issues, metrics };
+  return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
 
 export function generateSeoReport(data: ScrapedPageData): ISeoReport {
