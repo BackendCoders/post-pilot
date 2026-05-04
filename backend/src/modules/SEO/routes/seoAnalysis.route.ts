@@ -13,6 +13,7 @@ import {
   hardDeleteAnalysis,
   getDeletedAnalyses,
 } from '../controller/seoAnalysis.controller';
+import { sendSeoReportEmail as sendEmailReport } from '../controller/seoReport.controller';
 
 const router = Router();
 
@@ -29,5 +30,6 @@ router.get('/:id', getAnalysisById);
 router.delete('/:id', softDeleteAnalysis);
 router.post('/:id/restore', restoreAnalysis);
 router.delete('/:id/permanent', hardDeleteAnalysis);
+router.post('/:id/email', sendEmailReport);
 
 export default router;

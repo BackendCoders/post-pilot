@@ -170,3 +170,10 @@ export const useGetAnalysis = (
     enabled: !!analysisId,
   });
 };
+
+export const useSendEmailReport = () => {
+  return useMutation({
+    mutationFn: ({ analysisId, targetEmail }: { analysisId: string; targetEmail?: string }) =>
+      api.post(`/api/seo/analysis/${analysisId}/email`, { analysisId, targetEmail }).then((res) => res.data),
+  });
+};

@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
+import { generateSeoReportBuffer } from '../modules/SEO/utils/pdfGenerator';
 
 dotenv.config();
 
@@ -40,13 +41,14 @@ class MailService {
     }
   }
 
-  async sendMail(to: string, subject: string, html: string) {
+  async sendMail(to: string, subject: string, html: string, attachments?: any[]) {
     try {
       const info = await this.transporter.sendMail({
         from: `"${process.env.SMTP_FROM_NAME || 'SEO Rocket Support'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
         to,
         subject,
         html,
+        attachments,
       });
 
       logger.info('Email sent', { messageId: info.messageId, to });
@@ -142,9 +144,10 @@ class MailService {
     to: string;
     userName: string;
     pageUrl: string;
-    report: any; // Using any to avoid importing ISeoReport here if it causes circular deps, or I can import it
+    report: any;
+    allResults?: any[];
   }) {
-    const { to, userName, pageUrl, report } = data;
+    const { to, userName, pageUrl, report, allResults } = data;
     const subject = `[SEO Rocket] Analysis Report for ${pageUrl}`;
 
     const html = `
@@ -178,11 +181,8 @@ class MailService {
           `).join('')}
         </table>
 
-        <div style="margin-top: 30px; text-align: center;">
-          <a href="${process.env.FRONTEND_URL}/dashboard/seo-rocket" 
-             style="background: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-            View Full Audit Details
-          </a>
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; text-align: center;">
+          <strong>Bonus:</strong> We've attached a robust PDF version of this report with charts and detailed recommendations!
         </div>
 
         <p style="margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 20px;">
@@ -192,7 +192,20 @@ class MailService {
       </div>
     `;
 
-    return this.sendMail(to, subject, html);
+    const attachments = [];
+    if (allResults && allResults.length > 0) {
+      try {
+        const pdfBuffer = await generateSeoReportBuffer(allResults, { [pageUrl]: report });
+        attachments.push({
+          filename: `SEO-Report-${pageUrl.replace(/[^a-z0-9]/gi, '_')}.pdf`,
+          content: pdfBuffer,
+        });
+      } catch (pdfError) {
+        logger.error('Failed to generate PDF for email attachment', { error: pdfError });
+      }
+    }
+
+    return this.sendMail(to, subject, html, attachments);
   }
 }
 

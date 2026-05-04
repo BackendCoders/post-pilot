@@ -64,6 +64,7 @@ export const sendSeoReportEmail = asyncHandler(
         userName: user.userName,
         pageUrl,
         report: reportData,
+        allResults: analysis.results as any[],
       });
 
       res.json({

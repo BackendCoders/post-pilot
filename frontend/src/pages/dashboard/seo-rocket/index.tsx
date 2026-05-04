@@ -377,6 +377,7 @@ export default function SEORocketPage() {
 									results={currentResults}
 									onRescrape={handleRescrape}
 									rescrapingUrl={rescrapingUrl}
+									analysisId={analysisIdParam || savedAnalysis?._id}
 								/>
 							)}
 
@@ -434,6 +435,7 @@ export default function SEORocketPage() {
 								reports={currentReports}
 								onRescrape={handleRescrape}
 								rescrapingUrl={rescrapingUrl}
+								analysisId={analysisIdParam || savedAnalysis?._id}
 							/>
 						)}
 

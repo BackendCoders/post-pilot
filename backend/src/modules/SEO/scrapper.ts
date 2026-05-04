@@ -1,110 +1,14 @@
 import axios, { type AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import xml2js from 'xml2js';
+import type { 
+  ScrapedPageData, 
+  IPerformanceMetrics as PerformanceMetrics,
+  SiteScrapeResult,
+  PageHeadingMap
+} from '../../types';
 
 type CategorizedUrls = Record<string, string[]>;
-
-interface PageHeadingMap {
-  h1: string[];
-  h2: string[];
-  h3: string[];
-  h4: string[];
-  h5: string[];
-  h6: string[];
-}
-
-interface SiteScrapeResult {
-  requestedUrl: string;
-  analyzedDomain: string;
-  robotsTxt: string;
-  sitemapUrls: string[];
-  categorizedUrls: CategorizedUrls;
-  totalPagesDiscovered: number;
-  pageDetails: ScrapedPageData[];
-}
-
-interface PerformanceMetrics {
-  desktop: {
-    ttfb: number;
-    dns: number;
-    tcp: number;
-    firstByte: number;
-    contentDownload: number;
-    totalLoadTime: number;
-  };
-  mobile: {
-    ttfb: number;
-    dns: number;
-    tcp: number;
-    firstByte: number;
-    contentDownload: number;
-    totalLoadTime: number;
-  };
-  pageSize: number;
-  pageSizeFormatted: string;
-  fcp: number | null;
-  lcp: number | null;
-  fid: number | null;
-  cls: number | null;
-  inp: number | null;
-  tbt: number | null;
-  fcpRating: 'good' | 'needs-improvement' | 'poor' | null;
-  lcpRating: 'good' | 'needs-improvement' | 'poor' | null;
-  fidRating: 'good' | 'needs-improvement' | 'poor' | null;
-  clsRating: 'good' | 'needs-improvement' | 'poor' | null;
-  inpRating: 'good' | 'needs-improvement' | 'poor' | null;
-  tbtRating: 'good' | 'needs-improvement' | 'poor' | null;
-  overallPerformanceScore: number | null;
-}
-
-interface ScrapedPageData {
-  url: string;
-  redirectUrls: string[];
-  redirectCount: number;
-  isError: boolean;
-  title: string;
-  metaDescription: string | null;
-  metaKeywords: string | null;
-  canonical: string | null;
-  robotsMeta: string | null;
-  headings: {
-    h1: string[];
-    h2: string[];
-    h3: string[];
-    h4: string[];
-    h5: string[];
-    h6: string[];
-  };
-  images: {
-    src: string;
-    alt: string;
-    size: number;
-    type: string;
-    isBroken?: boolean;
-  }[];
-  links: string[];
-  socialLinks: string[];
-  paragraphExcerpt: string[];
-  textSample: string;
-  emails: string[];
-  phoneNumbers: string[];
-  wordCount: number;
-  internalLinkCount: number;
-  externalLinkCount: number;
-  performanceMetrics: PerformanceMetrics | null;
-  scripts: {
-    src: string;
-    size: number;
-    isAsync: boolean;
-    isDefer: boolean;
-    isExternal: boolean;
-  }[];
-  stylesheets: {
-    href: string;
-    size: number;
-    isExternal: boolean;
-  }[];
-}
 
 interface SitePageCountResult {
   requestedUrl: string;

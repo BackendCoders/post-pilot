@@ -93,6 +93,7 @@ export interface ScrapedPageData {
   internalLinkCount: number;
   externalLinkCount: number;
   performanceMetrics: IPerformanceMetrics | null;
+  analysisReport?: ISeoReport | null;
   scripts: {
     src: string;
     size: number;
@@ -105,5 +106,24 @@ export interface ScrapedPageData {
     size: number;
     isExternal: boolean;
   }[];
+}
+
+export interface PageHeadingMap {
+  h1: string[];
+  h2: string[];
+  h3: string[];
+  h4: string[];
+  h5: string[];
+  h6: string[];
+}
+
+export interface SiteScrapeResult {
+  requestedUrl: string;
+  analyzedDomain: string;
+  robotsTxt: string;
+  sitemapUrls: string[];
+  categorizedUrls: Record<string, string[]>;
+  totalPagesDiscovered: number;
+  pageDetails: ScrapedPageData[];
 }
 

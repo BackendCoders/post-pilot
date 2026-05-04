@@ -12,6 +12,8 @@ import {
 	Gauge,
 	ChevronLeft,
 	ChevronRight,
+	Mail,
+	Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +26,7 @@ import {
 	generateSeoReportBase64,
 } from '@/utils/pdf.generator';
 import { useWhatsAppStatus } from '@/query/whatsapp.query';
+import { useSendEmailReport } from '@/query/seo-analysis.query';
 import type { ScrapedPageData, SeoReport } from '@/types/seo.types';
 
 interface AnalysisResultsProps {
@@ -31,6 +34,7 @@ interface AnalysisResultsProps {
 	reports?: Record<string, SeoReport>;
 	onRescrape?: (url: string) => void;
 	rescrapingUrl?: string | null;
+	analysisId?: string | null;
 }
 
 const RESULTS_PER_PAGE = 20;
@@ -40,6 +44,7 @@ export default function AnalysisResults({
 	reports = {},
 	onRescrape,
 	rescrapingUrl,
+	analysisId,
 }: AnalysisResultsProps) {
 	const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
 	const [reportData, setReportData] = useState<{
@@ -51,8 +56,35 @@ export default function AnalysisResults({
 	const { data: whatsappStatus } = useWhatsAppStatus();
 	const isWhatsAppConnected = whatsappStatus?.state === 'CONNECTED';
 
+	const { mutate: sendEmail, isPending: isSendingEmail } = useSendEmailReport();
+
 	const handleDownloadPdf = () => {
 		generateSeoReport(results, reports);
+	};
+
+	const handleEmailReport = () => {
+		if (!analysisId) {
+			toast.error('Cannot email this report', {
+				description: 'The analysis has not been saved yet.',
+			});
+			return;
+		}
+
+		sendEmail(
+			{ analysisId },
+			{
+				onSuccess: () => {
+					toast.success('Report emailed successfully', {
+						description: 'The PDF report has been sent to your email address.',
+					});
+				},
+				onError: (error: any) => {
+					toast.error('Failed to send email', {
+						description: error?.response?.data?.error || 'Unknown error occurred',
+					});
+				},
+			},
+		);
 	};
 
 	const handleShareWhatsApp = () => {
@@ -138,6 +170,20 @@ export default function AnalysisResults({
 					>
 						<Send className='h-4 w-4' />
 						Share via WhatsApp
+					</Button>
+					<Button
+						onClick={handleEmailReport}
+						variant='outline'
+						size='sm'
+						disabled={isSendingEmail || !analysisId}
+						className='rounded-lg gap-2 border-primary/20 text-primary hover:bg-primary/5'
+					>
+						{isSendingEmail ? (
+							<Loader2 className='h-4 w-4 animate-spin' />
+						) : (
+							<Mail className='h-4 w-4' />
+						)}
+						Email Report
 					</Button>
 					<Button
 						onClick={handleDownloadPdf}
