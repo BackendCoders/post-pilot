@@ -188,24 +188,22 @@ export default function LeadKanbanBoard({
 									</span>
 								)}
 
-								{(hasNote || messageCount > 0) && (
-									<button
-										type='button'
-										onClick={handleNoteClick}
-										className={cn(
-											'inline-flex mr-5 items-center justify-center rounded-md p-1 transition-all duration-200 hover:bg-background border border-transparent hover:border-border',
-											hasNote
-												? 'opacity-100 text-primary'
-												: 'opacity-0 group-hover:opacity-100 text-muted-foreground',
-										)}
-										title={hasNote ? data.content?.note : 'Add note'}
-									>
-										<Notebook
-											size={14}
-											className='transition-colors'
-										/>
-									</button>
-								)}
+								<button
+									type='button'
+									onClick={handleNoteClick}
+									className={cn(
+										'inline-flex mr-5 items-center justify-center rounded-md p-1 transition-all duration-200 hover:bg-background border border-transparent hover:border-border',
+										hasNote
+											? 'opacity-100 text-primary'
+											: 'opacity-0 group-hover:opacity-100 text-muted-foreground',
+									)}
+									title={hasNote ? data.content?.note : 'Add note'}
+								>
+									<Notebook
+										size={14}
+										className='transition-colors'
+									/>
+								</button>
 							</div>
 
 							{/* Media Content */}

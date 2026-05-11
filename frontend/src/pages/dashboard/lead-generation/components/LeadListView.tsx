@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, CheckSquare, MapPin, Square, Pencil } from 'lucide-react';
+import { Building2, CheckSquare, MapPin, Square, Pencil, Notebook } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getStatusLabel } from './leadWorkspace.constants';
 import NoteDialog from './NoteDialog';
@@ -100,38 +100,33 @@ export default function LeadListView({
 									{lead.address}
 								</div>
 							)}
-							{lead.note ? (
-								<button
-									type='button'
-									onClick={(event) => {
-										event.stopPropagation();
-										setNoteLead(lead);
-										setIsNoteDialogOpen(true);
-									}}
-									className='flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-primary transition-colors'
-									title={lead.note}
-								>
-									<Pencil size={12} className='text-primary' />
-									<span className='truncate max-w-[200px]'>
+							{lead.note && (
+								<div className='flex items-center gap-1 mt-1 text-xs text-muted-foreground'>
+									<Pencil size={12} className='text-primary/60' />
+									<span className='truncate max-w-[400px]'>
 										{lead.note}
 									</span>
-								</button>
-							) : (
-								<button
-									type='button'
-									onClick={(event) => {
-										event.stopPropagation();
-										setNoteLead(lead);
-										setIsNoteDialogOpen(true);
-									}}
-									className='opacity-0 group-hover:opacity-100 flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-primary transition-all'
-									title='Add note'
-								>
-									<Pencil size={12} />
-									<span>Add note</span>
-								</button>
+								</div>
 							)}
 						</div>
+
+						<button
+							type='button'
+							onClick={(event) => {
+								event.stopPropagation();
+								setNoteLead(lead);
+								setIsNoteDialogOpen(true);
+							}}
+							className={cn(
+								'shrink-0 ml-auto p-2 rounded-md transition-all duration-200 hover:bg-muted border border-transparent hover:border-border',
+								lead.note 
+									? 'text-primary' 
+									: 'opacity-0 group-hover:opacity-100 text-muted-foreground'
+							)}
+							title={lead.note || 'Add note'}
+						>
+							<Notebook size={18} />
+						</button>
 					</div>
 				);
 			})}

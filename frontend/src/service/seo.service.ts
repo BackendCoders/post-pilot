@@ -26,13 +26,25 @@ export const seoService = {
 	bulkScrape: async (params: { urls: string[]; requestedUrl?: string; isFullSite?: boolean }) => {
 		const response = await api.post<{
 			success: boolean;
-			requestedCount: number;
-			scrapedCount: number;
-			failedCount: number;
-			data: ScrapedPageData[];
-			savedAnalysis?: { analysisId: string };
+			jobId: string;
 			message: string;
 		}>('/api/seo/bulk-scrape', params);
+		return response.data;
+	},
+
+	getJobStatus: async (jobId: string) => {
+		const response = await api.get<{
+			success: boolean;
+			data: {
+				status: 'pending' | 'processing' | 'completed' | 'failed';
+				progress: number;
+				totalUrls: number;
+				processedUrls: number;
+				results: ScrapedPageData[];
+				analysisId?: string;
+				error?: string;
+			};
+		}>(`/api/seo/job/${jobId}`);
 		return response.data;
 	},
 

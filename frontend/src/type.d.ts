@@ -77,6 +77,7 @@ interface ILead {
 	phone?: string;
 	website?: string;
 	thumbnailUrl?: string;
+	publicId?: string;
 	title?: string;
 	address?: string;
 	latitude?: number;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
 	X,
 	Loader2,
@@ -9,11 +9,14 @@ import {
 	Check,
 	ChevronsUpDown,
 	FolderPlus,
+	Image as ImageIcon,
+	Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useUpdateLead, useCreateLead } from '@/query/leads.query';
+import { useUpdateLead, useCreateLead, useUploadLeadImage } from '@/query/leads.query';
 import {
 	useGetLeadCategory,
 	useCreateLeadCategory,
@@ -52,7 +55,12 @@ export default function EditLeadDialog({
 		longitude: '',
 		rating: '',
 		ratingCount: '',
+		thumbnailUrl: '',
+		publicId: '',
 	});
+
+	const uploadMutation = useUploadLeadImage();
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const updateMutation = useUpdateLead();
 	const createMutation = useCreateLead();
@@ -78,6 +86,8 @@ export default function EditLeadDialog({
 			longitude: '',
 			rating: '',
 			ratingCount: '',
+			thumbnailUrl: '',
+			publicId: '',
 		});
 		setIsNewCategoryOpen(false);
 		setNewCategoryName('');
@@ -112,11 +122,65 @@ export default function EditLeadDialog({
 				longitude: lead.longitude?.toString() || '',
 				rating: lead.rating?.toString() || '',
 				ratingCount: lead.ratingCount?.toString() || '',
+				thumbnailUrl: lead.thumbnailUrl || '',
+				publicId: lead.publicId || '',
 			});
 		} else {
 			resetForm();
 		}
 	}, [lead, isOpen, categories]);
+
+	const handleImageUpload = async (base64: string) => {
+		try {
+			const res = await uploadMutation.mutateAsync(base64);
+			if (res.success && res.data) {
+				const uploaded = res.data;
+				setFormData((prev) => ({
+					...prev,
+					thumbnailUrl: uploaded.url,
+					publicId: uploaded.publicId,
+				}));
+				toast.success('Image uploaded successfully');
+			}
+		} catch (error) {
+			console.error('Upload error:', error);
+		}
+	};
+
+	const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onloadend = () => {
+			handleImageUpload(reader.result as string);
+		};
+		reader.readAsDataURL(file);
+	};
+
+	useEffect(() => {
+		const handlePaste = (e: ClipboardEvent) => {
+			if (!isOpen) return;
+			const items = e.clipboardData?.items;
+			if (!items) return;
+
+			for (let i = 0; i < items.length; i++) {
+				if (items[i].type.indexOf('image') !== -1) {
+					const blob = items[i].getAsFile();
+					if (!blob) continue;
+
+					const reader = new FileReader();
+					reader.onloadend = () => {
+						handleImageUpload(reader.result as string);
+					};
+					reader.readAsDataURL(blob);
+				}
+			}
+		};
+
+		window.addEventListener('paste', handlePaste);
+		return () => window.removeEventListener('paste', handlePaste);
+	}, [isOpen]);
 
 	const handleChange = (
 		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -194,10 +258,24 @@ export default function EditLeadDialog({
 			data.ratingCount = null;
 		}
 
+		if (formData.thumbnailUrl) {
+			data.thumbnailUrl = formData.thumbnailUrl;
+		}
+		if (formData.publicId) {
+			data.publicId = formData.publicId;
+		}
+
 		return data;
 	};
 
 	const handleSave = async () => {
+		if (!formData.title.trim() || !formData.category.trim()) {
+			import('sonner').then(({ toast }) => {
+				toast.error('Title and Category are required');
+			});
+			return;
+		}
+
 		if (isCreateMode) {
 			try {
 				await createMutation.mutateAsync(
@@ -247,9 +325,67 @@ export default function EditLeadDialog({
 				</div>
 
 				<div className='space-y-4'>
+					{/* Thumbnail Section */}
+					<div className='flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-2xl bg-muted/30 hover:bg-muted/50 transition-colors group relative overflow-hidden'>
+						{formData.thumbnailUrl ? (
+							<div className='relative w-32 h-32 rounded-xl overflow-hidden shadow-lg border border-border'>
+								<img
+									src={formData.thumbnailUrl}
+									alt='Preview'
+									className='w-full h-full object-cover'
+								/>
+								<button
+									onClick={(e) => {
+										e.stopPropagation();
+										setFormData((prev) => ({
+											...prev,
+											thumbnailUrl: '',
+											publicId: '',
+										}));
+									}}
+									className='absolute top-1 right-1 p-1.5 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm'
+								>
+									<Trash2 size={12} />
+								</button>
+							</div>
+						) : (
+							<div
+								className='flex flex-col items-center gap-2 cursor-pointer'
+								onClick={() => fileInputRef.current?.click()}
+							>
+								<div className='p-4 bg-background rounded-full shadow-sm border border-border group-hover:scale-110 transition-transform'>
+									<ImageIcon
+										size={24}
+										className='text-muted-foreground'
+									/>
+								</div>
+								<div className='text-center'>
+									<p className='text-sm font-semibold'>Click to upload thumbnail</p>
+									<p className='text-xs text-muted-foreground mt-0.5'>
+										or paste image directly (Ctrl+V)
+									</p>
+								</div>
+							</div>
+						)}
+
+						{uploadMutation.isPending && (
+							<div className='absolute inset-0 bg-background/60 flex items-center justify-center backdrop-blur-[1px]'>
+								<Loader2 className='h-8 w-8 text-primary animate-spin' />
+							</div>
+						)}
+
+						<input
+							type='file'
+							ref={fileInputRef}
+							className='hidden'
+							accept='image/*'
+							onChange={onFileSelect}
+						/>
+					</div>
+
 					<div>
 						<label className='text-sm font-medium text-muted-foreground'>
-							Title
+							Title <span className='text-destructive'>*</span>
 						</label>
 						<Input
 							name='title'
@@ -303,7 +439,7 @@ export default function EditLeadDialog({
 					<div className='grid grid-cols-2 gap-4'>
 						<div>
 							<label className='text-sm font-medium text-muted-foreground'>
-								Category
+								Category <span className='text-destructive'>*</span>
 							</label>
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
@@ -513,7 +649,12 @@ export default function EditLeadDialog({
 					</Button>
 					<Button
 						onClick={handleSave}
-						disabled={updateMutation.isPending || createMutation.isPending}
+						disabled={
+							updateMutation.isPending ||
+							createMutation.isPending ||
+							!formData.title.trim() ||
+							!formData.category.trim()
+						}
 					>
 						{(updateMutation.isPending || createMutation.isPending) && (
 							<Loader2

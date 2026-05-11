@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
 	BarChart3,
 	AlertTriangle,
@@ -35,6 +35,9 @@ interface AnalysisResultsProps {
 	onRescrape?: (url: string) => void;
 	rescrapingUrl?: string | null;
 	analysisId?: string | null;
+	pendingUrls?: string[];
+	jobStatus?: 'idle' | 'processing' | 'completed' | 'failed';
+	jobProgress?: number;
 }
 
 const RESULTS_PER_PAGE = 20;
@@ -45,6 +48,9 @@ export default function AnalysisResults({
 	onRescrape,
 	rescrapingUrl,
 	analysisId,
+	pendingUrls = [],
+	jobStatus = 'idle',
+	jobProgress = 0,
 }: AnalysisResultsProps) {
 	const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
 	const [reportData, setReportData] = useState<{
@@ -52,6 +58,32 @@ export default function AnalysisResults({
 		fileName: string;
 	} | null>(null);
 	const [currentPage, setCurrentPage] = useState(1);
+	const [visualProgress, setVisualProgress] = useState(jobProgress);
+
+	// Smart Progress Logic: Increment randomly while processing
+	useEffect(() => {
+		if (jobStatus !== 'processing' || visualProgress >= 90) return;
+
+		const timer = setInterval(() => {
+			setVisualProgress((prev) => {
+				// Don't go past 90 unless the real jobProgress is higher
+				if (prev >= 90) return prev;
+				
+				const increment = Math.floor(Math.random() * 2) + 2; // 2-3%
+				const next = prev + increment;
+				return next > 90 ? 90 : next;
+			});
+		}, 1000);
+
+		return () => clearInterval(timer);
+	}, [jobStatus, visualProgress]);
+
+	// Sync visual progress with real progress if real progress is higher
+	useEffect(() => {
+		if (jobProgress > visualProgress) {
+			setVisualProgress(jobProgress);
+		}
+	}, [jobProgress, visualProgress]);
 
 	const { data: whatsappStatus } = useWhatsAppStatus();
 	const isWhatsAppConnected = whatsappStatus?.state === 'CONNECTED';
@@ -115,7 +147,7 @@ export default function AnalysisResults({
 		setReportData({ base64, fileName });
 		setShowWhatsAppDialog(true);
 	};
-	if (results.length === 0) return null;
+	if (results.length === 0 && pendingUrls.length === 0) return null;
 
 	const totalWords = results.reduce((sum, p) => sum + p.wordCount, 0);
 	const totalImages = results.reduce((sum, p) => sum + p.images.length, 0);
@@ -129,7 +161,7 @@ export default function AnalysisResults({
 	);
 	const pagesWithMetaDesc = results.filter((p) => p.metaDescription).length;
 	const pagesWithH1 = results.filter((p) => p.headings.h1.length > 0).length;
-	const avgWordCount = Math.round(totalWords / results.length);
+	const avgWordCount = results.length > 0 ? Math.round(totalWords / results.length) : 0;
 
 	const avgScore = Object.keys(reports).length > 0
 		? Math.round(
@@ -138,15 +170,13 @@ export default function AnalysisResults({
 		  )
 		: null;
 
-	const pagesWithPerf = results.filter((p) => p.performanceMetrics).length;
+	const auditedPages = results.filter((p) => p.performanceMetrics && (p.performanceMetrics.fcp || p.performanceMetrics.overallPerformanceScore));
+	const pagesWithPerf = auditedPages.length;
 	const avgLoadTime = pagesWithPerf > 0
 		? Math.round(
-			results
-				.filter((p) => p.performanceMetrics)
-				.reduce((sum, p) => sum + (p.performanceMetrics?.desktop.totalLoadTime || 0), 0) / pagesWithPerf
+			auditedPages.reduce((sum, p) => sum + (p.performanceMetrics?.desktop.totalLoadTime || 0), 0) / pagesWithPerf
 		  )
 		: 0;
-	const slowPages = results.filter((p) => p.performanceMetrics && p.performanceMetrics.desktop.totalLoadTime > 3000).length;
 
 	return (
 		<div
@@ -203,6 +233,62 @@ export default function AnalysisResults({
 				</div>
 			</div>
 
+			{/* Smart Progress Header (Top) */}
+			{jobStatus === 'processing' && (
+				<div className='mb-6 p-6 rounded-2xl border border-primary/20 bg-primary/5 flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-500'>
+					<div className='relative flex items-center justify-center'>
+						<Loader2 className='h-10 w-10 text-primary animate-spin' />
+						<span className='absolute text-[10px] font-bold text-primary'>{Math.round(visualProgress)}%</span>
+					</div>
+					<div className='text-center space-y-1'>
+						<h3 className='text-sm font-bold text-foreground'>Analyzing website components...</h3>
+						<p className='text-xs text-muted-foreground'>
+							We are checking metadata, assets, and performance. Results are appearing in real-time.
+						</p>
+					</div>
+					<div className='w-full max-w-md h-2 bg-muted rounded-full overflow-hidden'>
+						<div 
+							className='h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.5)]'
+							style={{ width: `${visualProgress}%` }}
+						/>
+					</div>
+				</div>
+			)}
+
+			{/* Universal Performance Banner */}
+			{avgLoadTime > 0 && (
+				<div className='flex items-center gap-4 p-4 rounded-xl border border-primary/20 bg-primary/5 animate-in slide-in-from-top-2 duration-500'>
+					<div className='p-2 bg-primary/10 rounded-lg'>
+						<Gauge className='h-6 w-6 text-primary' />
+					</div>
+					<div className='flex-1'>
+						<div className='flex items-center gap-2'>
+							<h3 className='text-sm font-bold text-foreground'>Universal Load Performance</h3>
+							<Badge variant={avgLoadTime < 3000 ? 'default' : 'secondary'} className={avgLoadTime < 3000 ? 'bg-emerald-500 hover:bg-emerald-600' : ''}>
+								{avgLoadTime < 3000 ? 'Excellent' : avgLoadTime < 5000 ? 'Good' : 'Needs Optimization'}
+							</Badge>
+						</div>
+						<p className='text-xs text-muted-foreground mt-0.5'>
+							The site takes an average of <span className='font-bold text-foreground'>{avgLoadTime}ms</span> to respond across all analyzed sessions.
+						</p>
+					</div>
+					<div className='flex items-center gap-6 pr-2'>
+						<div className='text-center'>
+							<p className='text-[10px] font-bold uppercase text-muted-foreground'>Avg Desktop</p>
+							<p className='text-lg font-bold'>{avgLoadTime}ms</p>
+						</div>
+						{pagesWithPerf > 0 && auditedPages.some(r => r.performanceMetrics?.mobile) && (
+							<div className='text-center'>
+								<p className='text-[10px] font-bold uppercase text-muted-foreground'>Avg Mobile</p>
+								<p className='text-lg font-bold'>
+									{Math.round(auditedPages.reduce((sum, r) => sum + (r.performanceMetrics?.mobile?.totalLoadTime || 0), 0) / (auditedPages.filter(r => r.performanceMetrics?.mobile).length || 1))}ms
+								</p>
+							</div>
+						)}
+					</div>
+				</div>
+			)}
+
 			{/* Stats Grid */}
 			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3'>
 				<Card className='rounded-xl border-border bg-card shadow-none hover:shadow-sm transition-all duration-200'>
@@ -221,7 +307,7 @@ export default function AnalysisResults({
 								{pagesWithMetaDesc}
 							</span>{' '}
 							with meta description (
-							{Math.round((pagesWithMetaDesc / results.length) * 100)}%)
+							{results.length > 0 ? Math.round((pagesWithMetaDesc / results.length) * 100) : 0}%)
 						</p>
 					</CardContent>
 				</Card>
@@ -293,96 +379,62 @@ export default function AnalysisResults({
 							<span className='font-medium text-foreground'>
 								{pagesWithH1}/{results.length}
 							</span>{' '}
-							with H1 ({Math.round((pagesWithH1 / results.length) * 100)}%)
+							with H1 ({results.length > 0 ? Math.round((pagesWithH1 / results.length) * 100) : 0}%)
 						</p>
 					</CardContent>
 				</Card>
 
-				<Card className='rounded-xl border-border bg-card shadow-none hover:shadow-sm transition-all duration-200'>
-					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
-						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
-							Avg Load Time
-						</CardTitle>
-						<Gauge className='h-4 w-4 text-primary/70' />
-					</CardHeader>
-					<CardContent className='px-4 pb-4'>
-						<div className={`text-2xl font-bold tracking-tight ${
-							avgLoadTime > 5000 ? 'text-red-600' :
-							avgLoadTime > 3000 ? 'text-yellow-600' : 'text-emerald-600'
-						}`}>
-							{avgLoadTime > 0 ? `${avgLoadTime}ms` : '-'}
-						</div>
-						<p className='text-[11px] mt-1 flex items-center gap-1.5'>
-							{slowPages > 0 ? (
-								<>
-									<AlertTriangle className='h-3 w-3 text-yellow-600' />
-									<span className='text-yellow-600 font-medium'>
-										{slowPages} slow page{slowPages > 1 ? 's' : ''}
+
+				{avgScore !== null && (
+					<Card className='rounded-xl border-border bg-gradient-to-r from-primary/5 to-primary/10 shadow-none hover:shadow-sm transition-all duration-200'>
+						<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
+							<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
+								Overall SEO Score
+							</CardTitle>
+							<BarChart3 className='h-4 w-4 text-primary/70' />
+						</CardHeader>
+						<CardContent className='px-4 pb-4'>
+							<div className='flex items-center gap-3'>
+								<div
+									className={`text-2xl font-bold ${
+										avgScore >= 80
+											? 'text-emerald-600'
+											: avgScore >= 60
+												? 'text-yellow-600'
+												: 'text-red-600'
+									}`}
+								>
+									{avgScore}
+								</div>
+								<div className='flex flex-col'>
+									<span className='text-[11px] font-medium'>
+										Grade:{' '}
+										{avgScore >= 90
+											? 'A'
+											: avgScore >= 80
+												? 'B'
+												: avgScore >= 70
+													? 'C'
+													: avgScore >= 60
+														? 'D'
+														: 'F'}
 									</span>
-								</>
-							) : avgLoadTime > 0 ? (
-								<>
-									<CheckCircle className='h-3 w-3 text-emerald-500' />
-									<span className='text-emerald-600 font-medium'>
-										All pages fast
-									</span>
-								</>
-							) : (
-								<span className='text-muted-foreground'>No data</span>
-							)}
-						</p>
-					</CardContent>
-				</Card>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+				)}
 			</div>
-
-			{avgScore !== null && (
-				<Card className="rounded-xl border-border bg-gradient-to-r from-primary/5 to-primary/10">
-					<CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0">
-						<CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-							Overall SEO Score
-						</CardTitle>
-						<BarChart3 className="h-4 w-4 text-primary/70" />
-					</CardHeader>
-					<CardContent className="px-4 pb-4">
-						<div className="flex items-center gap-3">
-							<div
-								className={`text-3xl font-bold ${
-									avgScore >= 80
-										? 'text-emerald-600'
-										: avgScore >= 60
-											? 'text-yellow-600'
-											: 'text-red-600'
-								}`}
-							>
-								{avgScore}
-							</div>
-							<div className="flex flex-col">
-								<span className="text-sm font-medium">
-									Grade:{' '}
-									{avgScore >= 90
-										? 'A'
-										: avgScore >= 80
-											? 'B'
-											: avgScore >= 70
-												? 'C'
-												: avgScore >= 60
-													? 'D'
-													: 'F'}
-								</span>
-								<span className="text-[10px] text-muted-foreground">
-									Based on {Object.keys(reports).length} pages
-								</span>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-			)}
 
 			{/* Details List */}
 			{(() => {
 				const totalDetailPages = Math.ceil(results.length / RESULTS_PER_PAGE);
 				const startIdx = (currentPage - 1) * RESULTS_PER_PAGE;
 				const pageResults = results.slice(startIdx, startIdx + RESULTS_PER_PAGE);
+				
+				// Show pending URLs that haven't been completed yet
+				const actualPending = pendingUrls.filter(url => !results.some(r => r.url === url));
+				const showPending = currentPage === 1 && actualPending.length > 0;
 
 				return (
 					<div className='space-y-4 pt-2'>
@@ -402,7 +454,7 @@ export default function AnalysisResults({
 						</div>
 
 						<div className='grid gap-4'>
-							{pageResults.map((page, index) => (
+							{pageResults.map((page) => (
 								<div
 									key={page.url}
 									className='group transition-transform duration-200 active:scale-[0.99]'
@@ -410,10 +462,29 @@ export default function AnalysisResults({
 									<PageAnalysisCard
 										page={page}
 										report={reports[page.url] || null}
-										index={startIdx + index}
+										index={startIdx + results.indexOf(page)}
 										onRescrape={onRescrape}
 										isRescraping={rescrapingUrl === page.url}
 									/>
+								</div>
+							))}
+
+							{showPending && actualPending.map((url) => (
+								<div key={url} className='group opacity-60'>
+									<Card className='rounded-xl border-dashed border-2 bg-muted/30'>
+										<CardContent className='p-4 flex items-center justify-between'>
+											<div className='flex items-center gap-3'>
+												<div className='h-8 w-8 rounded-lg bg-muted animate-pulse flex items-center justify-center'>
+													<Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+												</div>
+												<div>
+													<p className='text-sm font-medium truncate max-w-[300px]'>{url}</p>
+													<p className='text-[11px] text-muted-foreground'>Analyzing...</p>
+												</div>
+											</div>
+											<Badge variant="outline" className="animate-pulse">Scraping</Badge>
+										</CardContent>
+									</Card>
 								</div>
 							))}
 						</div>

@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useCallback, useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { isAxiosError } from 'axios';
 import { seoService } from '@/service/seo.service';
@@ -48,6 +48,18 @@ export const useBulkScrape = () => {
 	});
 };
 
+export const useSeoJobStatus = (jobId: string | null) => {
+	return useQuery({
+		queryKey: ['seoJobStatus', jobId],
+		queryFn: () => seoService.getJobStatus(jobId!),
+		enabled: !!jobId,
+		refetchInterval: (query) => {
+			const status = query.state.data?.data?.status;
+			return status === 'completed' || status === 'failed' ? false : 2000;
+		},
+	});
+};
+
 export const useRescrape = (
 	onSuccess?: (data: ScrapedPageData) => void,
 ) => {
@@ -72,10 +84,38 @@ export const useSeoAnalysis = () => {
 	const [results, setResults] = useState<ScrapedPageData[]>([]);
 	const [hasSitemapError, setHasSitemapError] = useState(false);
 	const [hasAnalysisError, setHasAnalysisError] = useState(false);
+	const [activeJobId, setActiveJobId] = useState<string | null>(null);
+	const [jobProgress, setJobProgress] = useState(0);
+	const [jobStatus, setJobStatus] = useState<string | null>(null);
+	const [lastAnalysisId, setLastAnalysisId] = useState<string | null>(null);
 
 	const { mutateAsync: fetchSitemap, isPending: isFetchingSitemap } =
 		useCountPages();
-	const { mutateAsync: analyzeUrls, isPending: isAnalyzing } = useBulkScrape();
+	const { mutateAsync: analyzeUrls, isPending: isRequestingScrape } = useBulkScrape();
+	const { data: jobData } = useSeoJobStatus(activeJobId);
+
+	useEffect(() => {
+		if (jobData?.data) {
+			setJobProgress(jobData.data.progress);
+			setJobStatus(jobData.data.status);
+			
+			// Show partial results as they arrive
+			if (jobData.data.results && jobData.data.results.length > 0) {
+				setResults(jobData.data.results);
+			}
+
+			if (jobData.data.status === 'completed') {
+				setResults(jobData.data.results || []);
+				setLastAnalysisId(jobData.data.analysisId || null);
+				setActiveJobId(null);
+				toast.success(`Analysis completed!`);
+			} else if (jobData.data.status === 'failed') {
+				setHasAnalysisError(true);
+				setActiveJobId(null);
+				toast.error(`Analysis failed: ${jobData.data.error || 'Unknown error'}`);
+			}
+		}
+	}, [jobData]);
 
 	const discoverSitemap = useCallback(
 		(url: string) => {
@@ -96,25 +136,31 @@ export const useSeoAnalysis = () => {
 	);
 
 	const analyzeSelected = useCallback(
-		async (urls?: string[], onSuccess?: AnalysisCallback) => {
+		async (urls?: string[], requestedUrl?: string, isFullSite?: boolean) => {
 			const urlsToAnalyze = urls || selectedUrls;
 			if (urlsToAnalyze.length === 0) {
 				toast.error('Please select at least one page to analyze');
 				return;
 			}
 
-			console.log('analyzeSelected called with:', urlsToAnalyze);
 			setHasAnalysisError(false);
 			setResults([]);
+			setJobProgress(0);
+			setJobStatus('pending');
+			setLastAnalysisId(null);
 
 			try {
-				const data = await analyzeUrls({ urls: urlsToAnalyze });
-				console.log('analyzeUrls success, data:', data);
-				setResults(data.data || []);
-				toast.success(`Analyzed ${data.scrapedCount} page(s)`);
-				console.log('Calling onSuccess callback...');
-				onSuccess?.(data);
-				console.log('onSuccess callback called');
+				const response = await analyzeUrls({ 
+					urls: urlsToAnalyze,
+					requestedUrl,
+					isFullSite
+				});
+				if (response.success && response.jobId) {
+					setActiveJobId(response.jobId);
+					toast.info('Analysis started...');
+				} else {
+					setHasAnalysisError(true);
+				}
 			} catch {
 				setHasAnalysisError(true);
 			}
@@ -170,6 +216,10 @@ export const useSeoAnalysis = () => {
 		setResults([]);
 		setHasSitemapError(false);
 		setHasAnalysisError(false);
+		setLastAnalysisId(null);
+		setActiveJobId(null);
+		setJobProgress(0);
+		setJobStatus('idle');
 	}, []);
 
 	return {
@@ -179,7 +229,11 @@ export const useSeoAnalysis = () => {
 		results,
 		setResults,
 		isFetchingSitemap,
-		isAnalyzing,
+		isAnalyzing: isRequestingScrape || (!!activeJobId && jobStatus !== 'completed' && jobStatus !== 'failed'),
+		jobProgress,
+		jobStatus,
+		activeJobId,
+		lastAnalysisId,
 		hasSitemapError,
 		hasAnalysisError,
 		discoverSitemap,

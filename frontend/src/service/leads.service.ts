@@ -65,3 +65,11 @@ export const createLead = async (data: Omit<ILead, '_id'>) => {
 	const response = await api.post<IApiResponse<ILead>>('/api/leads', data);
 	return response.data;
 };
+
+export const uploadLeadImage = async (image: string) => {
+	const response = await api.post<IApiResponse<{ url: string; publicId: string }>>(
+		'/api/leads/upload',
+		{ image },
+	);
+	return response.data;
+};

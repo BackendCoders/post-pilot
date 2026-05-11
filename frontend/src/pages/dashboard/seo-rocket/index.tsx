@@ -14,7 +14,7 @@ import UrlInputForm from './components/UrlInputForm';
 import SitemapView from './components/SitemapView';
 import AnalysisResults from './components/AnalysisResults';
 import Walkthrough from '@/components/Walkthrough';
-import { useSeoAnalysis, useRescrape, useBulkScrape } from '@/query/seo.query';
+import { useSeoAnalysis, useRescrape } from '@/query/seo.query';
 import { useCompleteWalkthrough, useAuth } from '@/query/auth.query';
 import {
 	useSaveAnalysis,
@@ -66,10 +66,17 @@ export default function SEORocketPage() {
 		hasSitemapError,
 		hasAnalysisError,
 		discoverSitemap,
+		analyzeSelected,
 		toggleUrl,
 		selectAll,
 		deselectAll,
+		results,
 		reset,
+		isAnalyzing,
+		jobProgress,
+		jobStatus,
+		activeJobId,
+		lastAnalysisId,
 	} = useSeoAnalysis();
 
 	const { mutate: saveAnalysis } = useSaveAnalysis();
@@ -79,7 +86,6 @@ export default function SEORocketPage() {
 		{ page: resultsPage, limit: 20 },
 	);
 
-	const { mutateAsync: bulkScrape, isPending: isAnalyzing } = useBulkScrape();
 
 	useEffect(() => {
 		if (savedAnalysis && currentView === 'results') {
@@ -120,6 +126,32 @@ export default function SEORocketPage() {
 			setCurrentReports(reports);
 		}
 	}, [savedAnalysis, currentView]);
+
+	useEffect(() => {
+		// Only redirect to results if we HAVE an active job AND we are not on the input/sitemap screens
+		// This prevents "cache redirects" when starting a new analysis
+		if (activeJobId && !lastAnalysisId && currentView === 'input') {
+			// If we are on input but have an active job, we should probably reset it
+			// unless we explicitly just started it. For now, we'll just not redirect.
+			return;
+		}
+
+		if (activeJobId && !lastAnalysisId && currentView !== 'results' && currentView !== 'input' && currentView !== 'sitemap') {
+			navigate(`/dashboard/seo-rocket/results?url=${encodeURIComponent(urlParam || '')}`);
+		}
+	}, [activeJobId, lastAnalysisId, currentView, navigate, urlParam]);
+
+	useEffect(() => {
+		if (activeJobId && results.length > 0) {
+			setCurrentResults(results);
+		}
+	}, [activeJobId, results]);
+
+	useEffect(() => {
+		if (lastAnalysisId && currentView !== 'input') {
+			navigate(`/dashboard/seo-rocket/results?id=${lastAnalysisId}`);
+		}
+	}, [lastAnalysisId, navigate, currentView]);
 
 	useEffect(() => {
 		if (currentResults.length > 0) {
@@ -203,38 +235,14 @@ export default function SEORocketPage() {
 				);
 			}
 
-			try {
-				const isFullSite =
-					sitemap?.urls && limitedUrls.length === sitemap.urls.length;
-				const requestedUrl = urlParam || limitedUrls[0] || '';
+			const isFullSite =
+				sitemap?.urls && limitedUrls.length === sitemap.urls.length;
+			const requestedUrl = urlParam || limitedUrls[0] || '';
 
-				// Trigger bulk scrape - server will now handle the saving directly
-				const result = await bulkScrape({
-					urls: limitedUrls,
-					requestedUrl,
-					isFullSite,
-				});
-
-				console.log('Bulk scrape result:', result);
-
-				if (result.success) {
-					setCurrentResults(result.data || []);
-
-					// Navigation now uses the ID returned from the server's auto-save
-					const analysisId = result.savedAnalysis?.analysisId;
-					if (analysisId) {
-						navigate(`/dashboard/seo-rocket/results?id=${analysisId}`);
-					} else {
-						// Fallback if save failed but scrape succeeded
-						navigate('/dashboard/seo-rocket/results');
-					}
-				}
-			} catch (error) {
-				console.error('Analysis failed:', error);
-				toast.error('Analysis failed');
-			}
+			navigate(`/dashboard/seo-rocket/results?url=${encodeURIComponent(requestedUrl)}`);
+			await analyzeSelected(limitedUrls, requestedUrl, isFullSite);
 		},
-		[urlParam, sitemap, bulkScrape, navigate, setSelectedUrls],
+		[urlParam, sitemap, analyzeSelected, setSelectedUrls],
 	);
 
 	const handleRescrapeComplete = useCallback((updatedPage: ScrapedPageData) => {
@@ -262,6 +270,7 @@ export default function SEORocketPage() {
 	);
 
 	const handleDiscover = (url: string, mode: SeoAnalysisMode) => {
+		reset(); // Force clear everything for a fresh search
 		if (mode === 'page') {
 			navigate(`/dashboard/seo-rocket/single?url=${encodeURIComponent(url)}`);
 		} else {
@@ -429,13 +438,16 @@ export default function SEORocketPage() {
 							/>
 						)}
 
-						{currentView === 'results' && currentResults.length > 0 && (
+						{currentView === 'results' && (currentResults.length > 0 || isAnalyzing) && (
 							<AnalysisResults
 								results={currentResults}
 								reports={currentReports}
 								onRescrape={handleRescrape}
 								rescrapingUrl={rescrapingUrl}
-								analysisId={analysisIdParam || savedAnalysis?._id}
+								analysisId={analysisIdParam || lastAnalysisId}
+								pendingUrls={activeJobId ? selectedUrls : []}
+								jobStatus={(jobStatus as any) || 'idle'}
+								jobProgress={jobProgress}
 							/>
 						)}
 
@@ -480,18 +492,16 @@ export default function SEORocketPage() {
 					{(isFetchingSitemap ||
 						isAnalyzing ||
 						isScrapingSingle ||
-						(currentView === 'results' && isLoadingAnalysis)) && (
+						(currentView === 'results' && isLoadingAnalysis)) && currentView !== 'results' && (
 						<div className='flex items-center justify-center py-8 animate-in fade-in slide-in-from-bottom-2'>
 							<div className='flex flex-col items-center gap-3'>
 								<Loader2 className='h-6 w-6 text-primary animate-spin' />
 								<p className='text-sm font-medium text-muted-foreground tracking-tight'>
-									{currentView === 'results' && isLoadingAnalysis
-										? 'Loading analysis...'
-										: isScrapingSingle
-											? 'Analyzing page...'
-											: isFetchingSitemap
-												? 'Discovering sitemap...'
-												: 'Analyzing pages...'}
+									{isScrapingSingle
+										? 'Analyzing page...'
+										: isFetchingSitemap
+											? 'Discovering sitemap...'
+											: 'Starting analysis...'}
 								</p>
 							</div>
 						</div>

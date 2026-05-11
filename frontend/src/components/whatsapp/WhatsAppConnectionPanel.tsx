@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import {
 	useWhatsAppStatus,
@@ -6,10 +6,22 @@ import {
 	useWhatsAppLogout,
 } from '@/query/whatsapp.query';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 
 type WhatsAppConnectionPanelProps = {
 	autoStart?: boolean;
 };
+
+const WA_GUIDELINES_DISMISS_KEY = 'pp_whatsapp_guidelines_dismissed_v1';
 
 export default function WhatsAppConnectionPanel({
 	autoStart = false,
@@ -19,12 +31,23 @@ export default function WhatsAppConnectionPanel({
 	const logoutMutation = useWhatsAppLogout();
 	const hasAutoStarted = useRef(false);
 
+	const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
+	const [dontShowAgain, setDontShowAgain] = useState(false);
+	const [canShowQr, setCanShowQr] = useState(() => {
+		try {
+			return localStorage.getItem(WA_GUIDELINES_DISMISS_KEY) === '1';
+		} catch {
+			return false;
+		}
+	});
+
 	useEffect(() => {
 		if (
 			autoStart &&
 			statusQuery.data?.state === 'DISCONNECTED' &&
 			!hasAutoStarted.current
 		) {
+			if (!canShowQr) return;
 			hasAutoStarted.current = true;
 			startMutation.mutate(undefined, {
 				onError: () => {
@@ -35,11 +58,34 @@ export default function WhatsAppConnectionPanel({
 	}, [autoStart, startMutation, statusQuery.data?.state]);
 
 	const handleStartConnection = () => {
-		startMutation.mutate(undefined, {
-			onError: () => {
-				toast.error('Failed to start WhatsApp connection');
-			},
-		});
+		const dismissed = canShowQr;
+		if (dismissed && statusQuery.data?.state === 'DISCONNECTED') {
+			startMutation.mutate(undefined, {
+				onError: () => {
+					toast.error('Failed to start WhatsApp connection');
+				},
+			});
+			return;
+		}
+
+		setDontShowAgain(false);
+		setIsGuidelinesOpen(true);
+	};
+
+	const handleGuidelinesContinue = () => {
+		if (dontShowAgain) {
+			localStorage.setItem(WA_GUIDELINES_DISMISS_KEY, '1');
+		}
+		setCanShowQr(true);
+		setIsGuidelinesOpen(false);
+
+		if (statusQuery.data?.state === 'DISCONNECTED') {
+			startMutation.mutate(undefined, {
+				onError: () => {
+					toast.error('Failed to start WhatsApp connection');
+				},
+			});
+		}
 	};
 
 	const handleDisconnect = () => {
@@ -90,9 +136,86 @@ export default function WhatsAppConnectionPanel({
 		);
 	}
 
+	const qr = statusQuery.data?.qr ?? undefined;
+	const shouldShowQr =
+		canShowQr && statusQuery.data?.state === 'AWAITING_SCAN' && !!qr;
+
 	return (
 		<div className='flex flex-col items-center py-4 space-y-4'>
-			{statusQuery.data?.state === 'DISCONNECTED' && (
+			<Dialog
+				open={isGuidelinesOpen}
+				onOpenChange={setIsGuidelinesOpen}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Before you connect WhatsApp Web</DialogTitle>
+						<DialogDescription>
+							Please review these quick guidelines to keep your account safe and
+							stay compliant.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className='space-y-3 text-sm text-muted-foreground'>
+						<ul className='list-disc pl-5 space-y-2'>
+							<li>
+								This connection uses <span className='font-medium'>WhatsApp Web</span>{' '}
+								(QR login) to link your account.
+							</li>
+							<li>
+								We <span className='font-medium'>do not store your personal messages</span>{' '}
+								in our database. Your chats stay in WhatsApp.
+							</li>
+							<li>
+								Your login session is{' '}
+								<span className='font-medium'>encrypted and protected</span>. Still,
+								only connect on trusted devices.
+							</li>
+							<li>
+								We strongly recommend connecting a{' '}
+								<span className='font-medium'>business WhatsApp number</span>, not
+								your personal number.
+							</li>
+							<li>
+								Avoid <span className='font-medium'>bulk messaging / spam</span>. Large
+								blasts can lead to rate limits or account bans by WhatsApp.
+							</li>
+						</ul>
+
+						<div className='flex items-center gap-2 pt-1'>
+							<Checkbox
+								id='wa-guidelines-dismiss'
+								checked={dontShowAgain}
+								onCheckedChange={(checked) => setDontShowAgain(checked === true)}
+							/>
+							<label
+								htmlFor='wa-guidelines-dismiss'
+								className='text-sm text-foreground'
+							>
+								Don’t show this again
+							</label>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button
+							type='button'
+							variant='outline'
+							onClick={() => setIsGuidelinesOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							type='button'
+							onClick={handleGuidelinesContinue}
+						>
+							I Understand &amp; Continue
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{(statusQuery.data?.state === 'DISCONNECTED' ||
+				(statusQuery.data?.state === 'AWAITING_SCAN' && !canShowQr)) && (
 				<button
 					type='button'
 					onClick={handleStartConnection}
@@ -104,14 +227,14 @@ export default function WhatsAppConnectionPanel({
 			)}
 
 			<div className='w-full max-w-[280px] p-6 bg-background rounded-xl border border-border border-dashed text-center space-y-4'>
-				{statusQuery.data?.state === 'AWAITING_SCAN' && statusQuery.data.qr ? (
+				{shouldShowQr ? (
 					<>
 						<p className='text-xs font-semibold text-muted-foreground uppercase tracking-widest'>
 							Scan to Connect
 						</p>
 						<div className='p-2 bg-white rounded-lg inline-block shadow-sm'>
 							<img
-								src={statusQuery.data.qr}
+								src={qr}
 								alt='QR'
 								className='w-40 h-40'
 							/>
@@ -120,6 +243,15 @@ export default function WhatsAppConnectionPanel({
 							Refreshes every 3s
 						</p>
 					</>
+				) : statusQuery.data?.state === 'AWAITING_SCAN' && !canShowQr ? (
+					<div className='py-8 flex flex-col items-center space-y-3'>
+						<p className='text-xs text-muted-foreground'>
+							Review guidelines to view the QR code
+						</p>
+						<p className='text-[10px] text-muted-foreground italic'>
+							Click connect to continue
+						</p>
+					</div>
 				) : statusQuery.data?.state === 'DISCONNECTED' &&
 				  !startMutation.isPending ? (
 					<div className='py-8 flex flex-col items-center space-y-3'>

@@ -12,6 +12,7 @@ import {
 	updateLeadNote,
 	updateLead,
 	createLead,
+	uploadLeadImage,
 } from '@/service/leads.service';
 
 export interface IScrapedLeadsState {
@@ -221,6 +222,16 @@ export const useCreateLead = function () {
 		},
 		onError: (err) =>
 			toast.error('Failed to create lead', {
+				description: getErrorMessage(err),
+			}),
+	});
+};
+
+export const useUploadLeadImage = function () {
+	return useMutation({
+		mutationFn: (image: string) => uploadLeadImage(image),
+		onError: (err) =>
+			toast.error('Image upload failed', {
 				description: getErrorMessage(err),
 			}),
 	});

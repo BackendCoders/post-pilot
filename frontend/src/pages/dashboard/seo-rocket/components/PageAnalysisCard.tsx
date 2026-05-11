@@ -14,7 +14,6 @@ import {
 	Info,
 	RefreshCw,
 	Zap,
-	Gauge,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -121,29 +120,14 @@ export default function PageAnalysisCard({
 									value: page.internalLinkCount + page.externalLinkCount,
 								},
 								{ icon: ImageIcon, value: (page.images || []).length, error: imagesWithoutAltCount > 0 },
-								{
-									icon: Gauge,
-									value: page.performanceMetrics?.desktop?.totalLoadTime
-										? `${Math.round(page.performanceMetrics.desktop.totalLoadTime)}ms`
-										: '-',
-									mobileValue: page.performanceMetrics?.mobile?.totalLoadTime
-										? `${Math.round(page.performanceMetrics.mobile.totalLoadTime)}ms`
-										: null,
-									warning: page.performanceMetrics?.desktop?.totalLoadTime && page.performanceMetrics.desktop.totalLoadTime > 3000,
-								},
 							].map((stat, i) => (
 								<div
 									key={i}
 									className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-transparent text-[10px] font-medium text-muted-foreground whitespace-nowrap'
 								>
-									<stat.icon className={`h-3 w-3 opacity-70 ${stat.warning ? 'text-yellow-600' : ''}`} />
-									<span className={stat.warning ? 'text-yellow-600' : ''}>
+									<stat.icon className='h-3 w-3 opacity-70' />
+									<span>
 										{stat.value}
-										{stat.mobileValue && (
-											<span className='ml-1 opacity-50 border-l border-border/50 pl-1'>
-												📱 {stat.mobileValue}
-											</span>
-										)}
 									</span>
 									{stat.error && (
 										<span className='ml-0.5 text-[9px] font-bold text-destructive px-1 bg-destructive/10 rounded-sm'>
@@ -413,7 +397,7 @@ export default function PageAnalysisCard({
 						)}
 
 						{/* Performance Metrics Details */}
-						{page.performanceMetrics && (
+						{page.performanceMetrics && (page.performanceMetrics.fcp || page.performanceMetrics.overallPerformanceScore) && (
 							<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>
 								<div className='flex items-center gap-2 mb-3'>
 									<div className='h-3 w-0.5 bg-amber-500/60 rounded-full' />
