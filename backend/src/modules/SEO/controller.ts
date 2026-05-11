@@ -57,34 +57,42 @@ export const scrapeSeoBulkUrls = asyncHandler(
     };
 
     const userId = req.user?.userId?.toString();
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    // 1. Scrape the pages
-    const data = await scrapeMultipleWebPages(urls);
+    // Use Job system for bulk scrape
+    const jobId = await seoAnalysisService.createJob(userId, requestedUrl || urls[0] || '', urls);
 
-    // 2. Automatically save to history if user is authenticated
-    let savedAnalysis = null;
-    if (userId) {
-      try {
-        savedAnalysis = await seoAnalysisService.saveAnalysis({
-          userId,
-          requestedUrl: requestedUrl || urls[0] || '',
-          analysisType: isFullSite ? 'full_site' : 'partial_site',
-          analyzedUrls: urls,
-          results: data,
-        });
-      } catch (saveError) {
-        console.error('Failed to auto-save bulk analysis:', saveError);
-      }
+    res.status(202).json({
+      success: true,
+      jobId,
+      message: 'Bulk analysis started in background',
+    });
+  }
+);
+
+export const getSeoJobStatus = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const userId = req.user?.userId?.toString();
+
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const job = await seoAnalysisService.getJobStatus(id as string, userId);
+
+    if (!job) {
+      res.status(404).json({ success: false, error: 'Job not found' });
+      return;
     }
 
     res.status(200).json({
       success: true,
-      requestedCount: urls.length,
-      scrapedCount: data.length,
-      failedCount: urls.length - data.length,
-      data,
-      savedAnalysis,
-      message: 'Bulk web page scrape completed successfully',
+      data: job,
     });
   }
 );

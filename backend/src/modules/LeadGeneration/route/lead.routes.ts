@@ -11,6 +11,7 @@ import {
   getLead,
   listLeads,
   updateLead,
+  uploadLeadImage,
 } from '../controller/lead.controller';
 import { LEAD_STATUSES } from '../model/lead.model';
 
@@ -22,21 +23,21 @@ const statusEnum = z.enum(LEAD_STATUSES);
 const leadFieldsSchema = z.object({
   user: objectId.optional(),
   leadCategory: objectId.optional(),
-  position: z.number().optional(),
-  pos: z.number().optional(),
-  title: z.string().trim().min(1).optional(),
-  titile: z.string().trim().min(1).optional(),
-  address: z.string().trim().min(1).optional(),
-  latitude: z.number().optional(),
-  lat: z.number().optional(),
-  longitude: z.number().optional(),
-  lng: z.number().optional(),
-  rating: z.number().optional(),
-  ratingCount: z.number().optional(),
-  ratingcount: z.number().optional(),
-  category: z.string().trim().min(1).optional(),
-  googleMapUrl: z.string().trim().url().optional(),
-  gmapurl: z.string().trim().url().optional(),
+  position: z.number().nullable().optional(),
+  pos: z.number().nullable().optional(),
+  title: z.string().trim().nullable().optional(),
+  titile: z.string().trim().nullable().optional(),
+  address: z.string().trim().nullable().optional(),
+  latitude: z.number().nullable().optional(),
+  lat: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
+  lng: z.number().nullable().optional(),
+  rating: z.number().nullable().optional(),
+  ratingCount: z.number().nullable().optional(),
+  ratingcount: z.number().nullable().optional(),
+  category: z.string().trim().nullable().optional(),
+  googleMapUrl: z.string().trim().nullable().optional(),
+  gmapurl: z.string().trim().nullable().optional(),
   status: statusEnum.optional(),
 });
 
@@ -78,25 +79,25 @@ const leadIdSchema = z.object({
 
 const bulkLeadItemSchema = z
   .object({
-    pos: z.number().optional(),
-    position: z.number().optional(),
-    title: z.string().trim().min(1).optional(),
-    titile: z.string().trim().min(1).optional(),
-    address: z.string().trim().min(1).optional(),
-    phone: z.string().optional(),
-    website: z.string().optional(),
-    thumbnailUrl: z.string().optional(),
-    publicId: z.string().optional(),
-    lat: z.number().optional(),
-    latitude: z.number().optional(),
-    lng: z.number().optional(),
-    longitude: z.number().optional(),
-    rating: z.number().optional(),
-    ratingcount: z.number().optional(),
-    ratingCount: z.number().optional(),
-    gmapurl: z.string().trim().url().optional(),
-    googleMapUrl: z.string().trim().url().optional(),
-    category: z.string().trim().min(1).optional(),
+    pos: z.number().nullable().optional(),
+    position: z.number().nullable().optional(),
+    title: z.string().trim().nullable().optional(),
+    titile: z.string().trim().nullable().optional(),
+    address: z.string().trim().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    website: z.string().nullable().optional(),
+    thumbnailUrl: z.string().nullable().optional(),
+    publicId: z.string().nullable().optional(),
+    lat: z.number().nullable().optional(),
+    latitude: z.number().nullable().optional(),
+    lng: z.number().nullable().optional(),
+    longitude: z.number().nullable().optional(),
+    rating: z.number().nullable().optional(),
+    ratingcount: z.number().nullable().optional(),
+    ratingCount: z.number().nullable().optional(),
+    gmapurl: z.string().trim().nullable().optional(),
+    googleMapUrl: z.string().trim().nullable().optional(),
+    category: z.string().trim().nullable().optional(),
     leadCategory: objectId.optional(),
   })
   .refine(
@@ -157,5 +158,7 @@ router.post(
   validateRequest(deleteBulkItemSchema),
   deleteLeadBulk
 );
+
+router.post('/upload', uploadLeadImage);
 
 export default router;

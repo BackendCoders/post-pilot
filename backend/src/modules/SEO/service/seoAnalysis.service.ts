@@ -1,7 +1,9 @@
 import { SeoAnalysis } from '../models/SeoAnalysis';
+import { SeoJob } from '../models/SeoJob';
 import mongoose from 'mongoose';
 import { ScrapedPageData } from '../../../types';
 import { generateSeoReport } from './seoReportGenerator';
+import { scrapeWebPage, createErrorPageData } from '../scrapper';
 
 export type AnalysisType = 'single_page' | 'full_site' | 'partial_site';
 
@@ -559,6 +561,124 @@ export const seoAnalysisService = {
       page,
       totalPages: Math.ceil(total / limit),
     };
+  },
+
+  async createJob(userId: string, requestedUrl: string, urls: string[]): Promise<string> {
+    const job = new SeoJob({
+      user: new mongoose.Types.ObjectId(userId),
+      requestedUrl,
+      urls,
+      totalUrls: urls.length,
+      status: 'pending',
+    });
+    await job.save();
+    
+    // Start processing in background
+    this.processJob(job._id.toString()).catch(err => {
+      console.error(`Job ${job._id} processing error:`, err);
+    });
+
+    return job._id.toString();
+  },
+
+  async getJobStatus(jobId: string, userId: string) {
+    const job = await SeoJob.findOne({
+      _id: new mongoose.Types.ObjectId(jobId),
+      user: new mongoose.Types.ObjectId(userId),
+    }).lean();
+    
+    return job;
+  },
+
+  async processJob(jobId: string) {
+    const job = await SeoJob.findById(jobId);
+    if (!job) return;
+
+    job.status = 'processing';
+    await job.save();
+
+    const results: ScrapedPageData[] = [];
+
+    try {
+      // PHASE 1: Fast Scraping (Metadata, Assets, Content)
+      for (let i = 0; i < job.urls.length; i++) {
+        const url = job.urls[i];
+        
+        const res = await scrapeWebPage(url, { 
+          includePageSpeed: false, // Don't do slow API calls yet
+          onProgress: async (partial) => {
+            const existingIdx = results.findIndex(r => r.url === url);
+            const fullPartial = { 
+              ...createErrorPageData(url), 
+              ...partial 
+            } as ScrapedPageData;
+
+            if (existingIdx > -1) {
+              results[existingIdx] = fullPartial;
+            } else {
+              results.push(fullPartial);
+            }
+            job.results = [...results];
+            await job.save();
+          }
+        }).catch(e => ({ url, isError: true } as ScrapedPageData));
+
+        const finalIdx = results.findIndex(r => r.url === url);
+        if (finalIdx > -1) {
+          results[finalIdx] = res;
+        } else {
+          results.push(res);
+        }
+
+        job.results = [...results];
+        job.processedUrls = i + 1;
+        job.progress = Math.round((job.processedUrls / (job.totalUrls * 2)) * 100); // 50% max for scraping
+        await job.save();
+      }
+
+      // PHASE 2: Slow Analysis (PageSpeed Metrics)
+      // Usually we only run PageSpeed on the first page or main page to save time
+      const mainUrl = job.urls[0];
+      if (mainUrl) {
+        job.status = 'processing'; // Update status to reflect performance phase
+        await job.save();
+
+        const mainIdx = results.findIndex(r => r.url === mainUrl);
+        if (mainIdx > -1) {
+          const perfData = await scrapeWebPage(mainUrl, { 
+            includePageSpeed: true 
+          }).catch(() => null);
+
+          if (perfData?.performanceMetrics) {
+            results[mainIdx].performanceMetrics = perfData.performanceMetrics;
+            job.results = [...results];
+            job.progress = 100;
+            await job.save();
+          }
+        }
+      }
+
+      // Finalize job
+      const saved = await this.saveAnalysis({
+        userId: job.user.toString(),
+        requestedUrl: job.requestedUrl,
+        analysisType: job.urls.length > 1 ? 'full_site' : 'single_page',
+        analyzedUrls: job.urls,
+        results: results,
+      });
+
+      job.status = 'completed';
+      job.results = results;
+      job.analysisId = new mongoose.Types.ObjectId(saved.analysisId);
+      job.progress = 100;
+      await job.save();
+
+    } catch (error: any) {
+      console.error(`Error processing job ${jobId}:`, error);
+      job.status = 'failed';
+      job.error = error.message || 'Unknown error';
+      await job.save();
+    }
   },
 };
 

@@ -119,4 +119,51 @@ async function deleteImageFromCloudinary(
   }
 }
 
-export { uploadImageFromUrl, deleteImageFromCloudinary };
+/**
+ * Uploads an image to Cloudinary (supports base64, URLs, or local paths).
+ *
+ * @param imageSource - The image source to upload.
+ * @param options - Optional Cloudinary upload options.
+ * @returns Upload result.
+ */
+async function uploadImage(
+  imageSource: string,
+  options: CloudinaryUploadOptions = {}
+): Promise<UploadResponse> {
+  if (!imageSource) {
+    return {
+      success: false,
+      url: null,
+      publicId: null,
+      error: 'No image source provided.',
+    };
+  }
+
+  try {
+    const result = await cloudinary.v2.uploader.upload(imageSource, {
+      resource_type: 'image',
+      ...options,
+    });
+
+    return {
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+      error: null,
+    };
+  } catch (err) {
+    const message =
+      (err as any)?.error?.message ||
+      (err as Error)?.message ||
+      'Unknown Cloudinary upload error.';
+
+    return {
+      success: false,
+      url: null,
+      publicId: null,
+      error: message,
+    };
+  }
+}
+
+export { uploadImageFromUrl, deleteImageFromCloudinary, uploadImage };

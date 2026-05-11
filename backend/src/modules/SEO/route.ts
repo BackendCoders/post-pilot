@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { validateRequest } from '../../middleware';
+import { validateRequest, authenticate } from '../../middleware';
 import {
   countSeoPages,
   scrapeSeoBulkUrls,
   scrapeSeoTarget,
+  getSeoJobStatus,
 } from './controller';
 import seoAnalysisRoutes from './routes/seoAnalysis.route';
 
@@ -38,7 +39,8 @@ router.post(
   validateRequest(countSeoPagesSchema),
   countSeoPages
 );
-router.post('/bulk-scrape', validateRequest(scrapeSeoBulkSchema), scrapeSeoBulkUrls);
+router.post('/bulk-scrape', authenticate, validateRequest(scrapeSeoBulkSchema), scrapeSeoBulkUrls);
+router.get('/job/:id', authenticate, getSeoJobStatus);
 
 router.use('/analysis', seoAnalysisRoutes);
 

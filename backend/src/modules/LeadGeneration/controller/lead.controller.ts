@@ -8,6 +8,7 @@ import axios from 'axios';
 import {
   deleteImageFromCloudinary,
   uploadImageFromUrl,
+  uploadImage,
 } from '../../../utils/uploadCloudinary';
 import { IApiResponse } from '@/types/index';
 
@@ -476,6 +477,34 @@ export const bulkUpdateLeads = asyncHandler(
   }
 );
 
+export const uploadLeadImage = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { image } = req.body;
+
+    if (!image) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'No image provided' });
+    }
+
+    const result = await uploadImage(image, {
+      folder: 'scraped-leads/manual-uploads',
+    });
+
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: result.error });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        url: result.url,
+        publicId: result.publicId,
+      },
+    });
+  }
+);
+
 export const getGoogleMapScrappedData = asyncHandler(
   async (req: Request, res: Response) => {
     const { business, location, page, latitude, longitude } = req.body;
@@ -506,4 +535,5 @@ export default {
   deleteLeadBulk,
   bulkCreateLeads,
   bulkUpdateLeads,
+  uploadLeadImage,
 };

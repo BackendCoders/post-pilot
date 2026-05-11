@@ -10,6 +10,9 @@ import type {
 
 type CategorizedUrls = Record<string, string[]>;
 
+const resourceCache = new Map<string, { size: number; type: string; lastChecked: number }>();
+const CACHE_TTL = 3600000; // 1 hour
+
 interface SitePageCountResult {
   requestedUrl: string;
   analyzedDomain: string;
@@ -347,6 +350,30 @@ async function scrapImages(
   return Promise.all(imagePromises);
 }
 
+async function pool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: Promise<R>[] = [];
+  const executing = new Set<Promise<R>>();
+  
+  for (const item of items) {
+    const p = Promise.resolve().then(() => fn(item));
+    results.push(p);
+    executing.add(p);
+    
+    const clean = () => executing.delete(p);
+    p.then(clean).catch(clean);
+    
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  
+  return Promise.all(results);
+}
+
 function scrapHeaderText($: cheerio.CheerioAPI): PageHeadingMap {
   return {
     h1: getTextList($, 'h1'),
@@ -416,8 +443,20 @@ async function scrapScripts(
     const isExternal = !fullUrl.includes(new URL(baseUrl).host);
 
     try {
+      const cached = resourceCache.get(fullUrl);
+      if (cached && Date.now() - cached.lastChecked < CACHE_TTL) {
+        return { src: fullUrl, size: cached.size, isAsync, isDefer, isExternal };
+      }
+
       const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
+      
+      resourceCache.set(fullUrl, { 
+        size, 
+        type: res.headers['content-type'] || 'application/javascript', 
+        lastChecked: Date.now() 
+      });
+
       return { src: fullUrl, size, isAsync, isDefer, isExternal };
     } catch {
       return { src: fullUrl, size: 0, isAsync, isDefer, isExternal };
@@ -442,8 +481,20 @@ async function scrapStylesheets(
     const isExternal = !fullUrl.includes(new URL(baseUrl).host);
 
     try {
+      const cached = resourceCache.get(fullUrl);
+      if (cached && Date.now() - cached.lastChecked < CACHE_TTL) {
+        return { href: fullUrl, size: cached.size, isExternal };
+      }
+
       const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
+
+      resourceCache.set(fullUrl, { 
+        size, 
+        type: res.headers['content-type'] || 'text/css', 
+        lastChecked: Date.now() 
+      });
+
       return { href: fullUrl, size, isExternal };
     } catch {
       return { href: fullUrl, size: 0, isExternal };
@@ -490,7 +541,13 @@ function extractEmails(text: string) {
   return [...new Set(matches)];
 }
 
-async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
+async function scrapeWebPage(
+  url: string,
+  options: { 
+    includePageSpeed?: boolean;
+    onProgress?: (partial: Partial<ScrapedPageData>) => Promise<void>;
+  } = { includePageSpeed: true }
+): Promise<ScrapedPageData> {
   try {
     const normalizedUrl = normalizeUrl(url);
     const startTime = Date.now();
@@ -520,11 +577,36 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
       : null;
     const robotsMeta = $('meta[name="robots"]').attr('content')?.trim() || null;
     const headings = scrapHeaderText($);
+    
+    // Initial data available
+    const initialData: Partial<ScrapedPageData> = {
+      url: normalizedUrl,
+      title,
+      metaDescription,
+      metaKeywords,
+      canonical,
+      robotsMeta,
+      headings,
+      isError: false
+    };
+    if (options.onProgress) await options.onProgress(initialData);
+
     const [images, scripts, stylesheets] = await Promise.all([
       scrapImages($, normalizedUrl),
       scrapScripts($, normalizedUrl),
       scrapStylesheets($, normalizedUrl),
     ]);
+
+    // Images and assets available
+    if (options.onProgress) {
+      await options.onProgress({
+        ...initialData,
+        images,
+        scripts,
+        stylesheets
+      });
+    }
+
     const links = scrapLinks($, normalizedUrl);
     const socialLinks = scrapSocialLinks(links);
     const pageOrigin = getDomain(normalizedUrl);
@@ -540,10 +622,25 @@ async function scrapeWebPage(url: string): Promise<ScrapedPageData> {
     const pageSizeFormatted = formatBytes(pageSize);
 
     // Fetch real Google PageSpeed metrics if API Key is provided
-    const [googleMobile, googleDesktop] = await Promise.all([
-      fetchPageSpeedMetrics(normalizedUrl, 'mobile'),
-      fetchPageSpeedMetrics(normalizedUrl, 'desktop'),
-    ]);
+    let googleMobile: any = null;
+    let googleDesktop: any = null;
+    
+    if (options.includePageSpeed) {
+      [googleMobile, googleDesktop] = await Promise.all([
+        fetchPageSpeedMetrics(normalizedUrl, 'mobile'),
+        fetchPageSpeedMetrics(normalizedUrl, 'desktop'),
+      ]);
+      
+      if (options.onProgress) {
+        await options.onProgress({
+          ...initialData,
+          images,
+          scripts,
+          stylesheets,
+          // Partial indicator that performance is coming
+        });
+      }
+    }
 
     const mobileTotalLoadTime = googleMobile?.totalLoadTime || Math.round(totalLoadTime * 2.5);
 
@@ -666,20 +763,19 @@ async function crawlSite(domainOrUrl: string): Promise<SiteScrapeResult> {
 
   const sortedUrls = Array.from(discoveredUrls).sort();
 
-  const pageDetails: ScrapedPageData[] = [];
-
-  for (const pageUrl of sortedUrls) {
+  const pageDetails: ScrapedPageData[] = await pool(sortedUrls, 3, async (pageUrl) => {
+    const isFirst = sortedUrls.indexOf(pageUrl) === 0;
     try {
-      const pageData = await scrapeWebPage(pageUrl);
-      pageDetails.push(pageData);
+      return await scrapeWebPage(pageUrl, { includePageSpeed: isFirst });
     } catch (error) {
       console.error('Failed to scrape page during full-site analysis', {
         pageUrl,
         analyzedDomain,
         ...getErrorDetails(error),
       });
+      return createErrorPageData(pageUrl);
     }
-  }
+  });
 
   return {
     requestedUrl: normalizedUrl,
@@ -746,7 +842,7 @@ async function countSitePages(
   };
 }
 
-function createErrorPageData(url: string): ScrapedPageData {
+export function createErrorPageData(url: string): ScrapedPageData {
   return {
     url,
     redirectUrls: [],
@@ -776,29 +872,23 @@ function createErrorPageData(url: string): ScrapedPageData {
 
 async function scrapeMultipleWebPages(
   urls: string[],
-  concurrency: number = 5
+  concurrency: number = 3,
+  includePageSpeedFirst: boolean = true
 ): Promise<ScrapedPageData[]> {
-  const results: ScrapedPageData[] = [];
-
-  for (let i = 0; i < urls.length; i += concurrency) {
-    const batch = urls.slice(i, i + concurrency);
-    const batchResults = await Promise.all(
-      batch.map(async (url) => {
-        try {
-          return await scrapeWebPage(url);
-        } catch (error) {
-          console.error('Bulk page scrape failed for URL', {
-            url,
-            ...getErrorDetails(error),
-          });
-          return createErrorPageData(url);
-        }
-      })
-    );
-    results.push(...batchResults);
-  }
-
-  return results;
+  return pool(urls, concurrency, async (url) => {
+    const isFirst = urls.indexOf(url) === 0;
+    try {
+      return await scrapeWebPage(url, { 
+        includePageSpeed: isFirst && includePageSpeedFirst 
+      });
+    } catch (error) {
+      console.error('Bulk page scrape failed for URL', {
+        url,
+        ...getErrorDetails(error),
+      });
+      return createErrorPageData(url);
+    }
+  });
 }
 
 function resolveMode({
