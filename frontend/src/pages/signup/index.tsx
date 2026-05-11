@@ -119,7 +119,7 @@ export default function SignUpScreen() {
 							</svg>
 						</div>
 						<p className='mb-3 text-sm uppercase tracking-[0.35em] text-white/60'>
-							Post Pilot
+							SEO ROCKET PRO
 						</p>
 						<h1 className='text-4xl font-semibold leading-tight'>
 							Create your workspace and start publishing faster.
@@ -130,14 +130,14 @@ export default function SignUpScreen() {
 						</p>
 					</div>
 
-					<div className='grid gap-4'>
+					{/* <div className='grid gap-4'>
 						<div className='rounded-2xl border border-white/10 bg-white/5 p-5'>
 							<p className='text-sm text-white/70'>Schema-aligned signup</p>
 							<p className='mt-2 text-xl font-medium'>
 								userName, email, password
 							</p>
 						</div>
-					</div>
+					</div> */}
 				</section>
 
 				<section className='flex w-full items-center justify-center px-6 py-10 lg:w-1/2 lg:px-10'>

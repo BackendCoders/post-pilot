@@ -61,19 +61,29 @@ export default function GooglifyHeader() {
               <Home size={18} />
             </div>
             
-            <nav className="flex items-center text-muted-foreground tracking-tight font-medium">
-              <span className="hover:text-foreground cursor-pointer transition-colors px-2">Console</span>
+            <nav className="flex items-center text-muted-foreground tracking-tight font-medium ml-4">
+              <button onClick={() => navigate('/')} className="hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50">Home</button>
+              <button onClick={() => navigate('/about')} className="hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50">About</button>
+              <button onClick={() => navigate('/demo')} className="hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50">Demo</button>
+              <button onClick={() => navigate('/pricing')} className="hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50">Pricing</button>
+              <button onClick={() => navigate('/blogs')} className="hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50">Blog</button>
+              <button onClick={() => navigate('/contact')} className="hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50">Contact</button>
               
-              {breadcrumbs.length > 0 && breadcrumbs.map((crumb, i) => (
-                <React.Fragment key={i}>
-                  <ChevronRight size={14} className="opacity-40" />
-                  <span className={`px-2 transition-colors ${
-                    i === breadcrumbs.length - 1 ? 'text-foreground font-semibold' : 'hover:text-foreground cursor-pointer'
-                  }`}>
-                    {crumb}
-                  </span>
-                </React.Fragment>
-              ))}
+              {breadcrumbs.length > 0 && !['About', 'Pricing', 'Blogs', 'Contact', 'Faq', 'Terms', 'Privacy'].includes(breadcrumbs[0]) && (
+                <div className="flex items-center">
+                  <ChevronRight size={14} className="opacity-40 mx-1" />
+                  {breadcrumbs.map((crumb, i) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && <ChevronRight size={14} className="opacity-40 mx-1" />}
+                      <span className={`px-2 transition-colors ${
+                        i === breadcrumbs.length - 1 ? 'text-foreground font-semibold' : 'hover:text-foreground cursor-pointer'
+                      }`}>
+                        {crumb}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
             </nav>
           </div>
 

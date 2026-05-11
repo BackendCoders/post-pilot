@@ -34,16 +34,35 @@ import SEORocketHistory from './pages/dashboard/seo-rocket/history';
 import SeoOverview from './pages/dashboard/seo-rocket/overview';
 import LeadInbox from './pages/dashboard/lead-generation/inbox';
 
+import AboutPage from './pages/about/page';
+import ContactPage from './pages/contact/page';
+import BlogsPage from './pages/blogs/page';
+import BlogDetailPage from './pages/blogs/[id]/page';
+import PricingPage from './pages/pricing/page';
+import FAQPage from './pages/faq/page';
+import TermsPage from './pages/legal/terms';
+import PrivacyPage from './pages/legal/privacy';
+import DemoPage from './pages/demo/page';
+
 const router = createBrowserRouter([
 	{
 		path: '/',
 		errorElement: <RouteErrorPage />,
 		element: (
-			<Protected>
-				<HomePage />
-			</Protected>
+			// <Protected>
+			<HomePage />
+			// </Protected>
 		),
 	},
+	{ path: '/about', element: <AboutPage /> },
+	{ path: '/contact', element: <ContactPage /> },
+	{ path: '/blogs', element: <BlogsPage /> },
+	{ path: '/blogs/:id', element: <BlogDetailPage /> },
+	{ path: '/pricing', element: <PricingPage /> },
+	{ path: '/faq', element: <FAQPage /> },
+	{ path: '/terms', element: <TermsPage /> },
+	{ path: '/privacy', element: <PrivacyPage /> },
+	{ path: '/demo', element: <DemoPage /> },
 
 	{
 		errorElement: <RouteErrorPage />,
@@ -131,8 +150,16 @@ const router = createBrowserRouter([
 			},
 		],
 	},
-	{ path: '/login', errorElement: <RouteErrorPage />, element: <LoginScreen /> },
-	{ path: '/signup', errorElement: <RouteErrorPage />, element: <SignUpScreen /> },
+	{
+		path: '/login',
+		errorElement: <RouteErrorPage />,
+		element: <LoginScreen />,
+	},
+	{
+		path: '/signup',
+		errorElement: <RouteErrorPage />,
+		element: <SignUpScreen />,
+	},
 ]);
 
 const queryClient = new QueryClient();
