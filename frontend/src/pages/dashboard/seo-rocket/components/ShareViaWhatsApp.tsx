@@ -69,19 +69,22 @@ export default function ShareViaWhatsApp({
 
 		const message = customMessage.trim() || defaultMessage;
 
-		sendDocument({
-			phoneNumber: fullPhone,
-			message,
-			documentBase64,
-			fileName,
-			mimeType: 'application/pdf',
-		}, {
-			onSuccess: () => {
-				onClose();
-				setPhoneNumber('');
-				setCustomMessage('');
+		sendDocument(
+			{
+				phoneNumber: fullPhone,
+				message,
+				documentBase64,
+				fileName,
+				mimeType: 'application/pdf',
 			},
-		});
+			{
+				onSuccess: () => {
+					onClose();
+					setPhoneNumber('');
+					setCustomMessage('');
+				},
+			},
+		);
 	};
 
 	const isValidPhone = () => {
@@ -90,7 +93,10 @@ export default function ShareViaWhatsApp({
 	};
 
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
+		<Dialog
+			open={isOpen}
+			onOpenChange={onClose}
+		>
 			<DialogContent className='sm:max-w-md'>
 				<DialogHeader>
 					<DialogTitle className='flex items-center gap-2'>
@@ -98,8 +104,8 @@ export default function ShareViaWhatsApp({
 						Share Report via WhatsApp
 					</DialogTitle>
 					<DialogDescription>
-						Send the SEO analysis PDF directly to a WhatsApp number.
-						Default country code is +91 (India).
+						Send the SEO analysis PDF directly to a WhatsApp number. Default
+						country code is +91 (India).
 					</DialogDescription>
 				</DialogHeader>
 
@@ -137,21 +143,29 @@ export default function ShareViaWhatsApp({
 					</div>
 
 					<div className='bg-muted/50 rounded-lg p-3 space-y-1'>
-						<p className='text-xs font-medium text-muted-foreground'>Preview:</p>
+						<p className='text-xs font-medium text-muted-foreground'>
+							Preview:
+						</p>
 						<p className='text-sm text-foreground/80 whitespace-pre-wrap'>
-							{customMessage.trim() || `Hi! I've analyzed ${totalPages} page(s) for SEO and prepared a detailed report. Please find the PDF attached.`}
+							{customMessage.trim() ||
+								`Hi! I've analyzed ${totalPages} page(s) for SEO and prepared a detailed report. Please find the PDF attached.`}
 						</p>
-						<p className='text-xs text-muted-foreground mt-2'>
-							📎 {fileName}
-						</p>
+						<p className='text-xs text-muted-foreground mt-2'>📎 {fileName}</p>
 					</div>
 				</div>
 
 				<DialogFooter>
-					<Button variant='outline' onClick={onClose} disabled={isPending}>
+					<Button
+						variant='outline'
+						onClick={onClose}
+						disabled={isPending}
+					>
 						Cancel
 					</Button>
-					<Button onClick={handleSend} disabled={!isValidPhone() || isPending}>
+					<Button
+						onClick={handleSend}
+						disabled={!isValidPhone() || isPending}
+					>
 						{isPending ? (
 							<>
 								<Loader2 className='h-4 w-4 animate-spin mr-2' />

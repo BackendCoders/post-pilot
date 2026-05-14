@@ -31,6 +31,15 @@ import type {
 
 type ViewType = 'input' | 'sitemap' | 'results' | 'single';
 
+type RerunState = {
+	rerun?: {
+		id: string;
+		requestedUrl: string;
+		analyzedUrls: string[];
+		analysisType: 'single_page' | 'full_site' | 'partial_site';
+	};
+};
+
 export default function SEORocketPage() {
 	const { data: user } = useAuth();
 	const { mutate: completeWalkthrough } = useCompleteWalkthrough();
@@ -46,6 +55,7 @@ export default function SEORocketPage() {
 	const [resultsPage, setResultsPage] = useState(1);
 	const isScrapingSingleRef = useRef(false);
 	const urlParamRef = useRef<string | null>(null);
+	const rerunStartedRef = useRef<string | null>(null);
 
 	const currentView: ViewType = useMemo(() => {
 		const pathname = location.pathname;
@@ -88,14 +98,73 @@ export default function SEORocketPage() {
 
 
 	useEffect(() => {
+		const state = (location.state || {}) as RerunState;
+		const rerun = state.rerun;
+
+		if (!rerun) return;
+		if (rerunStartedRef.current === rerun.id) return;
+
+		// Only auto-start reruns from the Results page so the user sees live progress.
+		if (currentView !== 'results') return;
+
+		rerunStartedRef.current = rerun.id;
+		reset();
+
+		const urls =
+			Array.isArray(rerun.analyzedUrls) && rerun.analyzedUrls.length > 0
+				? rerun.analyzedUrls
+				: [rerun.requestedUrl];
+
+		analyzeSelected(
+			urls,
+			rerun.requestedUrl,
+			rerun.analysisType === 'full_site',
+		);
+
+		// Clear the navigation state so refresh/back won't re-trigger rerun.
+		navigate(location.pathname + location.search, { replace: true });
+	}, [
+		location.state,
+		location.pathname,
+		location.search,
+		currentView,
+		analyzeSelected,
+		reset,
+		navigate,
+	]);
+
+	useEffect(() => {
 		if (savedAnalysis && currentView === 'results') {
 			const pageData: ScrapedPageData[] = savedAnalysis.results.map((r) => ({
 				url: r.url,
+				requestedUrl: (r.analysisData as any).requestedUrl || r.url,
+				finalUrl: (r.analysisData as any).finalUrl || r.url,
 				title: r.analysisData.title || '',
 				metaDescription: r.analysisData.metaDescription,
 				metaKeywords: r.analysisData.metaKeywords,
 				canonical: r.analysisData.canonical,
 				robotsMeta: r.analysisData.robotsMeta,
+				language: r.analysisData.language || null,
+				favicon: r.analysisData.favicon || null,
+				openGraph: (r.analysisData as any).openGraph || { title: null, description: null, image: null },
+				twitterCard: (r.analysisData as any).twitterCard || { card: null, title: null, description: null, image: null },
+				inlineScriptsCount: (r.analysisData as any).inlineScriptsCount || 0,
+				inlineScriptsBytes: (r.analysisData as any).inlineScriptsBytes || 0,
+				largestInlineScriptBytes: (r.analysisData as any).largestInlineScriptBytes || 0,
+				inlineStylesCount: (r.analysisData as any).inlineStylesCount || 0,
+				inlineStylesBytes: (r.analysisData as any).inlineStylesBytes || 0,
+				largestInlineStyleBytes: (r.analysisData as any).largestInlineStyleBytes || 0,
+				totalJsCount: (r.analysisData as any).totalJsCount || 0,
+				minifiedJsCount: (r.analysisData as any).minifiedJsCount || 0,
+				totalCssCount: (r.analysisData as any).totalCssCount || 0,
+				minifiedCssCount: (r.analysisData as any).minifiedCssCount || 0,
+				jsonLdBlocksCount: (r.analysisData as any).jsonLdBlocksCount || 0,
+				jsonLdItemsCount: (r.analysisData as any).jsonLdItemsCount || 0,
+				jsonLdTypes: (r.analysisData as any).jsonLdTypes || [],
+				schemaErrors: (r.analysisData as any).schemaErrors || [],
+				hasSchemaMarkup: (r.analysisData as any).hasSchemaMarkup || false,
+				hasBreadcrumbSchema: (r.analysisData as any).hasBreadcrumbSchema || false,
+				hasBreadcrumbLinks: (r.analysisData as any).hasBreadcrumbLinks || false,
 				headings: r.analysisData.headings,
 				images: r.analysisData.images as any,
 				links: r.analysisData.links,

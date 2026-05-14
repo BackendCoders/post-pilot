@@ -7,6 +7,14 @@ export interface PageHeadingMap {
 	h6: string[];
 }
 
+export interface PageLink {
+	href: string;
+	text: string;
+	isInternal: boolean;
+	rel: string | null;
+	isBroken?: boolean;
+}
+
 export interface PageImage {
 	src: string | null;
 	alt: string | null;
@@ -49,10 +57,12 @@ export interface PerformanceMetrics {
 export interface SectionResult {
 	score: number;
 	maxScore: number;
+	bonusPoints?: number;
 	issues: Array<{
 		message: string;
 		severity: 'low' | 'medium' | 'high';
 		fix: string;
+		currentValue?: string;
 	}>;
 	metrics: Record<string, number>;
 	details?: any;
@@ -74,6 +84,8 @@ export interface SeoReport {
 
 export interface ScrapedPageData {
 	url: string;
+	requestedUrl: string;
+	finalUrl: string | null;
 	redirectUrls: string[];
 	redirectCount: number;
 	analysisReport: SeoReport | null;
@@ -83,6 +95,36 @@ export interface ScrapedPageData {
 	metaKeywords: string | null;
 	canonical: string | null;
 	robotsMeta: string | null;
+	language: string | null;
+	favicon: string | null;
+	openGraph: {
+		title: string | null;
+		description: string | null;
+		image: string | null;
+	};
+	twitterCard: {
+		card: string | null;
+		title: string | null;
+		description: string | null;
+		image: string | null;
+	};
+	inlineScriptsCount: number;
+	inlineScriptsBytes: number;
+	largestInlineScriptBytes: number;
+	inlineStylesCount: number;
+	inlineStylesBytes: number;
+	largestInlineStyleBytes: number;
+	totalJsCount: number;
+	minifiedJsCount: number;
+	totalCssCount: number;
+	minifiedCssCount: number;
+	jsonLdBlocksCount: number;
+	jsonLdItemsCount: number;
+	jsonLdTypes: string[];
+	schemaErrors: Array<{ message: string; snippet?: string }>;
+	hasSchemaMarkup: boolean;
+	hasBreadcrumbSchema: boolean;
+	hasBreadcrumbLinks: boolean;
 	headings: {
 		h1: string[];
 		h2: string[];
@@ -97,8 +139,9 @@ export interface ScrapedPageData {
 		size: number;
 		type: string;
 		isBroken?: boolean;
+		loading?: string | null;
 	}[];
-	links: string[];
+	links: PageLink[];
 	socialLinks: string[];
 	paragraphExcerpt: string[];
 	textSample: string;

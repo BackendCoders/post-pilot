@@ -1,11 +1,12 @@
 import axios, { type AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import xml2js from 'xml2js';
-import type { 
-  ScrapedPageData, 
+import type {
+  ScrapedPageData,
   IPerformanceMetrics as PerformanceMetrics,
   SiteScrapeResult,
-  PageHeadingMap
+  PageHeadingMap,
+  PageLink
 } from '../../types';
 
 type CategorizedUrls = Record<string, string[]>;
@@ -42,6 +43,7 @@ type PageImage = {
   size: number;
   type: string;
   isBroken: boolean;
+  loading: string | null;
 };
 
 function getErrorDetails(error: unknown) {
@@ -91,6 +93,162 @@ function normalizeUrl(input: string): string {
 
 function getDomain(url: string): string {
   return new URL(url).origin;
+}
+
+function normalizeMetaContent(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function getMetaContent(
+  $: cheerio.CheerioAPI,
+  selectors: string[]
+): string | null {
+  for (const selector of selectors) {
+    const content = $(selector).attr('content');
+    const normalized = normalizeMetaContent(content);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
+function getFinalResponseUrl(response: any, fallbackUrl: string): string {
+  const candidate =
+    response?.request?.res?.responseUrl ||
+    response?.request?._redirectable?._currentUrl ||
+    response?.config?.url ||
+    fallbackUrl;
+
+  return typeof candidate === 'string' && candidate.trim()
+    ? candidate.trim()
+    : fallbackUrl;
+}
+
+function isProbablyMinifiedAssetUrl(url: string, kind: 'js' | 'css'): boolean {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.toLowerCase();
+    return kind === 'js'
+      ? pathname.endsWith('.min.js')
+      : pathname.endsWith('.min.css');
+  } catch {
+    const lower = url.toLowerCase();
+    return kind === 'js' ? lower.endsWith('.min.js') : lower.endsWith('.min.css');
+  }
+}
+
+function extractInlineBlockMetrics($: cheerio.CheerioAPI) {
+  let inlineScriptsCount = 0;
+  let inlineScriptsBytes = 0;
+  let largestInlineScriptBytes = 0;
+
+  $('script:not([src])').each((_, el) => {
+    const content = $(el).text() || '';
+    const bytes = Buffer.byteLength(content, 'utf8');
+    inlineScriptsCount += 1;
+    inlineScriptsBytes += bytes;
+    if (bytes > largestInlineScriptBytes) largestInlineScriptBytes = bytes;
+  });
+
+  let inlineStylesCount = 0;
+  let inlineStylesBytes = 0;
+  let largestInlineStyleBytes = 0;
+
+  $('style').each((_, el) => {
+    const content = $(el).text() || '';
+    const bytes = Buffer.byteLength(content, 'utf8');
+    inlineStylesCount += 1;
+    inlineStylesBytes += bytes;
+    if (bytes > largestInlineStyleBytes) largestInlineStyleBytes = bytes;
+  });
+
+  return {
+    inlineScriptsCount,
+    inlineScriptsBytes,
+    largestInlineScriptBytes,
+    inlineStylesCount,
+    inlineStylesBytes,
+    largestInlineStyleBytes,
+  };
+}
+
+function extractJsonLd($: cheerio.CheerioAPI) {
+  const schemaErrors: Array<{ message: string; snippet?: string }> = [];
+  const jsonLdTypes = new Set<string>();
+  let jsonLdBlocksCount = 0;
+  let jsonLdItemsCount = 0;
+
+  const collectTypes = (node: any) => {
+    if (!node || typeof node !== 'object') return;
+
+    const t = (node as any)['@type'];
+    if (typeof t === 'string') jsonLdTypes.add(t);
+    else if (Array.isArray(t)) {
+      t.forEach((x) => typeof x === 'string' && jsonLdTypes.add(x));
+    }
+
+    const graph = (node as any)['@graph'];
+    if (Array.isArray(graph)) graph.forEach(collectTypes);
+  };
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    jsonLdBlocksCount += 1;
+    const raw = ($(el).text() || '').trim();
+
+    if (!raw) {
+      schemaErrors.push({ message: 'Empty JSON-LD block' });
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      const items: any[] = [];
+      if (Array.isArray(parsed)) items.push(...parsed);
+      else if (
+        parsed &&
+        typeof parsed === 'object' &&
+        Array.isArray((parsed as any)['@graph'])
+      ) {
+        items.push(...((parsed as any)['@graph'] as any[]));
+      } else {
+        items.push(parsed);
+      }
+
+      jsonLdItemsCount += items.length;
+      items.forEach(collectTypes);
+    } catch (e: any) {
+      schemaErrors.push({
+        message: `Invalid JSON-LD: ${e?.message || 'JSON parse error'}`,
+        snippet: raw.slice(0, 180),
+      });
+    }
+  });
+
+  const types = Array.from(jsonLdTypes);
+
+  return {
+    jsonLdBlocksCount,
+    jsonLdItemsCount,
+    jsonLdTypes: types,
+    schemaErrors,
+    hasSchemaMarkup: jsonLdItemsCount > 0,
+    hasBreadcrumbSchema: types.includes('BreadcrumbList'),
+  };
+}
+
+function detectBreadcrumbLinks($: cheerio.CheerioAPI): boolean {
+  if ($('.breadcrumb').length > 0) return true;
+  if ($('[itemtype*="BreadcrumbList"]').length > 0) return true;
+
+  let found = false;
+  $('nav[aria-label]').each((_, el) => {
+    const label = ($(el).attr('aria-label') || '').toLowerCase();
+    if (label.includes('breadcrumb')) found = true;
+  });
+
+  return found;
 }
 
 async function getRobots(domain: string): Promise<string | null> {
@@ -149,7 +307,7 @@ async function fetchPageSpeedMetrics(url: string, strategy: 'mobile' | 'desktop'
 
   try {
     const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=${strategy}&category=performance`;
-    const res = await axios.get(apiUrl, { timeout: 30000 });
+    const res = await axios.get(apiUrl, { timeout: 300000 });
     const audit = res.data?.lighthouseResult;
     if (!audit) return null;
 
@@ -293,9 +451,10 @@ async function scrapImages(
   const imagePromises = imgElements.map(async (el) => {
     const src = $(el).attr('src') || $(el).attr('data-src') || '';
     const alt = $(el).attr('alt') || '';
+    const loading = $(el).attr('loading') || null;
 
     if (!src) {
-      return { src: '', alt: '', size: 0, type: 'N/A', isBroken: true };
+      return { src: '', alt: '', size: 0, type: 'N/A', isBroken: true, loading };
     }
 
     const fullUrl = resolveUrl(baseUrl, src);
@@ -314,6 +473,7 @@ async function scrapImages(
         size,
         type,
         isBroken: false,
+        loading,
       };
     } catch (err) {
       // Fallback to GET stream if HEAD fails
@@ -334,6 +494,7 @@ async function scrapImages(
           size,
           type,
           isBroken: false,
+          loading,
         };
       } catch {
         return {
@@ -342,6 +503,7 @@ async function scrapImages(
           size: 0,
           type: 'N/A',
           isBroken: true,
+          loading,
         };
       }
     }
@@ -357,20 +519,20 @@ async function pool<T, R>(
 ): Promise<R[]> {
   const results: Promise<R>[] = [];
   const executing = new Set<Promise<R>>();
-  
+
   for (const item of items) {
     const p = Promise.resolve().then(() => fn(item));
     results.push(p);
     executing.add(p);
-    
+
     const clean = () => executing.delete(p);
     p.then(clean).catch(clean);
-    
+
     if (executing.size >= limit) {
       await Promise.race(executing);
     }
   }
-  
+
   return Promise.all(results);
 }
 
@@ -393,34 +555,48 @@ function resolveUrl(baseUrl: string, href: string): string {
   }
 }
 
-function scrapLinks($: cheerio.CheerioAPI, baseUrl: string): string[] {
-  const links: string[] = [];
+async function scrapLinks($: cheerio.CheerioAPI, baseUrl: string): Promise<PageLink[]> {
+  const pageOrigin = getDomain(baseUrl);
+  const seen = new Set<string>();
+  const linkPromises: Promise<PageLink>[] = [];
 
   $('a').each((_, el) => {
     const href = $(el).attr('href');
+    if (!href || href.startsWith('mailto:') || href.startsWith('tel:') || href === '#') return;
 
-    if (href) {
-      links.push(resolveUrl(baseUrl, href));
-    }
+    const resolvedHref = resolveUrl(baseUrl, href);
+    if (seen.has(resolvedHref)) return;
+    seen.add(resolvedHref);
+
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    const rel = $(el).attr('rel') || null;
+    const isInternal = resolvedHref.startsWith(pageOrigin);
+
+    linkPromises.push(
+      (async (): Promise<PageLink> => {
+        let isBroken = false;
+        if (isInternal) {
+          try {
+            const res = await axios.head(resolvedHref, { timeout: 4000, maxRedirects: 5 });
+            isBroken = res.status >= 400;
+          } catch (e: any) {
+            isBroken = e?.response?.status ? e.response.status >= 400 : false;
+          }
+        }
+        return { href: resolvedHref, text, isInternal, rel, isBroken };
+      })()
+    );
   });
 
-  return Array.from(new Set(links));
+  const results = await Promise.all(linkPromises);
+  return results;
 }
 
-function scrapSocialLinks(links: string[]) {
-  return links.filter(
-    (link) =>
-      link.includes('facebook') ||
-      link.includes('instagram') ||
-      link.includes('twitter') ||
-      link.includes('linkedin') ||
-      link.includes('youtube') ||
-      link.includes('tiktok') ||
-      link.includes('pinterest') ||
-      link.includes('snapchat') ||
-      link.includes('whatsapp') ||
-      link.includes('reddit')
-  );
+function scrapSocialLinks(links: PageLink[]) {
+  const socialDomains = ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok', 'pinterest', 'snapchat', 'whatsapp', 'reddit'];
+  return links
+    .filter((link) => socialDomains.some((d) => link.href.includes(d)))
+    .map((link) => link.href);
 }
 
 function extractParagraphExcerpt($: cheerio.CheerioAPI): string[] {
@@ -450,11 +626,11 @@ async function scrapScripts(
 
       const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
-      
-      resourceCache.set(fullUrl, { 
-        size, 
-        type: res.headers['content-type'] || 'application/javascript', 
-        lastChecked: Date.now() 
+
+      resourceCache.set(fullUrl, {
+        size,
+        type: res.headers['content-type'] || 'application/javascript',
+        lastChecked: Date.now()
       });
 
       return { src: fullUrl, size, isAsync, isDefer, isExternal };
@@ -489,10 +665,10 @@ async function scrapStylesheets(
       const res = await axios.head(fullUrl, { timeout: 3000 });
       const size = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : 0;
 
-      resourceCache.set(fullUrl, { 
-        size, 
-        type: res.headers['content-type'] || 'text/css', 
-        lastChecked: Date.now() 
+      resourceCache.set(fullUrl, {
+        size,
+        type: res.headers['content-type'] || 'text/css',
+        lastChecked: Date.now()
       });
 
       return { href: fullUrl, size, isExternal };
@@ -543,7 +719,7 @@ function extractEmails(text: string) {
 
 async function scrapeWebPage(
   url: string,
-  options: { 
+  options: {
     includePageSpeed?: boolean;
     onProgress?: (partial: Partial<ScrapedPageData>) => Promise<void>;
   } = { includePageSpeed: true }
@@ -560,12 +736,17 @@ async function scrapeWebPage(
 
     const endTime = Date.now();
     const totalLoadTime = endTime - startTime;
+    const finalUrl = getFinalResponseUrl(response, normalizedUrl);
     const redirectUrls = response.request._redirectable._redirects || [];
     const redirectCount = redirectUrls.length;
 
     const data = response.data;
     const $ = cheerio.load(data);
     const textContent = $('body').text().replace(/\s+/g, ' ').trim();
+
+    const inlineMetrics = extractInlineBlockMetrics($);
+    const jsonLd = extractJsonLd($);
+    const hasBreadcrumbLinks = detectBreadcrumbLinks($);
 
     const title = $('title').text().trim();
     const metaDescription =
@@ -576,16 +757,76 @@ async function scrapeWebPage(
       ? resolveUrl(normalizedUrl, $('link[rel="canonical"]').attr('href')!)
       : null;
     const robotsMeta = $('meta[name="robots"]').attr('content')?.trim() || null;
+    const language = $('html').attr('lang')?.trim() || null;
+    const favicon = $('link[rel~="icon"]').attr('href') || $('link[rel="shortcut icon"]').attr('href') || $('link[rel="manifest"]').attr('href') || null;
+
+    const ogTitle = getMetaContent($, [
+      'meta[property="og:title"]',
+      'meta[name="og:title"]',
+    ]);
+    const ogDescription = getMetaContent($, [
+      'meta[property="og:description"]',
+      'meta[name="og:description"]',
+    ]);
+    const ogImageRaw =
+      getMetaContent($, ['meta[property="og:image"]', 'meta[name="og:image"]']) ||
+      getMetaContent($, [
+        'meta[property="og:image:url"]',
+        'meta[name="og:image:url"]',
+      ]);
+    const ogImage = ogImageRaw ? resolveUrl(normalizedUrl, ogImageRaw) : null;
+
+    const twitterCard = getMetaContent($, [
+      'meta[name="twitter:card"]',
+      'meta[property="twitter:card"]',
+    ]);
+    const twitterTitle = getMetaContent($, [
+      'meta[name="twitter:title"]',
+      'meta[property="twitter:title"]',
+    ]);
+    const twitterDescription = getMetaContent($, [
+      'meta[name="twitter:description"]',
+      'meta[property="twitter:description"]',
+    ]);
+    const twitterImageRaw = getMetaContent($, [
+      'meta[name="twitter:image"]',
+      'meta[property="twitter:image"]',
+    ]);
+    const twitterImage = twitterImageRaw
+      ? resolveUrl(normalizedUrl, twitterImageRaw)
+      : null;
     const headings = scrapHeaderText($);
-    
+
     // Initial data available
     const initialData: Partial<ScrapedPageData> = {
       url: normalizedUrl,
+      requestedUrl: normalizedUrl,
+      finalUrl,
       title,
       metaDescription,
       metaKeywords,
       canonical,
       robotsMeta,
+      language,
+      favicon,
+      openGraph: {
+        title: ogTitle,
+        description: ogDescription,
+        image: ogImage,
+      },
+      twitterCard: {
+        card: twitterCard,
+        title: twitterTitle,
+        description: twitterDescription,
+        image: twitterImage,
+      },
+      ...inlineMetrics,
+      totalJsCount: 0,
+      minifiedJsCount: 0,
+      totalCssCount: 0,
+      minifiedCssCount: 0,
+      ...jsonLd,
+      hasBreadcrumbLinks,
       headings,
       isError: false
     };
@@ -597,23 +838,34 @@ async function scrapeWebPage(
       scrapStylesheets($, normalizedUrl),
     ]);
 
+    const totalJsCount = scripts.length;
+    const minifiedJsCount = scripts.filter((s) =>
+      isProbablyMinifiedAssetUrl(s.src, 'js')
+    ).length;
+    const totalCssCount = stylesheets.length;
+    const minifiedCssCount = stylesheets.filter((s) =>
+      isProbablyMinifiedAssetUrl(s.href, 'css')
+    ).length;
+
     // Images and assets available
     if (options.onProgress) {
       await options.onProgress({
         ...initialData,
         images,
         scripts,
-        stylesheets
+        stylesheets,
+        totalJsCount,
+        minifiedJsCount,
+        totalCssCount,
+        minifiedCssCount,
       });
     }
 
-    const links = scrapLinks($, normalizedUrl);
+    const links = await scrapLinks($, normalizedUrl);
     const socialLinks = scrapSocialLinks(links);
     const pageOrigin = getDomain(normalizedUrl);
-    const internalLinkCount = links.filter((link) =>
-      link.startsWith(pageOrigin)
-    ).length;
-    const externalLinkCount = links.length - internalLinkCount;
+    const internalLinkCount = links.filter((link) => link.isInternal).length;
+    const externalLinkCount = links.filter((link) => !link.isInternal).length;
     const paragraphExcerpt = extractParagraphExcerpt($);
     const emails = extractEmails(textContent);
     const phoneNumber = countPhoneNumbers(textContent);
@@ -624,13 +876,13 @@ async function scrapeWebPage(
     // Fetch real Google PageSpeed metrics if API Key is provided
     let googleMobile: any = null;
     let googleDesktop: any = null;
-    
+
     if (options.includePageSpeed) {
       [googleMobile, googleDesktop] = await Promise.all([
         fetchPageSpeedMetrics(normalizedUrl, 'mobile'),
         fetchPageSpeedMetrics(normalizedUrl, 'desktop'),
       ]);
-      
+
       if (options.onProgress) {
         await options.onProgress({
           ...initialData,
@@ -680,6 +932,8 @@ async function scrapeWebPage(
 
     return {
       url: normalizedUrl,
+      requestedUrl: normalizedUrl,
+      finalUrl,
       redirectUrls,
       redirectCount,
       isError: false,
@@ -688,6 +942,26 @@ async function scrapeWebPage(
       metaKeywords,
       canonical,
       robotsMeta,
+      language,
+      favicon,
+      openGraph: {
+        title: ogTitle,
+        description: ogDescription,
+        image: ogImage,
+      },
+      twitterCard: {
+        card: twitterCard,
+        title: twitterTitle,
+        description: twitterDescription,
+        image: twitterImage,
+      },
+      ...inlineMetrics,
+      totalJsCount,
+      minifiedJsCount,
+      totalCssCount,
+      minifiedCssCount,
+      ...jsonLd,
+      hasBreadcrumbLinks,
       headings,
       images,
       links,
@@ -845,6 +1119,8 @@ async function countSitePages(
 export function createErrorPageData(url: string): ScrapedPageData {
   return {
     url,
+    requestedUrl: url,
+    finalUrl: null,
     redirectUrls: [],
     redirectCount: 0,
     isError: true,
@@ -853,6 +1129,36 @@ export function createErrorPageData(url: string): ScrapedPageData {
     metaKeywords: null,
     canonical: null,
     robotsMeta: null,
+    language: null,
+    favicon: null,
+    openGraph: {
+      title: null,
+      description: null,
+      image: null,
+    },
+    twitterCard: {
+      card: null,
+      title: null,
+      description: null,
+      image: null,
+    },
+    inlineScriptsCount: 0,
+    inlineScriptsBytes: 0,
+    largestInlineScriptBytes: 0,
+    inlineStylesCount: 0,
+    inlineStylesBytes: 0,
+    largestInlineStyleBytes: 0,
+    totalJsCount: 0,
+    minifiedJsCount: 0,
+    totalCssCount: 0,
+    minifiedCssCount: 0,
+    jsonLdBlocksCount: 0,
+    jsonLdItemsCount: 0,
+    jsonLdTypes: [],
+    schemaErrors: [],
+    hasSchemaMarkup: false,
+    hasBreadcrumbSchema: false,
+    hasBreadcrumbLinks: false,
     headings: { h1: [], h2: [], h3: [], h4: [], h5: [], h6: [] },
     images: [],
     links: [],
@@ -878,8 +1184,8 @@ async function scrapeMultipleWebPages(
   return pool(urls, concurrency, async (url) => {
     const isFirst = urls.indexOf(url) === 0;
     try {
-      return await scrapeWebPage(url, { 
-        includePageSpeed: isFirst && includePageSpeedFirst 
+      return await scrapeWebPage(url, {
+        includePageSpeed: isFirst && includePageSpeedFirst
       });
     } catch (error) {
       console.error('Bulk page scrape failed for URL', {

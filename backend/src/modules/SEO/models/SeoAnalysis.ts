@@ -41,6 +41,7 @@ export interface ISeoReport {
 export interface ISectionResult {
   score: number;
   maxScore: number;
+  bonusPoints?: number;
   issues: Array<{
     message: string;
     severity: 'low' | 'medium' | 'high';
@@ -56,6 +57,38 @@ export interface IPageAnalysisData {
   metaKeywords: string | null;
   canonical: string | null;
   robotsMeta: string | null;
+  language: string | null;
+  favicon: string | null;
+  requestedUrl: string | null;
+  finalUrl: string | null;
+  openGraph: {
+    title: string | null;
+    description: string | null;
+    image: string | null;
+  };
+  twitterCard: {
+    card: string | null;
+    title: string | null;
+    description: string | null;
+    image: string | null;
+  };
+  inlineScriptsCount: number;
+  inlineScriptsBytes: number;
+  largestInlineScriptBytes: number;
+  inlineStylesCount: number;
+  inlineStylesBytes: number;
+  largestInlineStyleBytes: number;
+  totalJsCount: number;
+  minifiedJsCount: number;
+  totalCssCount: number;
+  minifiedCssCount: number;
+  jsonLdBlocksCount: number;
+  jsonLdItemsCount: number;
+  jsonLdTypes: string[];
+  schemaErrors: Array<{ message: string; snippet?: string }>;
+  hasSchemaMarkup: boolean;
+  hasBreadcrumbSchema: boolean;
+  hasBreadcrumbLinks: boolean;
   headings: {
     h1: string[];
     h2: string[];
@@ -69,11 +102,18 @@ export interface IPageAnalysisData {
     alt: string | null;
     size: number;
     type: string;
+    loading: string | null;
   }>;
   wordCount: number;
   internalLinkCount: number;
   externalLinkCount: number;
-  links: string[];
+  links: Array<{
+    href: string;
+    text: string;
+    isInternal: boolean;
+    rel: string | null;
+    isBroken?: boolean;
+  }>;
   socialLinks: string[];
   redirectUrls: string[];
   redirectCount: number;
@@ -173,6 +213,43 @@ const pageAnalysisDataSchema = new Schema<IPageAnalysisData>(
     metaKeywords: { type: String, default: null },
     canonical: { type: String, default: null },
     robotsMeta: { type: String, default: null },
+    language: { type: String, default: null },
+    favicon: { type: String, default: null },
+    requestedUrl: { type: String, default: null },
+    finalUrl: { type: String, default: null },
+    openGraph: {
+      title: { type: String, default: null },
+      description: { type: String, default: null },
+      image: { type: String, default: null },
+    },
+    twitterCard: {
+      card: { type: String, default: null },
+      title: { type: String, default: null },
+      description: { type: String, default: null },
+      image: { type: String, default: null },
+    },
+    inlineScriptsCount: { type: Number, default: 0 },
+    inlineScriptsBytes: { type: Number, default: 0 },
+    largestInlineScriptBytes: { type: Number, default: 0 },
+    inlineStylesCount: { type: Number, default: 0 },
+    inlineStylesBytes: { type: Number, default: 0 },
+    largestInlineStyleBytes: { type: Number, default: 0 },
+    totalJsCount: { type: Number, default: 0 },
+    minifiedJsCount: { type: Number, default: 0 },
+    totalCssCount: { type: Number, default: 0 },
+    minifiedCssCount: { type: Number, default: 0 },
+    jsonLdBlocksCount: { type: Number, default: 0 },
+    jsonLdItemsCount: { type: Number, default: 0 },
+    jsonLdTypes: [{ type: String }],
+    schemaErrors: [
+      {
+        message: { type: String, required: true },
+        snippet: { type: String, default: null },
+      },
+    ],
+    hasSchemaMarkup: { type: Boolean, default: false },
+    hasBreadcrumbSchema: { type: Boolean, default: false },
+    hasBreadcrumbLinks: { type: Boolean, default: false },
     headings: {
       h1: [{ type: String }],
       h2: [{ type: String }],
@@ -188,12 +265,21 @@ const pageAnalysisDataSchema = new Schema<IPageAnalysisData>(
         size: { type: Number, default: null },
         type: { type: String, default: null },
         isBroken: { type: Boolean, default: false },
+        loading: { type: String, default: null },
       },
     ],
     wordCount: { type: Number, default: 0 },
     internalLinkCount: { type: Number, default: 0 },
     externalLinkCount: { type: Number, default: 0 },
-    links: [{ type: String }],
+    links: [
+      {
+        href: { type: String, default: '' },
+        text: { type: String, default: '' },
+        isInternal: { type: Boolean, default: false },
+        rel: { type: String, default: null },
+        isBroken: { type: Boolean, default: false },
+      },
+    ],
     socialLinks: [{ type: String }],
     redirectUrls: [{ type: String }],
     redirectCount: { type: Number, default: 0 },
@@ -226,6 +312,7 @@ const issueSchema = new Schema(
     message: { type: String, required: true },
     severity: { type: String, enum: ['low', 'medium', 'high'], required: true },
     fix: { type: String, required: true },
+    currentValue: { type: String, default: null },
   },
   { _id: false }
 );
@@ -234,6 +321,7 @@ const sectionResultSchema = new Schema(
   {
     score: { type: Number, required: true },
     maxScore: { type: Number, required: true },
+    bonusPoints: { type: Number, default: 0 },
     issues: { type: [issueSchema], default: [] },
     metrics: { type: Schema.Types.Mixed, default: {} },
     details: { type: Schema.Types.Mixed, default: {} },

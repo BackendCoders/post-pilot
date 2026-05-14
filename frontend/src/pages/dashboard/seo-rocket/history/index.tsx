@@ -120,7 +120,16 @@ export default function SEORocketHistory() {
 
 	const handleRerun = (analysis: SeoAnalysisHistoryItem) => {
 		const url = encodeURIComponent(analysis.requestedUrl);
-		navigate(`/dashboard/seo-rocket?url=${url}&rerun=${analysis._id}`);
+		navigate(`/dashboard/seo-rocket/results?url=${url}`, {
+			state: {
+				rerun: {
+					id: analysis._id,
+					requestedUrl: analysis.requestedUrl,
+					analyzedUrls: analysis.analyzedUrls || [],
+					analysisType: analysis.analysisType,
+				},
+			},
+		});
 	};
 
 	const totalPages = Math.ceil(total / 10);

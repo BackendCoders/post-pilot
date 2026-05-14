@@ -12,8 +12,10 @@ import {
 	ExternalLink,
 	Hash,
 	Info,
+	LockKeyhole,
 	RefreshCw,
 	Zap,
+	Languages,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,14 +41,15 @@ export default function PageAnalysisCard({
 }: PageAnalysisCardProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [activeDetail, setActiveDetail] = useState<{
-		type: 'images' | 'links';
+		type: any;
 		title: string;
 		details: any;
+		issues?: any[];
 	} | null>(null);
 
 	if (page.isError) {
 		return (
-			<Card className='overflow-hidden border-destructive/20 bg-card rounded-xl transition-all duration-200 hover:shadow-sm'>
+			<Card className='overflow-hidden border-destructive/20 bg-card rounded-xl'>
 				<CardHeader className='p-3'>
 					<div className='flex items-center justify-between gap-3'>
 						<div className='flex items-center gap-3 min-w-0'>
@@ -78,21 +81,63 @@ export default function PageAnalysisCard({
 	}
 
 	const allIssues = report ? [
-		...report.sections.meta.issues.map(i => ({ type: i.severity, message: i.message })),
-		...report.sections.headings.issues.map(i => ({ type: i.severity, message: i.message })),
-		...report.sections.images.issues.map(i => ({ type: i.severity, message: i.message })),
-		...report.sections.content.issues.map(i => ({ type: i.severity, message: i.message })),
-		...report.sections.links.issues.map(i => ({ type: i.severity, message: i.message })),
-		...report.sections.technical.issues.map(i => ({ type: i.severity, message: i.message })),
-		...(report.sections.performance?.issues || []).map(i => ({ type: i.severity, message: i.message })),
+		...report.sections.meta.issues.map(i => ({ ...i, section: 'meta' })),
+		...report.sections.headings.issues.map(i => ({ ...i, section: 'headings' })),
+		...report.sections.images.issues.map(i => ({ ...i, section: 'images' })),
+		...report.sections.content.issues.map(i => ({ ...i, section: 'content' })),
+		...report.sections.links.issues.map(i => ({ ...i, section: 'links' })),
+		...report.sections.technical.issues.map(i => ({ ...i, section: 'technical' })),
+		...(report.sections.performance?.issues || []).map(i => ({ ...i, section: 'performance' })),
 	] : [];
 
 	const imagesWithoutAltCount = (page.images || []).filter((img) => !img.alt).length;
+	const openGraph = page.openGraph || { title: null, description: null, image: null };
+	const twitterCard = page.twitterCard || { card: null, title: null, description: null, image: null };
+	const isOgComplete = Boolean(openGraph.title && openGraph.description && openGraph.image);
+	const isTwitterComplete = Boolean(
+		twitterCard.card && twitterCard.title && twitterCard.description && twitterCard.image,
+	);
+	const missingOg: string[] = [
+		!openGraph.title ? 'og:title' : null,
+		!openGraph.description ? 'og:description' : null,
+		!openGraph.image ? 'og:image' : null,
+	].filter(Boolean) as string[];
+	const missingTwitter: string[] = [
+		!twitterCard.card ? 'twitter:card' : null,
+		!twitterCard.title ? 'twitter:title' : null,
+		!twitterCard.description ? 'twitter:description' : null,
+		!twitterCard.image ? 'twitter:image' : null,
+	].filter(Boolean) as string[];
+
+	const finalUrl = page.finalUrl || page.url;
+	const isHttps = typeof finalUrl === 'string' ? finalUrl.startsWith('https://') : false;
+	let isCleanUrl = true;
+	try {
+		const parsed = new URL(finalUrl);
+		const pathname = parsed.pathname || '';
+		const hasUppercase = /[A-Z]/.test(pathname);
+		const hasUnderscore = pathname.includes('_');
+		const allowParam = (key: string) => {
+			const lower = key.toLowerCase();
+			return lower.startsWith('utm_') || lower === 'gclid' || lower === 'fbclid';
+		};
+		let hasDisallowedQueryParams = false;
+		for (const key of parsed.searchParams.keys()) {
+			if (!allowParam(key)) {
+				hasDisallowedQueryParams = true;
+				break;
+			}
+		}
+		const isPathTooLong = pathname.length > 80;
+		isCleanUrl = !hasUppercase && !hasUnderscore && !hasDisallowedQueryParams && !isPathTooLong;
+	} catch {
+		isCleanUrl = true;
+	}
 
 	return (
-		<Card className='overflow-hidden border-border bg-card transition-all duration-200 hover:shadow-sm hover:border-border/80 rounded-xl group'>
+		<Card className='overflow-hidden border-border bg-card rounded-xl group'>
 			<CardHeader
-				className='p-3 cursor-pointer select-none hover:bg-muted/30 transition-colors'
+				className='p-3 cursor-pointer select-none hover:bg-muted/30'
 				onClick={() => setIsExpanded(!isExpanded)}
 			>
 				<div className='flex flex-col md:flex-row md:items-center justify-between gap-3'>
@@ -101,31 +146,40 @@ export default function PageAnalysisCard({
 							{index + 1}
 						</span>
 						{report && <SeoScoreBadge report={report} />}
-						<div className='min-w-0'>
-							<h3 className='text-sm font-semibold tracking-tight text-foreground truncate group-hover:text-primary transition-colors'>
-								{page.title || 'Untitled Page'}
-							</h3>
-							<p className='text-[11px] text-muted-foreground truncate font-mono opacity-70 mt-0.5'>
-								{page.url}
-							</p>
+						<div className='min-w-0 flex-1'>
+							<a 
+								href={page.url} 
+								target="_blank" 
+								rel="noopener noreferrer"
+								className="group/link block min-w-0"
+								onClick={(e) => e.stopPropagation()}
+							>
+								<h3 className='text-sm font-semibold tracking-tight text-foreground truncate group-hover/link:text-primary transition-colors flex items-center gap-1.5'>
+									{page.title || 'Untitled Page'}
+									<ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 transition-opacity" />
+								</h3>
+								<p className='text-[11px] text-muted-foreground truncate font-mono opacity-70 mt-0.5 hover:opacity-100 transition-opacity'>
+									{page.url}
+								</p>
+							</a>
 						</div>
 					</div>
 
-					<div className='flex items-center justify-between md:justify-end gap-2.5'>
-						<div className='flex items-center gap-1.5'>
+					<div className='flex items-center justify-between md:justify-end gap-2.5 shrink-0'>
+						<div className='flex items-center gap-1.5 shrink-0'>
 							{[
 								{ icon: FileText, value: page.wordCount },
 								{
 									icon: LinkIcon,
-									value: page.internalLinkCount + page.externalLinkCount,
+									value: (page.internalLinkCount || 0) + (page.externalLinkCount || 0),
 								},
 								{ icon: ImageIcon, value: (page.images || []).length, error: imagesWithoutAltCount > 0 },
 							].map((stat, i) => (
 								<div
 									key={i}
-									className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-transparent text-[10px] font-medium text-muted-foreground whitespace-nowrap'
+									className='flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-transparent text-[10px] font-bold text-muted-foreground whitespace-nowrap hover:bg-muted transition-colors'
 								>
-									<stat.icon className='h-3 w-3 opacity-70' />
+									<stat.icon className='h-3 w-3 opacity-80' />
 									<span>
 										{stat.value}
 									</span>
@@ -156,7 +210,7 @@ export default function PageAnalysisCard({
 							</Button>
 						)}
 
-						<div className='p-1 rounded-md bg-muted/50 group-hover:bg-muted transition-colors ml-1'>
+						<div className='p-1 rounded-md bg-muted/50 group-hover:bg-muted ml-1'>
 							{isExpanded ? (
 								<ChevronUp className='h-3.5 w-3.5 text-muted-foreground' />
 							) : (
@@ -168,15 +222,17 @@ export default function PageAnalysisCard({
 			</CardHeader>
 
 			{isExpanded && (
-				<CardContent className='px-3 pb-3 pt-0 border-t border-border/40 bg-card animate-in fade-in slide-in-from-top-1 duration-200'>
+				<CardContent className='px-3 pb-3 pt-0 border-t border-border/40 bg-card'>
 					<div className='grid grid-cols-1 lg:grid-cols-12 gap-4 pt-4'>
 						{/* Health Check */}
 						<div className='lg:col-span-4'>
-							<div className='flex items-center gap-2 mb-2.5'>
-								<div className='h-3 w-0.5 bg-primary/60 rounded-full' />
-								<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
-									Health Check ({allIssues.length})
-								</h4>
+							<div className='flex items-center justify-between mb-2.5'>
+								<div className='flex items-center gap-2'>
+									<div className='h-3 w-0.5 bg-primary/60 rounded-full' />
+									<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
+										Health Check ({allIssues.length})
+									</h4>
+								</div>
 							</div>
 
 							<div className='grid gap-1.5 max-h-64 overflow-y-auto pr-1'>
@@ -189,17 +245,17 @@ export default function PageAnalysisCard({
 									allIssues.map((issue, i) => (
 										<div
 											key={i}
-											className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] transition-colors ${
-												issue.type === 'high'
+											className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] ${
+												issue.severity === 'high'
 													? 'bg-red-50 border-red-200 text-red-700'
-													: issue.type === 'medium'
+													: issue.severity === 'medium'
 														? 'bg-yellow-50 border-yellow-200 text-yellow-700'
-														: issue.type === 'low'
+														: issue.severity === 'low'
 															? 'bg-blue-50 border-blue-200 text-blue-700'
 															: 'bg-emerald-50 border-emerald-200 text-emerald-700'
 											}`}
 										>
-											{issue.type === 'high' || issue.type === 'medium' || issue.type === 'low' ? (
+											{issue.severity === 'high' || issue.severity === 'medium' || issue.severity === 'low' ? (
 												<AlertCircle className='h-3 w-3 shrink-0 mt-0.5' />
 											) : (
 												<CheckCircle className='h-3 w-3 shrink-0 mt-0.5' />
@@ -217,6 +273,16 @@ export default function PageAnalysisCard({
 						<div className='lg:col-span-8 space-y-3'>
 							<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
 								{[
+									{
+										label: 'HTTPS',
+										value: isHttps ? 'Secure' : 'Not secure',
+										icon: LockKeyhole,
+									},
+									{
+										label: 'URL Structure',
+										value: isCleanUrl ? 'Clean' : 'Needs improvement',
+										icon: LinkIcon,
+									},
 									{ label: 'Canonical', value: page.canonical, icon: LinkIcon },
 									{ label: 'Robots', value: page.robotsMeta, icon: Info },
 									{
@@ -228,6 +294,16 @@ export default function PageAnalysisCard({
 										label: 'Redirects',
 										value: page.redirectCount,
 										icon: ExternalLink,
+									},
+									{
+										label: 'Language',
+										value: page.language,
+										icon: Languages,
+									},
+									{
+										label: 'Favicon',
+										value: page.favicon ? 'Present' : null,
+										icon: ImageIcon,
 									},
 								].map((item, i) => (
 									<div
@@ -252,6 +328,114 @@ export default function PageAnalysisCard({
 										</p>
 									</div>
 								))}
+							</div>
+
+							{/* Social Preview */}
+							<div className='rounded-lg border border-border/60 bg-muted/10 p-2.5'>
+								<div className='flex items-center justify-between gap-2 mb-2'>
+									<div className='flex items-center gap-1.5 opacity-70'>
+										<Info className='h-3 w-3' />
+										<span className='text-[10px] font-bold uppercase tracking-tight'>
+											Social Preview
+										</span>
+									</div>
+									<div className='flex items-center gap-1.5'>
+										<Badge
+											variant={isOgComplete ? 'secondary' : 'outline'}
+											className='h-5 px-2 text-[9px] rounded-sm'
+										>
+											OG: {isOgComplete ? 'Complete' : 'Missing'}
+										</Badge>
+										<Badge
+											variant={isTwitterComplete ? 'secondary' : 'outline'}
+											className='h-5 px-2 text-[9px] rounded-sm'
+										>
+											Twitter: {isTwitterComplete ? 'Complete' : 'Missing'}
+										</Badge>
+									</div>
+								</div>
+
+								<div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
+									<div className='space-y-2'>
+										<div className='text-[10px] font-bold uppercase tracking-tight text-muted-foreground/80'>
+											Open Graph
+										</div>
+										<div className='space-y-1'>
+											<p className='text-[11px] text-muted-foreground'>
+												<span className='font-semibold text-foreground/80'>Title:</span>{' '}
+												{openGraph.title || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											<p className='text-[11px] text-muted-foreground'>
+												<span className='font-semibold text-foreground/80'>Description:</span>{' '}
+												{openGraph.description || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											<p className='text-[11px] text-muted-foreground break-all'>
+												<span className='font-semibold text-foreground/80'>Image:</span>{' '}
+												{openGraph.image || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											{openGraph.image && (
+												<img
+													src={openGraph.image}
+													alt='Open Graph preview'
+													className='mt-2 w-full max-w-[320px] rounded-md border border-border/60'
+													loading='lazy'
+													referrerPolicy='no-referrer'
+												/>
+											)}
+										</div>
+										{missingOg.length > 0 && (
+											<p className='text-[11px] text-muted-foreground'>
+												Missing: <span className='font-mono'>{missingOg.join(', ')}</span>
+											</p>
+										)}
+									</div>
+
+									<div className='space-y-2'>
+										<div className='text-[10px] font-bold uppercase tracking-tight text-muted-foreground/80'>
+											Twitter Card
+										</div>
+										<div className='space-y-1'>
+											<p className='text-[11px] text-muted-foreground'>
+												<span className='font-semibold text-foreground/80'>Card:</span>{' '}
+												{twitterCard.card || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											<p className='text-[11px] text-muted-foreground'>
+												<span className='font-semibold text-foreground/80'>Title:</span>{' '}
+												{twitterCard.title || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											<p className='text-[11px] text-muted-foreground'>
+												<span className='font-semibold text-foreground/80'>Description:</span>{' '}
+												{twitterCard.description || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											<p className='text-[11px] text-muted-foreground break-all'>
+												<span className='font-semibold text-foreground/80'>Image:</span>{' '}
+												{twitterCard.image || <span className='italic opacity-60'>Missing</span>}
+											</p>
+											{twitterCard.image && (
+												<img
+													src={twitterCard.image}
+													alt='Twitter preview'
+													className='mt-2 w-full max-w-[320px] rounded-md border border-border/60'
+													loading='lazy'
+													referrerPolicy='no-referrer'
+												/>
+											)}
+										</div>
+										{missingTwitter.length > 0 && (
+											<p className='text-[11px] text-muted-foreground'>
+												Missing: <span className='font-mono'>{missingTwitter.join(', ')}</span>
+											</p>
+										)}
+									</div>
+								</div>
+
+								{(missingOg.length > 0 || missingTwitter.length > 0) && (
+									<div className='mt-3 rounded-md border border-border/60 bg-background/50 p-2'>
+										<p className='text-[11px] text-muted-foreground leading-relaxed'>
+											Fix: add the missing meta tags in your page <span className='font-mono'>&lt;head&gt;</span> so previews render correctly when shared.
+										</p>
+									</div>
+								)}
 							</div>
 
 							{page.redirectUrls.length > 0 && (
@@ -295,7 +479,7 @@ export default function PageAnalysisCard({
 										return (
 											<div
 												key={level}
-												className={`rounded-lg border transition-colors p-2 ${hasItems ? 'bg-card border-border shadow-sm' : 'bg-muted/20 border-border/40 opacity-60'}`}
+												className={`rounded-lg border p-2 ${hasItems ? 'bg-card border-border shadow-sm' : 'bg-muted/20 border-border/40 opacity-60'}`}
 											>
 												<div className='flex items-center justify-between mb-2'>
 													<span className='text-[10px] font-bold uppercase text-muted-foreground'>
@@ -342,56 +526,105 @@ export default function PageAnalysisCard({
 								</div>
 								<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
 									{[
-										{ label: 'Meta', section: report.sections.meta },
-										{ label: 'Headings', section: report.sections.headings },
+										{ label: 'Meta', section: report.sections.meta, type: 'meta' },
+										{ label: 'Headings', section: report.sections.headings, type: 'headings' },
 										{ label: 'Images', section: report.sections.images, type: 'images' },
-										{ label: 'Content', section: report.sections.content },
+										{ label: 'Content', section: report.sections.content, type: 'content' },
 										{ label: 'Links', section: report.sections.links, type: 'links' },
-										{ label: 'Technical', section: report.sections.technical },
+										{ label: 'Technical', section: report.sections.technical, type: 'technical' },
 										...(report.sections.performance ? [{ label: 'Performance', section: report.sections.performance, type: 'performance' }] : []),
-									].map(({ label, section, type }) => (
-										<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5 flex flex-col'>
-											<div className='flex items-center justify-between mb-2'>
-												<span className='text-[10px] font-bold uppercase flex items-center gap-1'>
-													{label === 'Performance' && <Zap className='h-3 w-3' />}
-													{label}
-												</span>
-												<span className={`text-[10px] font-bold ${
-													section.score >= 80 ? 'text-emerald-600' :
-													section.score >= 60 ? 'text-yellow-600' : 'text-red-600'
-												}`}>
-													{section.score}
-												</span>
-											</div>
-											<SeoSectionScore score={section.score} />
-											{section.issues.length > 0 && (
-												<div className='mt-2 space-y-1 flex-1'>
-													{section.issues.slice(0, 1).map((issue, i) => (
-														<div key={i} className='text-[9px] text-muted-foreground truncate'>
-															• {issue.message}
-														</div>
-													))}
+									].map(({ label, section, type }) => {
+										const currentScore = section.score;
+										const visibleIssues = section.issues;
+										
+										return (
+											<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5 flex flex-col'>
+												<div className='flex items-center justify-between mb-2'>
+													<span className='text-[10px] font-bold uppercase flex items-center gap-1'>
+														{label === 'Performance' && <Zap className='h-3 w-3' />}
+														{label}
+													</span>
+													<span className={`text-[10px] font-bold ${
+														currentScore >= 80 ? 'text-emerald-600' :
+														currentScore >= 60 ? 'text-yellow-600' : 'text-red-600'
+													}`}>
+														{currentScore}
+													</span>
 												</div>
-											)}
-											{type && (section.details || section.metrics.invalidLinks > 0 || section.metrics.brokenImages > 0) && (
+												<SeoSectionScore score={currentScore} />
+												{visibleIssues.length > 0 && (
+													<div className='mt-2 space-y-1 flex-1'>
+														{visibleIssues.slice(0, 1).map((issue, i) => (
+															<div key={i} className='text-[9px] text-muted-foreground truncate'>
+																• {issue.message}
+															</div>
+														))}
+													</div>
+												)}
 												<Button
 													variant='outline'
 													size='xs'
 													className='mt-2 h-6 text-[9px] font-bold uppercase rounded-md bg-background'
 													onClick={(e) => {
 														e.stopPropagation();
+														
+														// Enrich details from the main page object for consistent display
+														const enrichedDetails = { ...(section.details || {}) };
+														
+														if (type === 'meta') {
+															enrichedDetails.title = enrichedDetails.title || page.title;
+															enrichedDetails.metaDescription = enrichedDetails.metaDescription || page.metaDescription;
+															enrichedDetails.metaKeywords = enrichedDetails.metaKeywords || page.metaKeywords;
+															enrichedDetails.url = enrichedDetails.url || page.url;
+															enrichedDetails.robotsMeta = enrichedDetails.robotsMeta || page.robotsMeta;
+														} else if (type === 'headings') {
+															if (!Array.isArray(enrichedDetails.headings)) {
+																const hArray: any[] = [];
+																const sourceHeadings = (enrichedDetails.headings && typeof enrichedDetails.headings === 'object' && !Array.isArray(enrichedDetails.headings)) 
+																	? enrichedDetails.headings 
+																	: page.headings;
+																
+																if (sourceHeadings) {
+																	Object.entries(sourceHeadings).forEach(([tag, texts]) => {
+																		if (Array.isArray(texts)) {
+																			texts.forEach(text => hArray.push({ type: tag, text }));
+																		}
+																	});
+																}
+																enrichedDetails.headings = hArray;
+															}
+														} else if (type === 'links') {
+															const allLinks = page.links || [];
+															enrichedDetails.allLinks = enrichedDetails.allLinks || allLinks;
+															enrichedDetails.internalLinks = enrichedDetails.internalLinks || allLinks.filter((l: any) => l.isInternal);
+															enrichedDetails.externalLinks = enrichedDetails.externalLinks || allLinks.filter((l: any) => !l.isInternal);
+															enrichedDetails.brokenLinks = enrichedDetails.brokenLinks || allLinks.filter((l: any) => l.isBroken);
+															enrichedDetails.externalNoNofollow = enrichedDetails.externalNoNofollow || allLinks.filter((l: any) => !l.isInternal && !(l.rel || '').toLowerCase().includes('nofollow'));
+															const NON_DESCRIPTIVE = ['click here', 'here', 'read more', 'more', 'learn more', 'this', 'link', 'page'];
+															enrichedDetails.nonDescriptiveLinks = enrichedDetails.nonDescriptiveLinks || allLinks.filter((l: any) => l.isInternal && (!l.text || NON_DESCRIPTIVE.includes(l.text.toLowerCase().trim())));
+														} else if (type === 'technical') {
+															enrichedDetails.canonical = enrichedDetails.canonical || page.canonical;
+															enrichedDetails.robotsMeta = enrichedDetails.robotsMeta || page.robotsMeta;
+															enrichedDetails.redirectUrls = enrichedDetails.redirectUrls || page.redirectUrls;
+															enrichedDetails.redirectCount = enrichedDetails.redirectCount || page.redirectCount;
+															enrichedDetails.language = enrichedDetails.language || page.language;
+														} else if (type === 'content') {
+															enrichedDetails.wordCount = enrichedDetails.wordCount || page.wordCount;
+														}
+
 														setActiveDetail({
-															type: type as 'images' | 'links',
+															type: type as any,
 															title: `${label} Audit`,
-															details: section.details,
+															details: enrichedDetails,
+															issues: section.issues
 														});
 													}}
 												>
 													Audit Issues
 												</Button>
-											)}
-										</div>
-									))}
+											</div>
+										);
+									})}
 								</div>
 							</div>
 						)}
@@ -520,6 +753,7 @@ export default function PageAnalysisCard({
 							title={activeDetail.title}
 							details={activeDetail.details}
 							type={activeDetail.type}
+							issues={activeDetail.issues}
 						/>
 					)}
 				</CardContent>

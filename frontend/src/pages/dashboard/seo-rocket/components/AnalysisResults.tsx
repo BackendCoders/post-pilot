@@ -68,7 +68,7 @@ export default function AnalysisResults({
 			setVisualProgress((prev) => {
 				// Don't go past 90 unless the real jobProgress is higher
 				if (prev >= 90) return prev;
-				
+
 				const increment = Math.floor(Math.random() * 2) + 2; // 2-3%
 				const next = prev + increment;
 				return next > 90 ? 90 : next;
@@ -112,7 +112,8 @@ export default function AnalysisResults({
 				},
 				onError: (error: any) => {
 					toast.error('Failed to send email', {
-						description: error?.response?.data?.error || 'Unknown error occurred',
+						description:
+							error?.response?.data?.error || 'Unknown error occurred',
 					});
 				},
 			},
@@ -161,27 +162,124 @@ export default function AnalysisResults({
 	);
 	const pagesWithMetaDesc = results.filter((p) => p.metaDescription).length;
 	const pagesWithH1 = results.filter((p) => p.headings.h1.length > 0).length;
-	const avgWordCount = results.length > 0 ? Math.round(totalWords / results.length) : 0;
+	const pagesWithHttps = results.filter((p) =>
+		Boolean((p.finalUrl || p.url || '').startsWith('https://')),
+	).length;
+	const pagesWithCleanUrl = results.filter((p) => {
+		const finalUrl = p.finalUrl || p.url || '';
+		try {
+			const parsed = new URL(finalUrl);
+			const pathname = parsed.pathname || '';
+			const hasUppercase = /[A-Z]/.test(pathname);
+			const hasUnderscore = pathname.includes('_');
+			const allowParam = (key: string) => {
+				const lower = key.toLowerCase();
+				return (
+					lower.startsWith('utm_') || lower === 'gclid' || lower === 'fbclid'
+				);
+			};
+			let hasDisallowedQueryParams = false;
+			for (const key of parsed.searchParams.keys()) {
+				if (!allowParam(key)) {
+					hasDisallowedQueryParams = true;
+					break;
+				}
+			}
+			const isPathTooLong = pathname.length > 80;
+			return (
+				!hasUppercase &&
+				!hasUnderscore &&
+				!hasDisallowedQueryParams &&
+				!isPathTooLong
+			);
+		} catch {
+			return true;
+		}
+	}).length;
+	const pagesWithCompleteOG = results.filter((p) =>
+		Boolean(
+			p.openGraph?.title && p.openGraph?.description && p.openGraph?.image,
+		),
+	).length;
+	const pagesWithCompleteTwitter = results.filter((p) =>
+		Boolean(
+			p.twitterCard?.card &&
+			p.twitterCard?.title &&
+			p.twitterCard?.description &&
+			p.twitterCard?.image,
+		),
+	).length;
+	const pagesWithCompleteSocial = results.filter((p) =>
+		Boolean(
+			p.openGraph?.title &&
+			p.openGraph?.description &&
+			p.openGraph?.image &&
+			p.twitterCard?.card &&
+			p.twitterCard?.title &&
+			p.twitterCard?.description &&
+			p.twitterCard?.image,
+		),
+	).length;
 
-	const avgScore = Object.keys(reports).length > 0
-		? Math.round(
-				Object.values(reports).reduce((sum, r) => sum + r.totalScore, 0) /
-					Object.keys(reports).length
-		  )
-		: null;
+	const pagesWithSchema = results.filter((p) =>
+		Boolean(p.hasSchemaMarkup),
+	).length;
+	const pagesWithSchemaErrors = results.filter(
+		(p) => (p.schemaErrors || []).length > 0,
+	).length;
+	const pagesWithBreadcrumbs = results.filter((p) =>
+		Boolean(p.hasBreadcrumbSchema || p.hasBreadcrumbLinks),
+	).length;
+	const pagesWithHeavyInline = results.filter((p) => {
+		const heavyInline =
+			(p.largestInlineScriptBytes || 0) > 10_000 ||
+			(p.inlineScriptsBytes || 0) > 30_000 ||
+			(p.largestInlineStyleBytes || 0) > 5_000 ||
+			(p.inlineStylesBytes || 0) > 15_000;
+		return Boolean(heavyInline);
+	}).length;
+	const pagesWithGoodMinification = results.filter((p) => {
+		const totalJs = p.totalJsCount || 0;
+		const minJs = p.minifiedJsCount || 0;
+		const totalCss = p.totalCssCount || 0;
+		const minCss = p.minifiedCssCount || 0;
+		const jsOk = totalJs > 0 ? minJs / totalJs >= 0.5 : true;
+		const cssOk = totalCss > 0 ? minCss / totalCss >= 0.5 : true;
+		return jsOk && cssOk;
+	}).length;
+	const avgWordCount =
+		results.length > 0 ? Math.round(totalWords / results.length) : 0;
 
-	const auditedPages = results.filter((p) => p.performanceMetrics && (p.performanceMetrics.fcp || p.performanceMetrics.overallPerformanceScore));
+	const avgScore =
+		Object.keys(reports).length > 0
+			? Math.round(
+					Object.values(reports).reduce((sum, r) => sum + r.totalScore, 0) /
+						Object.keys(reports).length,
+				)
+			: null;
+
+	const auditedPages = results.filter(
+		(p) =>
+			p.performanceMetrics &&
+			(p.performanceMetrics.fcp ||
+				p.performanceMetrics.overallPerformanceScore),
+	);
 	const pagesWithPerf = auditedPages.length;
-	const avgLoadTime = pagesWithPerf > 0
-		? Math.round(
-			auditedPages.reduce((sum, p) => sum + (p.performanceMetrics?.desktop.totalLoadTime || 0), 0) / pagesWithPerf
-		  )
-		: 0;
+	const avgLoadTime =
+		pagesWithPerf > 0
+			? Math.round(
+					auditedPages.reduce(
+						(sum, p) =>
+							sum + (p.performanceMetrics?.desktop.totalLoadTime || 0),
+						0,
+					) / pagesWithPerf,
+				)
+			: 0;
 
 	return (
 		<div
 			data-walkthrough='seo-results'
-			className='space-y-6 animate-in fade-in duration-500'
+			className='space-y-6'
 		>
 			{/* Header Section */}
 			<div className='flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-4'>
@@ -235,20 +333,25 @@ export default function AnalysisResults({
 
 			{/* Smart Progress Header (Top) */}
 			{jobStatus === 'processing' && (
-				<div className='mb-6 p-6 rounded-2xl border border-primary/20 bg-primary/5 flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-500'>
+				<div className='mb-6 p-6 rounded-2xl border border-primary/20 bg-primary/5 flex flex-col items-center justify-center space-y-4'>
 					<div className='relative flex items-center justify-center'>
 						<Loader2 className='h-10 w-10 text-primary animate-spin' />
-						<span className='absolute text-[10px] font-bold text-primary'>{Math.round(visualProgress)}%</span>
+						<span className='absolute text-[10px] font-bold text-primary'>
+							{Math.round(visualProgress)}%
+						</span>
 					</div>
 					<div className='text-center space-y-1'>
-						<h3 className='text-sm font-bold text-foreground'>Analyzing website components...</h3>
+						<h3 className='text-sm font-bold text-foreground'>
+							Analyzing website components...
+						</h3>
 						<p className='text-xs text-muted-foreground'>
-							We are checking metadata, assets, and performance. Results are appearing in real-time.
+							We are checking metadata, assets, and performance. Results are
+							appearing in real-time.
 						</p>
 					</div>
 					<div className='w-full max-w-md h-2 bg-muted rounded-full overflow-hidden'>
-						<div 
-							className='h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.5)]'
+						<div
+							className='h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]'
 							style={{ width: `${visualProgress}%` }}
 						/>
 					</div>
@@ -257,41 +360,72 @@ export default function AnalysisResults({
 
 			{/* Universal Performance Banner */}
 			{avgLoadTime > 0 && (
-				<div className='flex items-center gap-4 p-4 rounded-xl border border-primary/20 bg-primary/5 animate-in slide-in-from-top-2 duration-500'>
+				<div className='flex items-center gap-4 p-4 rounded-xl border border-primary/20 bg-primary/5'>
 					<div className='p-2 bg-primary/10 rounded-lg'>
 						<Gauge className='h-6 w-6 text-primary' />
 					</div>
 					<div className='flex-1'>
 						<div className='flex items-center gap-2'>
-							<h3 className='text-sm font-bold text-foreground'>Universal Load Performance</h3>
-							<Badge variant={avgLoadTime < 3000 ? 'default' : 'secondary'} className={avgLoadTime < 3000 ? 'bg-emerald-500 hover:bg-emerald-600' : ''}>
-								{avgLoadTime < 3000 ? 'Excellent' : avgLoadTime < 5000 ? 'Good' : 'Needs Optimization'}
+							<h3 className='text-sm font-bold text-foreground'>
+								Universal Load Performance
+							</h3>
+							<Badge
+								variant={avgLoadTime < 3000 ? 'default' : 'secondary'}
+								className={
+									avgLoadTime < 3000
+										? 'bg-emerald-500 hover:bg-emerald-600'
+										: ''
+								}
+							>
+								{avgLoadTime < 3000
+									? 'Excellent'
+									: avgLoadTime < 5000
+										? 'Good'
+										: 'Needs Optimization'}
 							</Badge>
 						</div>
 						<p className='text-xs text-muted-foreground mt-0.5'>
-							The site takes an average of <span className='font-bold text-foreground'>{avgLoadTime}ms</span> to respond across all analyzed sessions.
+							The site takes an average of{' '}
+							<span className='font-bold text-foreground'>{avgLoadTime}ms</span>{' '}
+							to respond across all analyzed sessions.
 						</p>
 					</div>
 					<div className='flex items-center gap-6 pr-2'>
 						<div className='text-center'>
-							<p className='text-[10px] font-bold uppercase text-muted-foreground'>Avg Desktop</p>
+							<p className='text-[10px] font-bold uppercase text-muted-foreground'>
+								Avg Desktop
+							</p>
 							<p className='text-lg font-bold'>{avgLoadTime}ms</p>
 						</div>
-						{pagesWithPerf > 0 && auditedPages.some(r => r.performanceMetrics?.mobile) && (
-							<div className='text-center'>
-								<p className='text-[10px] font-bold uppercase text-muted-foreground'>Avg Mobile</p>
-								<p className='text-lg font-bold'>
-									{Math.round(auditedPages.reduce((sum, r) => sum + (r.performanceMetrics?.mobile?.totalLoadTime || 0), 0) / (auditedPages.filter(r => r.performanceMetrics?.mobile).length || 1))}ms
-								</p>
-							</div>
-						)}
+						{pagesWithPerf > 0 &&
+							auditedPages.some((r) => r.performanceMetrics?.mobile) && (
+								<div className='text-center'>
+									<p className='text-[10px] font-bold uppercase text-muted-foreground'>
+										Avg Mobile
+									</p>
+									<p className='text-lg font-bold'>
+										{Math.round(
+											auditedPages.reduce(
+												(sum, r) =>
+													sum +
+													(r.performanceMetrics?.mobile?.totalLoadTime || 0),
+												0,
+											) /
+												(auditedPages.filter(
+													(r) => r.performanceMetrics?.mobile,
+												).length || 1),
+										)}
+										ms
+									</p>
+								</div>
+							)}
 					</div>
 				</div>
 			)}
 
 			{/* Stats Grid */}
-			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3'>
-				<Card className='rounded-xl border-border bg-card shadow-none hover:shadow-sm transition-all duration-200'>
+			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
+				<Card className='rounded-xl border-border bg-card shadow-none'>
 					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
 						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
 							Pages
@@ -307,12 +441,93 @@ export default function AnalysisResults({
 								{pagesWithMetaDesc}
 							</span>{' '}
 							with meta description (
-							{results.length > 0 ? Math.round((pagesWithMetaDesc / results.length) * 100) : 0}%)
+							{results.length > 0
+								? Math.round((pagesWithMetaDesc / results.length) * 100)
+								: 0}
+							%)
 						</p>
 					</CardContent>
 				</Card>
 
-				<Card className='rounded-xl border-border bg-card shadow-none hover:shadow-sm transition-all duration-200'>
+				<Card className='rounded-xl border-border bg-card shadow-none'>
+					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
+						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
+							Schema & Assets
+						</CardTitle>
+						<FileText className='h-4 w-4 text-primary/70' />
+					</CardHeader>
+					<CardContent className='px-4 pb-4'>
+						<div className='text-2xl font-bold tracking-tight'>
+							{pagesWithSchema}/{results.length}
+						</div>
+						<p className='text-[11px] text-muted-foreground mt-1'>
+							Breadcrumbs:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithBreadcrumbs}
+							</span>{' '}
+							· Errors:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithSchemaErrors}
+							</span>
+						</p>
+						<p className='text-[11px] text-muted-foreground mt-1'>
+							Inline heavy:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithHeavyInline}
+							</span>{' '}
+							· Minified:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithGoodMinification}
+							</span>
+						</p>
+					</CardContent>
+				</Card>
+
+				<Card className='rounded-xl border-border bg-card shadow-none'>
+					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
+						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
+							URL & HTTPS
+						</CardTitle>
+						<Gauge className='h-4 w-4 text-primary/70' />
+					</CardHeader>
+					<CardContent className='px-4 pb-4'>
+						<div className='text-2xl font-bold tracking-tight'>
+							{pagesWithHttps}/{results.length}
+						</div>
+						<p className='text-[11px] text-muted-foreground mt-1'>
+							Clean URLs:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithCleanUrl}
+							</span>
+						</p>
+					</CardContent>
+				</Card>
+
+				<Card className='rounded-xl border-border bg-card shadow-none'>
+					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
+						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
+							Social Preview
+						</CardTitle>
+						<Send className='h-4 w-4 text-primary/70' />
+					</CardHeader>
+					<CardContent className='px-4 pb-4'>
+						<div className='text-2xl font-bold tracking-tight'>
+							{pagesWithCompleteSocial}/{results.length}
+						</div>
+						<p className='text-[11px] text-muted-foreground mt-1'>
+							OG:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithCompleteOG}
+							</span>{' '}
+							· Twitter:{' '}
+							<span className='font-medium text-foreground'>
+								{pagesWithCompleteTwitter}
+							</span>
+						</p>
+					</CardContent>
+				</Card>
+
+				<Card className='rounded-xl border-border bg-card shadow-none'>
 					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
 						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
 							Avg Word Count
@@ -333,7 +548,7 @@ export default function AnalysisResults({
 					</CardContent>
 				</Card>
 
-				<Card className='rounded-xl border-border bg-card shadow-none hover:shadow-sm transition-all duration-200'>
+				<Card className='rounded-xl border-border bg-card shadow-none'>
 					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
 						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
 							Images
@@ -364,7 +579,7 @@ export default function AnalysisResults({
 					</CardContent>
 				</Card>
 
-				<Card className='rounded-xl border-border bg-card shadow-none hover:shadow-sm transition-all duration-200'>
+				<Card className='rounded-xl border-border bg-card shadow-none'>
 					<CardHeader className='flex flex-row items-center justify-between pb-1 pt-4 px-4 space-y-0'>
 						<CardTitle className='text-xs font-semibold uppercase text-muted-foreground tracking-wider'>
 							Links
@@ -379,11 +594,14 @@ export default function AnalysisResults({
 							<span className='font-medium text-foreground'>
 								{pagesWithH1}/{results.length}
 							</span>{' '}
-							with H1 ({results.length > 0 ? Math.round((pagesWithH1 / results.length) * 100) : 0}%)
+							with H1 (
+							{results.length > 0
+								? Math.round((pagesWithH1 / results.length) * 100)
+								: 0}
+							%)
 						</p>
 					</CardContent>
 				</Card>
-
 
 				{avgScore !== null && (
 					<Card className='rounded-xl border-border bg-gradient-to-r from-primary/5 to-primary/10 shadow-none hover:shadow-sm transition-all duration-200'>
@@ -430,10 +648,15 @@ export default function AnalysisResults({
 			{(() => {
 				const totalDetailPages = Math.ceil(results.length / RESULTS_PER_PAGE);
 				const startIdx = (currentPage - 1) * RESULTS_PER_PAGE;
-				const pageResults = results.slice(startIdx, startIdx + RESULTS_PER_PAGE);
-				
+				const pageResults = results.slice(
+					startIdx,
+					startIdx + RESULTS_PER_PAGE,
+				);
+
 				// Show pending URLs that haven't been completed yet
-				const actualPending = pendingUrls.filter(url => !results.some(r => r.url === url));
+				const actualPending = pendingUrls.filter(
+					(url) => !results.some((r) => r.url === url),
+				);
 				const showPending = currentPage === 1 && actualPending.length > 0;
 
 				return (
@@ -448,7 +671,9 @@ export default function AnalysisResults({
 
 							{totalDetailPages > 1 && (
 								<span className='text-[11px] text-muted-foreground whitespace-nowrap'>
-									{startIdx + 1}–{Math.min(startIdx + RESULTS_PER_PAGE, results.length)} of {results.length}
+									{startIdx + 1}–
+									{Math.min(startIdx + RESULTS_PER_PAGE, results.length)} of{' '}
+									{results.length}
 								</span>
 							)}
 						</div>
@@ -457,7 +682,7 @@ export default function AnalysisResults({
 							{pageResults.map((page) => (
 								<div
 									key={page.url}
-									className='group transition-transform duration-200 active:scale-[0.99]'
+									className='group'
 								>
 									<PageAnalysisCard
 										page={page}
@@ -469,24 +694,32 @@ export default function AnalysisResults({
 								</div>
 							))}
 
-							{showPending && actualPending.map((url) => (
-								<div key={url} className='group opacity-60'>
-									<Card className='rounded-xl border-dashed border-2 bg-muted/30'>
-										<CardContent className='p-4 flex items-center justify-between'>
-											<div className='flex items-center gap-3'>
-												<div className='h-8 w-8 rounded-lg bg-muted animate-pulse flex items-center justify-center'>
-													<Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+							{showPending &&
+								actualPending.map((url) => (
+									<div
+										key={url}
+										className='group opacity-60'
+									>
+										<Card className='rounded-xl border-dashed border-2 bg-muted/30'>
+											<CardContent className='p-4 flex items-center justify-between'>
+												<div className='flex items-center gap-3'>
+													<div className='h-8 w-8 rounded-lg bg-muted flex items-center justify-center'>
+														<Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+													</div>
+													<div>
+														<p className='text-sm font-medium truncate max-w-[300px]'>
+															{url}
+														</p>
+														<p className='text-[11px] text-muted-foreground'>
+															Analyzing...
+														</p>
+													</div>
 												</div>
-												<div>
-													<p className='text-sm font-medium truncate max-w-[300px]'>{url}</p>
-													<p className='text-[11px] text-muted-foreground'>Analyzing...</p>
-												</div>
-											</div>
-											<Badge variant="outline" className="animate-pulse">Scraping</Badge>
-										</CardContent>
-									</Card>
-								</div>
-							))}
+												<Badge variant='outline'>Scraping</Badge>
+											</CardContent>
+										</Card>
+									</div>
+								))}
 						</div>
 
 						{/* Pagination Controls */}
@@ -511,34 +744,41 @@ export default function AnalysisResults({
 									<ChevronLeft className='h-4 w-4' />
 								</Button>
 
-								{Array.from({ length: Math.min(5, totalDetailPages) }, (_, i) => {
-									let pageNum: number;
-									if (totalDetailPages <= 5) {
-										pageNum = i + 1;
-									} else if (currentPage <= 3) {
-										pageNum = i + 1;
-									} else if (currentPage >= totalDetailPages - 2) {
-										pageNum = totalDetailPages - 4 + i;
-									} else {
-										pageNum = currentPage - 2 + i;
-									}
-									return (
-										<Button
-											key={pageNum}
-											variant={currentPage === pageNum ? 'default' : 'outline'}
-											size='sm'
-											onClick={() => setCurrentPage(pageNum)}
-											className='h-8 w-8 p-0 rounded-lg text-xs font-semibold'
-										>
-											{pageNum}
-										</Button>
-									);
-								})}
+								{Array.from(
+									{ length: Math.min(5, totalDetailPages) },
+									(_, i) => {
+										let pageNum: number;
+										if (totalDetailPages <= 5) {
+											pageNum = i + 1;
+										} else if (currentPage <= 3) {
+											pageNum = i + 1;
+										} else if (currentPage >= totalDetailPages - 2) {
+											pageNum = totalDetailPages - 4 + i;
+										} else {
+											pageNum = currentPage - 2 + i;
+										}
+										return (
+											<Button
+												key={pageNum}
+												variant={
+													currentPage === pageNum ? 'default' : 'outline'
+												}
+												size='sm'
+												onClick={() => setCurrentPage(pageNum)}
+												className='h-8 w-8 p-0 rounded-lg text-xs font-semibold'
+											>
+												{pageNum}
+											</Button>
+										);
+									},
+								)}
 
 								<Button
 									variant='outline'
 									size='sm'
-									onClick={() => setCurrentPage((p) => Math.min(totalDetailPages, p + 1))}
+									onClick={() =>
+										setCurrentPage((p) => Math.min(totalDetailPages, p + 1))
+									}
 									disabled={currentPage === totalDetailPages}
 									className='h-8 w-8 p-0 rounded-lg'
 								>

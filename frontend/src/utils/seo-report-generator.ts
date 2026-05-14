@@ -25,6 +25,13 @@ function analyzeMeta(data: ScrapedPageData): SectionResult {
 		titleLength: data.title?.length || 0,
 		hasMetaDescription: data.metaDescription ? 1 : 0,
 		hasMetaKeywords: data.metaKeywords ? 1 : 0,
+		hasOgTitle: data.openGraph?.title ? 1 : 0,
+		hasOgDescription: data.openGraph?.description ? 1 : 0,
+		hasOgImage: data.openGraph?.image ? 1 : 0,
+		hasTwitterCard: data.twitterCard?.card ? 1 : 0,
+		hasTwitterTitle: data.twitterCard?.title ? 1 : 0,
+		hasTwitterDescription: data.twitterCard?.description ? 1 : 0,
+		hasTwitterImage: data.twitterCard?.image ? 1 : 0,
 	};
 
 	if (!data.title) {
@@ -60,6 +67,70 @@ function analyzeMeta(data: ScrapedPageData): SectionResult {
 			message: 'Meta description is too long',
 			severity: 'medium',
 			fix: 'Keep meta description under 160 characters',
+		});
+	}
+
+	// Social Preview (Open Graph + Twitter Card)
+	if (!data.openGraph?.title) {
+		score -= 10;
+		issues.push({
+			message: 'Missing Open Graph title (og:title)',
+			severity: 'high',
+			fix: 'Add <meta property="og:title" content="...">',
+		});
+	}
+
+	if (!data.openGraph?.description) {
+		score -= 10;
+		issues.push({
+			message: 'Missing Open Graph description (og:description)',
+			severity: 'high',
+			fix: 'Add <meta property="og:description" content="...">',
+		});
+	}
+
+	if (!data.openGraph?.image) {
+		score -= 10;
+		issues.push({
+			message: 'Missing Open Graph image (og:image)',
+			severity: 'high',
+			fix: 'Add <meta property="og:image" content="https://..."> (recommended 1200×630)',
+		});
+	}
+
+	if (!data.twitterCard?.card) {
+		score -= 6;
+		issues.push({
+			message: 'Missing Twitter Card type (twitter:card)',
+			severity: 'medium',
+			fix: 'Add <meta name="twitter:card" content="summary_large_image">',
+		});
+	}
+
+	if (!data.twitterCard?.title) {
+		score -= 6;
+		issues.push({
+			message: 'Missing Twitter title (twitter:title)',
+			severity: 'medium',
+			fix: 'Add <meta name="twitter:title" content="...">',
+		});
+	}
+
+	if (!data.twitterCard?.description) {
+		score -= 6;
+		issues.push({
+			message: 'Missing Twitter description (twitter:description)',
+			severity: 'medium',
+			fix: 'Add <meta name="twitter:description" content="...">',
+		});
+	}
+
+	if (!data.twitterCard?.image) {
+		score -= 6;
+		issues.push({
+			message: 'Missing Twitter image (twitter:image)',
+			severity: 'medium',
+			fix: 'Add <meta name="twitter:image" content="https://..."> (recommended 1200×630)',
 		});
 	}
 
@@ -257,23 +328,62 @@ function analyzeLinks(data: ScrapedPageData): SectionResult {
 	let score = 100;
 	const issues: SectionResult['issues'] = [];
 
-	const details: any = {
-		invalidLinks: [],
-	};
-
 	const links = data.links || [];
-	const invalid = links.filter((l: string) => {
-		const isInvalid = l.includes('javascript:void') || l === 'tel:' || l === '';
-		if (isInvalid) details.invalidLinks.push(l);
-		return isInvalid;
+	const internalLinks = links.filter((l) => l.isInternal);
+	const externalLinks = links.filter((l) => !l.isInternal);
+	const brokenLinks = internalLinks.filter((l) => l.isBroken);
+	const NON_DESCRIPTIVE = ['click here', 'here', 'read more', 'more', 'learn more', 'this', 'link', 'page'];
+	const nonDescriptiveLinks = internalLinks.filter((l) => {
+		const t = l.text.toLowerCase().trim();
+		return !t || NON_DESCRIPTIVE.includes(t);
 	});
+	const externalNoNofollow = externalLinks.filter((l) => {
+		const rel = (l.rel || '').toLowerCase();
+		return !rel.includes('nofollow');
+	});
+
+	const details: any = {
+		allLinks: links,
+		internalLinks,
+		externalLinks,
+		brokenLinks,
+		nonDescriptiveLinks,
+		externalNoNofollow,
+	};
 
 	const metrics: Record<string, number> = {
 		totalLinks: links.length,
-		internalLinks: data.internalLinkCount || 0,
-		externalLinks: data.externalLinkCount || 0,
-		invalidLinks: invalid.length,
+		internalLinks: internalLinks.length,
+		externalLinks: externalLinks.length,
+		brokenLinks: brokenLinks.length,
 	};
+
+	if (brokenLinks.length > 0) {
+		score -= Math.min(30, brokenLinks.length * 10);
+		issues.push({
+			message: `${brokenLinks.length} broken internal link${brokenLinks.length > 1 ? 's' : ''} (404)`,
+			severity: 'high',
+			fix: 'Fix or remove 404 URLs',
+		});
+	}
+
+	if (nonDescriptiveLinks.length > 0) {
+		score -= Math.min(15, nonDescriptiveLinks.length * 3);
+		issues.push({
+			message: `${nonDescriptiveLinks.length} link${nonDescriptiveLinks.length > 1 ? 's' : ''} with non-descriptive anchor text`,
+			severity: 'medium',
+			fix: 'Replace generic anchor text with descriptive keyword-rich text',
+		});
+	}
+
+	if (externalNoNofollow.length > 0) {
+		score -= Math.min(10, externalNoNofollow.length * 2);
+		issues.push({
+			message: `${externalNoNofollow.length} external link${externalNoNofollow.length > 1 ? 's' : ''} missing rel="nofollow"`,
+			severity: 'low',
+			fix: 'Add rel="nofollow" to untrusted external links',
+		});
+	}
 
 	return { score: clamp(score), maxScore: 100, issues, metrics, details };
 }
@@ -282,11 +392,79 @@ function analyzeTechnical(data: ScrapedPageData): SectionResult {
 	let score = 100;
 	const issues: SectionResult['issues'] = [];
 
+	const requestedUrl = data.requestedUrl || data.url;
+	const finalUrl = data.finalUrl || data.url;
+
+	const ssl = {
+		requestedProtocol: requestedUrl.startsWith('https://')
+			? 'https'
+			: requestedUrl.startsWith('http://')
+				? 'http'
+				: 'unknown',
+		finalProtocol: finalUrl.startsWith('https://')
+			? 'https'
+			: finalUrl.startsWith('http://')
+				? 'http'
+				: 'unknown',
+		isHttps: finalUrl.startsWith('https://'),
+	};
+
+	let urlStructure = {
+		pathname: '',
+		pathLength: 0,
+		hasUppercase: false,
+		hasUnderscore: false,
+		hasDisallowedQueryParams: false,
+		disallowedParams: [] as string[],
+		isPathTooLong: false,
+		isClean: true,
+	};
+
+	try {
+		const parsed = new URL(finalUrl);
+		const pathname = parsed.pathname || '';
+		const pathLength = pathname.length;
+		const hasUppercase = /[A-Z]/.test(pathname);
+		const hasUnderscore = pathname.includes('_');
+
+		const allowParam = (key: string) => {
+			const lower = key.toLowerCase();
+			return lower.startsWith('utm_') || lower === 'gclid' || lower === 'fbclid';
+		};
+
+		const disallowedParams: string[] = [];
+		for (const key of parsed.searchParams.keys()) {
+			if (!allowParam(key)) disallowedParams.push(key);
+		}
+
+		const hasDisallowedQueryParams = disallowedParams.length > 0;
+		const isPathTooLong = pathLength > 80;
+
+		urlStructure = {
+			pathname,
+			pathLength,
+			hasUppercase,
+			hasUnderscore,
+			hasDisallowedQueryParams,
+			disallowedParams,
+			isPathTooLong,
+			isClean:
+				!hasUppercase &&
+				!hasUnderscore &&
+				!hasDisallowedQueryParams &&
+				!isPathTooLong,
+		};
+	} catch {
+		// ignore URL parsing errors in UI-side generator
+	}
+
 	const metrics: Record<string, number> = {
 		redirectCount: data.redirectCount || 0,
 		hasCanonical: data.canonical ? 1 : 0,
 		hasRobotsMeta: data.robotsMeta ? 1 : 0,
 		hasError: data.isError ? 1 : 0,
+		isHttps: ssl.isHttps ? 1 : 0,
+		isCleanUrl: urlStructure.isClean ? 1 : 0,
 	};
 
 	if (!data.canonical) {
@@ -316,7 +494,174 @@ function analyzeTechnical(data: ScrapedPageData): SectionResult {
 		});
 	}
 
-	return { score: clamp(score), maxScore: 100, issues, metrics };
+	if (!ssl.isHttps) {
+		score -= 25;
+		issues.push({
+			message: 'Page is not served over HTTPS (SSL)',
+			severity: 'high',
+			fix: 'Enable SSL and ensure the page is accessible over https://',
+		});
+	} else if (ssl.requestedProtocol === 'http' && ssl.finalProtocol === 'https') {
+		score -= 5;
+		issues.push({
+			message: 'HTTP redirects to HTTPS (recommended: use HTTPS links directly)',
+			severity: 'low',
+			fix: 'Update links to use https:// directly to reduce redirects',
+		});
+	}
+
+	if (urlStructure.hasUppercase) {
+		score -= 10;
+		issues.push({
+			message: 'URL path contains uppercase characters',
+			severity: 'medium',
+			fix: 'Use lowercase URLs (e.g., /my-page instead of /My-Page)',
+		});
+	}
+
+	if (urlStructure.hasUnderscore) {
+		score -= 10;
+		issues.push({
+			message: 'URL path contains underscores',
+			severity: 'medium',
+			fix: 'Use hyphens instead of underscores in URLs (e.g., /my-page)',
+		});
+	}
+
+	if (urlStructure.hasDisallowedQueryParams) {
+		score -= 10;
+		issues.push({
+			message: 'URL contains dynamic query parameters',
+			severity: 'medium',
+			fix: 'Avoid dynamic parameters in indexable URLs; keep URLs readable',
+			currentValue: urlStructure.disallowedParams.join(', '),
+		});
+	}
+
+	if (urlStructure.isPathTooLong) {
+		score -= 5;
+		issues.push({
+			message: 'URL path is very long',
+			severity: 'low',
+			fix: 'Keep URLs short and readable where possible',
+			currentValue: String(urlStructure.pathLength),
+		});
+	}
+
+	// Inline CSS/JS + Minification + Schema (warnings + small bonuses)
+	const inlineScriptsBytes = data.inlineScriptsBytes || 0;
+	const largestInlineScriptBytes = data.largestInlineScriptBytes || 0;
+	const inlineStylesBytes = data.inlineStylesBytes || 0;
+	const largestInlineStyleBytes = data.largestInlineStyleBytes || 0;
+
+	const isHeavyInline =
+		largestInlineScriptBytes > 10_000 ||
+		inlineScriptsBytes > 30_000 ||
+		largestInlineStyleBytes > 5_000 ||
+		inlineStylesBytes > 15_000;
+
+	if (isHeavyInline) {
+		issues.push({
+			message: 'Heavy inline CSS/JS detected',
+			severity: 'medium',
+			fix: 'Move large inline <script>/<style> blocks into external files to improve caching',
+		});
+	}
+
+	const totalJsCount = data.totalJsCount || 0;
+	const minifiedJsCount = data.minifiedJsCount || 0;
+	const totalCssCount = data.totalCssCount || 0;
+	const minifiedCssCount = data.minifiedCssCount || 0;
+	const jsMinRatio = totalJsCount > 0 ? minifiedJsCount / totalJsCount : 1;
+	const cssMinRatio = totalCssCount > 0 ? minifiedCssCount / totalCssCount : 1;
+	const hasGoodMinification = jsMinRatio >= 0.5 && cssMinRatio >= 0.5;
+
+	if (!hasGoodMinification && (totalJsCount > 0 || totalCssCount > 0)) {
+		issues.push({
+			message: 'Assets are not consistently minified',
+			severity: 'medium',
+			fix: 'Serve minified and compressed CSS/JS in production builds (commonly .min.css/.min.js)',
+			currentValue: `JS ${minifiedJsCount}/${totalJsCount}, CSS ${minifiedCssCount}/${totalCssCount}`,
+		});
+	}
+
+	const hasSchemaMarkup = Boolean(data.hasSchemaMarkup);
+	const schemaErrors = data.schemaErrors || [];
+	const hasSchemaErrors = schemaErrors.length > 0;
+	const hasBreadcrumbSchema = Boolean(data.hasBreadcrumbSchema);
+	const hasBreadcrumbLinks = Boolean(data.hasBreadcrumbLinks);
+
+	if (!hasSchemaMarkup) {
+		issues.push({
+			message: 'No Schema Markup (JSON-LD) detected',
+			severity: 'low',
+			fix: 'Add JSON-LD schema (e.g., Product, Article, Organization) to enable rich snippets',
+		});
+	}
+
+	if (hasSchemaErrors) {
+		issues.push({
+			message: 'Schema Markup contains errors',
+			severity: 'high',
+			fix: 'Fix JSON-LD syntax/structure and re-validate using Schema Markup Validator (schema.org)',
+			currentValue: String(schemaErrors.length),
+		});
+	}
+
+	if (!hasBreadcrumbSchema && !hasBreadcrumbLinks) {
+		issues.push({
+			message: 'No breadcrumbs detected',
+			severity: 'low',
+			fix: 'Add breadcrumb navigation and/or BreadcrumbList schema to improve UX and crawling',
+		});
+	}
+
+	let bonusPoints = 0;
+	if (!hasSchemaErrors) {
+		if (hasSchemaMarkup) bonusPoints += 3;
+		if (hasBreadcrumbSchema || hasBreadcrumbLinks) bonusPoints += 2;
+	}
+	if (hasGoodMinification) bonusPoints += 2;
+	if (!isHeavyInline) bonusPoints += 1;
+
+	score = score + bonusPoints;
+
+	return {
+		score: clamp(score),
+		maxScore: 100,
+		bonusPoints,
+		issues,
+		metrics,
+		details: {
+			requestedUrl,
+			finalUrl,
+			ssl,
+			urlStructure,
+			inline: {
+				inlineScriptsCount: data.inlineScriptsCount || 0,
+				inlineScriptsBytes,
+				largestInlineScriptBytes,
+				inlineStylesCount: data.inlineStylesCount || 0,
+				inlineStylesBytes,
+				largestInlineStyleBytes,
+			},
+			minification: {
+				totalJsCount,
+				minifiedJsCount,
+				totalCssCount,
+				minifiedCssCount,
+			},
+			schema: {
+				jsonLdBlocksCount: data.jsonLdBlocksCount || 0,
+				jsonLdItemsCount: data.jsonLdItemsCount || 0,
+				jsonLdTypes: data.jsonLdTypes || [],
+				schemaErrors,
+				hasSchemaMarkup,
+				hasBreadcrumbSchema,
+				hasBreadcrumbLinks,
+			},
+		},
+	};
 }
 
 function analyzePerformance(data: ScrapedPageData): SectionResult {

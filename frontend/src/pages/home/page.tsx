@@ -1,4 +1,5 @@
 'use client';
+
 import NavBar from '@/components/navbar';
 import Footer from '@/components/footer';
 import {
@@ -139,13 +140,13 @@ const HomePage = () => {
 					</p>
 
 					<div className='flex flex-wrap justify-center gap-3 pt-4'>
-						<button 
+						<button
 							onClick={() => navigate('/signup')}
 							className='px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold transition-all hover:shadow-md hover:shadow-primary/20 active:scale-95'
 						>
 							Get Started for Free
 						</button>
-						<button 
+						<button
 							onClick={() => navigate('/demo')}
 							className='px-6 py-2.5 rounded-xl bg-card border border-border text-sm font-semibold transition-all hover:bg-muted active:scale-95'
 						>
@@ -327,13 +328,13 @@ const HomePage = () => {
 							growth. No credit card required.
 						</p>
 						<div className='flex flex-wrap justify-center gap-3 pt-4'>
-							<button 
+							<button
 								onClick={() => navigate('/signup')}
 								className='px-8 py-3 rounded-xl bg-white text-primary text-sm font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-black/10'
 							>
 								Start Free Trial
 							</button>
-							<button 
+							<button
 								onClick={() => navigate('/demo')}
 								className='px-8 py-3 rounded-xl bg-primary-foreground/10 border border-white/20 text-white text-sm font-bold transition-all hover:bg-white/10 active:scale-95'
 							>

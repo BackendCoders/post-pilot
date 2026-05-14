@@ -14,7 +14,7 @@ export const useUnreadCount = () => {
   return useQuery({
     queryKey: ['unreadCount'],
     queryFn: leadMessageService.getUnreadCount,
-    refetchInterval: 30000, // Poll as fallback, but socket will invalidate it
+    refetchInterval: 300000, // Poll as fallback, but socket will invalidate it
   });
 };
 
@@ -35,13 +35,13 @@ export const useMessageThread = (leadId: string) => {
           // Check if message already exists
           const exists = oldData.some((m: any) => m._id === message._id);
           if (exists) return oldData;
-          
+
           const newData = [...oldData, message];
           // Keep only last 50
           return newData.slice(-50);
         });
       }
-      
+
       // Also invalidate conversations list and unread count
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['unreadCount'] });

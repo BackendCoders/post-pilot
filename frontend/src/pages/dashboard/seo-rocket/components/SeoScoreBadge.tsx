@@ -50,7 +50,7 @@ export function SeoSectionScore({
 		<div className='flex items-center gap-2'>
 			<div className='w-full h-2 bg-muted rounded-full overflow-hidden'>
 				<div
-					className={`h-full rounded-full transition-all ${color}`}
+					className={`h-full rounded-full ${color}`}
 					style={{ width: `${percentage}%` }}
 				/>
 			</div>
