@@ -23,7 +23,7 @@ export default function LoginScreen() {
 	const navigation = useNavigate();
 
 	useEffect(() => {
-		if (data) navigation('/');
+		if (data) navigation('/dashboard/home');
 	}, [data, navigation]);
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
