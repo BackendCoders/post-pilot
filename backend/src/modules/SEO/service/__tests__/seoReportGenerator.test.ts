@@ -72,8 +72,9 @@ describe('generateSeoReport - Social Preview tags', () => {
       ])
     );
 
-    // 3 high + 4 medium => 100 - 60 - 40 = 0
-    expect(report.sections.meta.score).toBe(0);
+    // With checklist-based scoring, title/description still earn partial credit
+    // even when OG/Twitter tags are missing.
+    expect(report.sections.meta.score).toBeGreaterThan(0);
   });
 
   test('does not add social meta issues when OG/Twitter tags are present', () => {

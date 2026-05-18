@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ScrapedPageData, SeoReport } from '@/types/seo.types';
 import { SeoScoreBadge, SeoSectionScore } from './SeoScoreBadge';
 import SeoDetailView from './SeoDetailView';
@@ -80,22 +81,63 @@ export default function PageAnalysisCard({
 		);
 	}
 
-	const allIssues = report ? [
-		...report.sections.meta.issues.map(i => ({ ...i, section: 'meta' })),
-		...report.sections.headings.issues.map(i => ({ ...i, section: 'headings' })),
-		...report.sections.images.issues.map(i => ({ ...i, section: 'images' })),
-		...report.sections.content.issues.map(i => ({ ...i, section: 'content' })),
-		...report.sections.links.issues.map(i => ({ ...i, section: 'links' })),
-		...report.sections.technical.issues.map(i => ({ ...i, section: 'technical' })),
-		...(report.sections.performance?.issues || []).map(i => ({ ...i, section: 'performance' })),
-	] : [];
+	const allIssues = report
+		? [
+				...report.sections.meta.issues.map((i) => ({ ...i, section: 'meta' })),
+				...report.sections.headings.issues.map((i) => ({
+					...i,
+					section: 'headings',
+				})),
+				...report.sections.images.issues.map((i) => ({
+					...i,
+					section: 'images',
+				})),
+				...report.sections.content.issues.map((i) => ({
+					...i,
+					section: 'content',
+				})),
+				...report.sections.links.issues.map((i) => ({
+					...i,
+					section: 'links',
+				})),
+				...report.sections.technical.issues.map((i) => ({
+					...i,
+					section: 'technical',
+				})),
+				...(report.sections.performance?.issues || []).map((i) => ({
+					...i,
+					section: 'performance',
+				})),
+			]
+		: [];
 
-	const imagesWithoutAltCount = (page.images || []).filter((img) => !img.alt).length;
-	const openGraph = page.openGraph || { title: null, description: null, image: null };
-	const twitterCard = page.twitterCard || { card: null, title: null, description: null, image: null };
-	const isOgComplete = Boolean(openGraph.title && openGraph.description && openGraph.image);
+	const issuesWithSuggestions = allIssues.map((issue) => ({
+		...issue,
+		suggestion: getIssueSuggestion(issue),
+	}));
+
+	const imagesWithoutAltCount = (page.images || []).filter(
+		(img) => !img.alt,
+	).length;
+	const openGraph = page.openGraph || {
+		title: null,
+		description: null,
+		image: null,
+	};
+	const twitterCard = page.twitterCard || {
+		card: null,
+		title: null,
+		description: null,
+		image: null,
+	};
+	const isOgComplete = Boolean(
+		openGraph.title && openGraph.description && openGraph.image,
+	);
 	const isTwitterComplete = Boolean(
-		twitterCard.card && twitterCard.title && twitterCard.description && twitterCard.image,
+		twitterCard.card &&
+		twitterCard.title &&
+		twitterCard.description &&
+		twitterCard.image,
 	);
 	const missingOg: string[] = [
 		!openGraph.title ? 'og:title' : null,
@@ -110,7 +152,8 @@ export default function PageAnalysisCard({
 	].filter(Boolean) as string[];
 
 	const finalUrl = page.finalUrl || page.url;
-	const isHttps = typeof finalUrl === 'string' ? finalUrl.startsWith('https://') : false;
+	const isHttps =
+		typeof finalUrl === 'string' ? finalUrl.startsWith('https://') : false;
 	let isCleanUrl = true;
 	try {
 		const parsed = new URL(finalUrl);
@@ -119,7 +162,9 @@ export default function PageAnalysisCard({
 		const hasUnderscore = pathname.includes('_');
 		const allowParam = (key: string) => {
 			const lower = key.toLowerCase();
-			return lower.startsWith('utm_') || lower === 'gclid' || lower === 'fbclid';
+			return (
+				lower.startsWith('utm_') || lower === 'gclid' || lower === 'fbclid'
+			);
 		};
 		let hasDisallowedQueryParams = false;
 		for (const key of parsed.searchParams.keys()) {
@@ -129,7 +174,11 @@ export default function PageAnalysisCard({
 			}
 		}
 		const isPathTooLong = pathname.length > 80;
-		isCleanUrl = !hasUppercase && !hasUnderscore && !hasDisallowedQueryParams && !isPathTooLong;
+		isCleanUrl =
+			!hasUppercase &&
+			!hasUnderscore &&
+			!hasDisallowedQueryParams &&
+			!isPathTooLong;
 	} catch {
 		isCleanUrl = true;
 	}
@@ -147,16 +196,19 @@ export default function PageAnalysisCard({
 						</span>
 						{report && <SeoScoreBadge report={report} />}
 						<div className='min-w-0 flex-1'>
-							<a 
-								href={page.url} 
-								target="_blank" 
-								rel="noopener noreferrer"
-								className="group/link block min-w-0"
+							<a
+								href={page.url}
+								target='_blank'
+								rel='noopener noreferrer'
+								className='group/link block min-w-0'
 								onClick={(e) => e.stopPropagation()}
 							>
 								<h3 className='text-sm font-semibold tracking-tight text-foreground truncate group-hover/link:text-primary transition-colors flex items-center gap-1.5'>
 									{page.title || 'Untitled Page'}
-									<ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 transition-opacity" />
+									<ExternalLink
+										size={10}
+										className='opacity-0 group-hover/link:opacity-100 transition-opacity'
+									/>
 								</h3>
 								<p className='text-[11px] text-muted-foreground truncate font-mono opacity-70 mt-0.5 hover:opacity-100 transition-opacity'>
 									{page.url}
@@ -171,18 +223,22 @@ export default function PageAnalysisCard({
 								{ icon: FileText, value: page.wordCount },
 								{
 									icon: LinkIcon,
-									value: (page.internalLinkCount || 0) + (page.externalLinkCount || 0),
+									value:
+										(page.internalLinkCount || 0) +
+										(page.externalLinkCount || 0),
 								},
-								{ icon: ImageIcon, value: (page.images || []).length, error: imagesWithoutAltCount > 0 },
+								{
+									icon: ImageIcon,
+									value: (page.images || []).length,
+									error: imagesWithoutAltCount > 0,
+								},
 							].map((stat, i) => (
 								<div
 									key={i}
 									className='flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-transparent text-[10px] font-bold text-muted-foreground whitespace-nowrap hover:bg-muted transition-colors'
 								>
 									<stat.icon className='h-3 w-3 opacity-80' />
-									<span>
-										{stat.value}
-									</span>
+									<span>{stat.value}</span>
 									{stat.error && (
 										<span className='ml-0.5 text-[9px] font-bold text-destructive px-1 bg-destructive/10 rounded-sm'>
 											!
@@ -235,38 +291,73 @@ export default function PageAnalysisCard({
 								</div>
 							</div>
 
-							<div className='grid gap-1.5 max-h-64 overflow-y-auto pr-1'>
-								{allIssues.length === 0 ? (
-									<div className='flex items-center gap-2 px-2.5 py-2 rounded-lg border bg-emerald-500/5 border-emerald-500/10 text-emerald-700 text-[12px]'>
-										<CheckCircle className='h-3 w-3 shrink-0' />
-										<span className='font-medium'>No issues found</span>
-									</div>
-								) : (
-									allIssues.map((issue, i) => (
-										<div
-											key={i}
-											className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] ${
-												issue.severity === 'high'
-													? 'bg-red-50 border-red-200 text-red-700'
-													: issue.severity === 'medium'
-														? 'bg-yellow-50 border-yellow-200 text-yellow-700'
-														: issue.severity === 'low'
-															? 'bg-blue-50 border-blue-200 text-blue-700'
-															: 'bg-emerald-50 border-emerald-200 text-emerald-700'
-											}`}
-										>
-											{issue.severity === 'high' || issue.severity === 'medium' || issue.severity === 'low' ? (
-												<AlertCircle className='h-3 w-3 shrink-0 mt-0.5' />
-											) : (
-												<CheckCircle className='h-3 w-3 shrink-0 mt-0.5' />
-											)}
-											<span className='font-medium flex-1'>
-												{issue.message}
-											</span>
+							{allIssues.length === 0 ? (
+								<div className='flex items-center gap-2 px-2.5 py-2 rounded-lg border bg-emerald-500/5 border-emerald-500/10 text-emerald-700 text-[12px]'>
+									<CheckCircle className='h-3 w-3 shrink-0' />
+									<span className='font-medium'>No issues found</span>
+								</div>
+							) : (
+								<Tabs defaultValue='issues' className='w-full'>
+									<TabsList className='bg-muted/50 p-1 rounded-lg w-full grid grid-cols-2 h-9 mb-2'>
+										<TabsTrigger value='issues' className='text-[11px] font-semibold'>
+											Issues
+										</TabsTrigger>
+										<TabsTrigger value='suggestions' className='text-[11px] font-semibold'>
+											Suggestions
+										</TabsTrigger>
+									</TabsList>
+
+									<TabsContent value='issues' className='mt-0'>
+										<div className='grid gap-1.5 max-h-96 overflow-y-auto pr-1'>
+											{issuesWithSuggestions.map((issue, i) => (
+												<div
+													key={i}
+													className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] ${
+														issue.severity === 'high'
+															? 'bg-red-50 border-red-200 text-red-700'
+															: issue.severity === 'medium'
+																? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+																: issue.severity === 'low'
+																	? 'bg-blue-50 border-blue-200 text-blue-700'
+																	: 'bg-emerald-50 border-emerald-200 text-emerald-700'
+													}`}
+												>
+													{issue.severity === 'high' ||
+													issue.severity === 'medium' ||
+													issue.severity === 'low' ? (
+														<AlertCircle className='h-3 w-3 shrink-0 mt-0.5' />
+													) : (
+														<CheckCircle className='h-3 w-3 shrink-0 mt-0.5' />
+													)}
+													<span className='font-medium flex-1'>{issue.message}</span>
+												</div>
+											))}
 										</div>
-									))
-								)}
-							</div>
+									</TabsContent>
+
+									<TabsContent value='suggestions' className='mt-0'>
+										<div className='grid gap-1.5 max-h-96 overflow-y-auto pr-1'>
+											{issuesWithSuggestions.map((issue, i) => (
+												<div
+													key={i}
+													className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] ${
+														issue.severity === 'high'
+															? 'bg-red-50 border-red-200 text-red-700'
+															: issue.severity === 'medium'
+																? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+																: issue.severity === 'low'
+																	? 'bg-blue-50 border-blue-200 text-blue-700'
+																	: 'bg-emerald-50 border-emerald-200 text-emerald-700'
+													}`}
+												>
+													<Info className='h-3 w-3 shrink-0 mt-0.5 opacity-80' />
+													<span className='font-medium flex-1'>{issue.suggestion}</span>
+												</div>
+											))}
+										</div>
+									</TabsContent>
+								</Tabs>
+							)}
 						</div>
 
 						{/* SEO Attributes */}
@@ -362,16 +453,28 @@ export default function PageAnalysisCard({
 										</div>
 										<div className='space-y-1'>
 											<p className='text-[11px] text-muted-foreground'>
-												<span className='font-semibold text-foreground/80'>Title:</span>{' '}
-												{openGraph.title || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Title:
+												</span>{' '}
+												{openGraph.title || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											<p className='text-[11px] text-muted-foreground'>
-												<span className='font-semibold text-foreground/80'>Description:</span>{' '}
-												{openGraph.description || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Description:
+												</span>{' '}
+												{openGraph.description || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											<p className='text-[11px] text-muted-foreground break-all'>
-												<span className='font-semibold text-foreground/80'>Image:</span>{' '}
-												{openGraph.image || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Image:
+												</span>{' '}
+												{openGraph.image || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											{openGraph.image && (
 												<img
@@ -385,7 +488,10 @@ export default function PageAnalysisCard({
 										</div>
 										{missingOg.length > 0 && (
 											<p className='text-[11px] text-muted-foreground'>
-												Missing: <span className='font-mono'>{missingOg.join(', ')}</span>
+												Missing:{' '}
+												<span className='font-mono'>
+													{missingOg.join(', ')}
+												</span>
 											</p>
 										)}
 									</div>
@@ -396,20 +502,36 @@ export default function PageAnalysisCard({
 										</div>
 										<div className='space-y-1'>
 											<p className='text-[11px] text-muted-foreground'>
-												<span className='font-semibold text-foreground/80'>Card:</span>{' '}
-												{twitterCard.card || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Card:
+												</span>{' '}
+												{twitterCard.card || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											<p className='text-[11px] text-muted-foreground'>
-												<span className='font-semibold text-foreground/80'>Title:</span>{' '}
-												{twitterCard.title || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Title:
+												</span>{' '}
+												{twitterCard.title || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											<p className='text-[11px] text-muted-foreground'>
-												<span className='font-semibold text-foreground/80'>Description:</span>{' '}
-												{twitterCard.description || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Description:
+												</span>{' '}
+												{twitterCard.description || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											<p className='text-[11px] text-muted-foreground break-all'>
-												<span className='font-semibold text-foreground/80'>Image:</span>{' '}
-												{twitterCard.image || <span className='italic opacity-60'>Missing</span>}
+												<span className='font-semibold text-foreground/80'>
+													Image:
+												</span>{' '}
+												{twitterCard.image || (
+													<span className='italic opacity-60'>Missing</span>
+												)}
 											</p>
 											{twitterCard.image && (
 												<img
@@ -423,7 +545,10 @@ export default function PageAnalysisCard({
 										</div>
 										{missingTwitter.length > 0 && (
 											<p className='text-[11px] text-muted-foreground'>
-												Missing: <span className='font-mono'>{missingTwitter.join(', ')}</span>
+												Missing:{' '}
+												<span className='font-mono'>
+													{missingTwitter.join(', ')}
+												</span>
 											</p>
 										)}
 									</div>
@@ -432,7 +557,9 @@ export default function PageAnalysisCard({
 								{(missingOg.length > 0 || missingTwitter.length > 0) && (
 									<div className='mt-3 rounded-md border border-border/60 bg-background/50 p-2'>
 										<p className='text-[11px] text-muted-foreground leading-relaxed'>
-											Fix: add the missing meta tags in your page <span className='font-mono'>&lt;head&gt;</span> so previews render correctly when shared.
+											Fix: add the missing meta tags in your page{' '}
+											<span className='font-mono'>&lt;head&gt;</span> so
+											previews render correctly when shared.
 										</p>
 									</div>
 								)}
@@ -515,7 +642,7 @@ export default function PageAnalysisCard({
 							</div>
 						</div>
 
-								{/* SEO Report Sections */}
+						{/* SEO Report Sections */}
 						{report && (
 							<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>
 								<div className='flex items-center gap-2 mb-3'>
@@ -526,28 +653,70 @@ export default function PageAnalysisCard({
 								</div>
 								<div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
 									{[
-										{ label: 'Meta', section: report.sections.meta, type: 'meta' },
-										{ label: 'Headings', section: report.sections.headings, type: 'headings' },
-										{ label: 'Images', section: report.sections.images, type: 'images' },
-										{ label: 'Content', section: report.sections.content, type: 'content' },
-										{ label: 'Links', section: report.sections.links, type: 'links' },
-										{ label: 'Technical', section: report.sections.technical, type: 'technical' },
-										...(report.sections.performance ? [{ label: 'Performance', section: report.sections.performance, type: 'performance' }] : []),
+										{
+											label: 'Meta',
+											section: report.sections.meta,
+											type: 'meta',
+										},
+										{
+											label: 'Headings',
+											section: report.sections.headings,
+											type: 'headings',
+										},
+										{
+											label: 'Images',
+											section: report.sections.images,
+											type: 'images',
+										},
+										{
+											label: 'Content',
+											section: report.sections.content,
+											type: 'content',
+										},
+										{
+											label: 'Links',
+											section: report.sections.links,
+											type: 'links',
+										},
+										{
+											label: 'Technical',
+											section: report.sections.technical,
+											type: 'technical',
+										},
+										...(report.sections.performance
+											? [
+													{
+														label: 'Performance',
+														section: report.sections.performance,
+														type: 'performance',
+													},
+												]
+											: []),
 									].map(({ label, section, type }) => {
 										const currentScore = section.score;
 										const visibleIssues = section.issues;
-										
+
 										return (
-											<div key={label} className='rounded-lg border border-border/60 bg-muted/10 p-2.5 flex flex-col'>
+											<div
+												key={label}
+												className='rounded-lg border border-border/60 bg-muted/10 p-2.5 flex flex-col'
+											>
 												<div className='flex items-center justify-between mb-2'>
 													<span className='text-[10px] font-bold uppercase flex items-center gap-1'>
-														{label === 'Performance' && <Zap className='h-3 w-3' />}
+														{label === 'Performance' && (
+															<Zap className='h-3 w-3' />
+														)}
 														{label}
 													</span>
-													<span className={`text-[10px] font-bold ${
-														currentScore >= 80 ? 'text-emerald-600' :
-														currentScore >= 60 ? 'text-yellow-600' : 'text-red-600'
-													}`}>
+													<span
+														className={`text-[10px] font-bold ${
+															currentScore >= 80
+																? 'text-emerald-600'
+																: currentScore >= 60
+																	? 'text-yellow-600'
+																	: 'text-red-600'
+														}`}
+													>
 														{currentScore}
 													</span>
 												</div>
@@ -555,7 +724,10 @@ export default function PageAnalysisCard({
 												{visibleIssues.length > 0 && (
 													<div className='mt-2 space-y-1 flex-1'>
 														{visibleIssues.slice(0, 1).map((issue, i) => (
-															<div key={i} className='text-[9px] text-muted-foreground truncate'>
+															<div
+																key={i}
+																className='text-[9px] text-muted-foreground truncate'
+															>
 																• {issue.message}
 															</div>
 														))}
@@ -567,56 +739,114 @@ export default function PageAnalysisCard({
 													className='mt-2 h-6 text-[9px] font-bold uppercase rounded-md bg-background'
 													onClick={(e) => {
 														e.stopPropagation();
-														
+
 														// Enrich details from the main page object for consistent display
-														const enrichedDetails = { ...(section.details || {}) };
-														
+														const enrichedDetails = {
+															...(section.details || {}),
+														};
+
 														if (type === 'meta') {
-															enrichedDetails.title = enrichedDetails.title || page.title;
-															enrichedDetails.metaDescription = enrichedDetails.metaDescription || page.metaDescription;
-															enrichedDetails.metaKeywords = enrichedDetails.metaKeywords || page.metaKeywords;
-															enrichedDetails.url = enrichedDetails.url || page.url;
-															enrichedDetails.robotsMeta = enrichedDetails.robotsMeta || page.robotsMeta;
+															enrichedDetails.title =
+																enrichedDetails.title || page.title;
+															enrichedDetails.metaDescription =
+																enrichedDetails.metaDescription ||
+																page.metaDescription;
+															enrichedDetails.metaKeywords =
+																enrichedDetails.metaKeywords ||
+																page.metaKeywords;
+															enrichedDetails.url =
+																enrichedDetails.url || page.url;
+															enrichedDetails.robotsMeta =
+																enrichedDetails.robotsMeta || page.robotsMeta;
 														} else if (type === 'headings') {
 															if (!Array.isArray(enrichedDetails.headings)) {
 																const hArray: any[] = [];
-																const sourceHeadings = (enrichedDetails.headings && typeof enrichedDetails.headings === 'object' && !Array.isArray(enrichedDetails.headings)) 
-																	? enrichedDetails.headings 
-																	: page.headings;
-																
+																const sourceHeadings =
+																	enrichedDetails.headings &&
+																	typeof enrichedDetails.headings ===
+																		'object' &&
+																	!Array.isArray(enrichedDetails.headings)
+																		? enrichedDetails.headings
+																		: page.headings;
+
 																if (sourceHeadings) {
-																	Object.entries(sourceHeadings).forEach(([tag, texts]) => {
-																		if (Array.isArray(texts)) {
-																			texts.forEach(text => hArray.push({ type: tag, text }));
-																		}
-																	});
+																	Object.entries(sourceHeadings).forEach(
+																		([tag, texts]) => {
+																			if (Array.isArray(texts)) {
+																				texts.forEach((text) =>
+																					hArray.push({ type: tag, text }),
+																				);
+																			}
+																		},
+																	);
 																}
 																enrichedDetails.headings = hArray;
 															}
 														} else if (type === 'links') {
 															const allLinks = page.links || [];
-															enrichedDetails.allLinks = enrichedDetails.allLinks || allLinks;
-															enrichedDetails.internalLinks = enrichedDetails.internalLinks || allLinks.filter((l: any) => l.isInternal);
-															enrichedDetails.externalLinks = enrichedDetails.externalLinks || allLinks.filter((l: any) => !l.isInternal);
-															enrichedDetails.brokenLinks = enrichedDetails.brokenLinks || allLinks.filter((l: any) => l.isBroken);
-															enrichedDetails.externalNoNofollow = enrichedDetails.externalNoNofollow || allLinks.filter((l: any) => !l.isInternal && !(l.rel || '').toLowerCase().includes('nofollow'));
-															const NON_DESCRIPTIVE = ['click here', 'here', 'read more', 'more', 'learn more', 'this', 'link', 'page'];
-															enrichedDetails.nonDescriptiveLinks = enrichedDetails.nonDescriptiveLinks || allLinks.filter((l: any) => l.isInternal && (!l.text || NON_DESCRIPTIVE.includes(l.text.toLowerCase().trim())));
+															enrichedDetails.allLinks =
+																enrichedDetails.allLinks || allLinks;
+															enrichedDetails.internalLinks =
+																enrichedDetails.internalLinks ||
+																allLinks.filter((l: any) => l.isInternal);
+															enrichedDetails.externalLinks =
+																enrichedDetails.externalLinks ||
+																allLinks.filter((l: any) => !l.isInternal);
+															enrichedDetails.brokenLinks =
+																enrichedDetails.brokenLinks ||
+																allLinks.filter((l: any) => l.isBroken);
+															enrichedDetails.externalNoNofollow =
+																enrichedDetails.externalNoNofollow ||
+																allLinks.filter(
+																	(l: any) =>
+																		!l.isInternal &&
+																		!(l.rel || '')
+																			.toLowerCase()
+																			.includes('nofollow'),
+																);
+															const NON_DESCRIPTIVE = [
+																'click here',
+																'here',
+																'read more',
+																'more',
+																'learn more',
+																'this',
+																'link',
+																'page',
+															];
+															enrichedDetails.nonDescriptiveLinks =
+																enrichedDetails.nonDescriptiveLinks ||
+																allLinks.filter(
+																	(l: any) =>
+																		l.isInternal &&
+																		(!l.text ||
+																			NON_DESCRIPTIVE.includes(
+																				l.text.toLowerCase().trim(),
+																			)),
+																);
 														} else if (type === 'technical') {
-															enrichedDetails.canonical = enrichedDetails.canonical || page.canonical;
-															enrichedDetails.robotsMeta = enrichedDetails.robotsMeta || page.robotsMeta;
-															enrichedDetails.redirectUrls = enrichedDetails.redirectUrls || page.redirectUrls;
-															enrichedDetails.redirectCount = enrichedDetails.redirectCount || page.redirectCount;
-															enrichedDetails.language = enrichedDetails.language || page.language;
+															enrichedDetails.canonical =
+																enrichedDetails.canonical || page.canonical;
+															enrichedDetails.robotsMeta =
+																enrichedDetails.robotsMeta || page.robotsMeta;
+															enrichedDetails.redirectUrls =
+																enrichedDetails.redirectUrls ||
+																page.redirectUrls;
+															enrichedDetails.redirectCount =
+																enrichedDetails.redirectCount ||
+																page.redirectCount;
+															enrichedDetails.language =
+																enrichedDetails.language || page.language;
 														} else if (type === 'content') {
-															enrichedDetails.wordCount = enrichedDetails.wordCount || page.wordCount;
+															enrichedDetails.wordCount =
+																enrichedDetails.wordCount || page.wordCount;
 														}
 
 														setActiveDetail({
 															type: type as any,
 															title: `${label} Audit`,
 															details: enrichedDetails,
-															issues: section.issues
+															issues: section.issues,
 														});
 													}}
 												>
@@ -630,122 +860,207 @@ export default function PageAnalysisCard({
 						)}
 
 						{/* Performance Metrics Details */}
-						{page.performanceMetrics && (page.performanceMetrics.fcp || page.performanceMetrics.overallPerformanceScore) && (
-							<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>
-								<div className='flex items-center gap-2 mb-3'>
-									<div className='h-3 w-0.5 bg-amber-500/60 rounded-full' />
-									<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
-										Performance Metrics
-									</h4>
-								</div>
-								<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-									<div className='space-y-2'>
-										<div className='text-[9px] font-bold text-primary flex items-center gap-1 mb-1 bg-primary/5 p-1 rounded-md w-fit'>
-											💻 DESKTOP
-										</div>
-										<div className='grid grid-cols-2 gap-2'>
-											<PerformanceMetricCard
-												label='Load Time'
-												value={page.performanceMetrics.desktop?.totalLoadTime ? `${Math.round(page.performanceMetrics.desktop.totalLoadTime)}ms` : '-'}
-												rating={page.performanceMetrics.desktop?.totalLoadTime && page.performanceMetrics.desktop.totalLoadTime <= 3000 ? 'good' : page.performanceMetrics.desktop?.totalLoadTime && page.performanceMetrics.desktop.totalLoadTime <= 5000 ? 'needs-improvement' : page.performanceMetrics.desktop?.totalLoadTime ? 'poor' : null}
-											/>
-											<PerformanceMetricCard
-												label='DNS Lookup'
-												value={page.performanceMetrics.desktop?.dns ? `${Math.round(page.performanceMetrics.desktop.dns)}ms` : '-'}
-												rating={null}
-											/>
-											<PerformanceMetricCard
-												label='TCP Connect'
-												value={page.performanceMetrics.desktop?.tcp ? `${Math.round(page.performanceMetrics.desktop.tcp)}ms` : '-'}
-												rating={null}
-											/>
-											<PerformanceMetricCard
-												label='First Byte'
-												value={page.performanceMetrics.desktop?.firstByte ? `${Math.round(page.performanceMetrics.desktop.firstByte)}ms` : '-'}
-												rating={null}
-											/>
-										</div>
-									</div>
-
-									<div className='space-y-2'>
-										<div className='text-[9px] font-bold text-indigo-600 flex items-center gap-1 mb-1 bg-indigo-50 p-1 rounded-md w-fit'>
-											📱 MOBILE
-										</div>
-										<div className='grid grid-cols-2 gap-2'>
-											<PerformanceMetricCard
-												label='Load Time'
-												value={page.performanceMetrics.mobile?.totalLoadTime ? `${Math.round(page.performanceMetrics.mobile.totalLoadTime)}ms` : '-'}
-												rating={page.performanceMetrics.mobile?.totalLoadTime && page.performanceMetrics.mobile.totalLoadTime <= 4000 ? 'good' : page.performanceMetrics.mobile?.totalLoadTime && page.performanceMetrics.mobile.totalLoadTime <= 7000 ? 'needs-improvement' : page.performanceMetrics.mobile?.totalLoadTime ? 'poor' : null}
-											/>
-											<PerformanceMetricCard
-												label='DNS Lookup'
-												value={page.performanceMetrics.mobile?.dns ? `${Math.round(page.performanceMetrics.mobile.dns)}ms` : '-'}
-												rating={null}
-											/>
-											<PerformanceMetricCard
-												label='TCP Connect'
-												value={page.performanceMetrics.mobile?.tcp ? `${Math.round(page.performanceMetrics.mobile.tcp)}ms` : '-'}
-												rating={null}
-											/>
-											<PerformanceMetricCard
-												label='First Byte'
-												value={page.performanceMetrics.mobile?.firstByte ? `${Math.round(page.performanceMetrics.mobile.firstByte)}ms` : '-'}
-												rating={null}
-											/>
-										</div>
-									</div>
-								</div>
-
-								{/* Web Vitals Section */}
-								<div className='mt-4 pt-4 border-t border-dashed border-border/60'>
+						{page.performanceMetrics &&
+							(page.performanceMetrics.fcp ||
+								page.performanceMetrics.overallPerformanceScore) && (
+								<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>
 									<div className='flex items-center gap-2 mb-3'>
-										<div className='h-3 w-0.5 bg-emerald-500/60 rounded-full' />
+										<div className='h-3 w-0.5 bg-amber-500/60 rounded-full' />
 										<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
-											Core Web Vitals (Google)
+											Performance Metrics
 										</h4>
 									</div>
-									<div className='grid grid-cols-2 md:grid-cols-4 gap-2'>
+									<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+										<div className='space-y-2'>
+											<div className='text-[9px] font-bold text-primary flex items-center gap-1 mb-1 bg-primary/5 p-1 rounded-md w-fit'>
+												💻 DESKTOP
+											</div>
+											<div className='grid grid-cols-2 gap-2'>
+												<PerformanceMetricCard
+													label='Load Time'
+													value={
+														page.performanceMetrics.desktop?.totalLoadTime
+															? `${Math.round(page.performanceMetrics.desktop.totalLoadTime)}ms`
+															: '-'
+													}
+													rating={
+														page.performanceMetrics.desktop?.totalLoadTime &&
+														page.performanceMetrics.desktop.totalLoadTime <=
+															3000
+															? 'good'
+															: page.performanceMetrics.desktop
+																		?.totalLoadTime &&
+																  page.performanceMetrics.desktop
+																		.totalLoadTime <= 5000
+																? 'needs-improvement'
+																: page.performanceMetrics.desktop?.totalLoadTime
+																	? 'poor'
+																	: null
+													}
+												/>
+												<PerformanceMetricCard
+													label='DNS Lookup'
+													value={
+														page.performanceMetrics.desktop?.dns
+															? `${Math.round(page.performanceMetrics.desktop.dns)}ms`
+															: '-'
+													}
+													rating={null}
+												/>
+												<PerformanceMetricCard
+													label='TCP Connect'
+													value={
+														page.performanceMetrics.desktop?.tcp
+															? `${Math.round(page.performanceMetrics.desktop.tcp)}ms`
+															: '-'
+													}
+													rating={null}
+												/>
+												<PerformanceMetricCard
+													label='First Byte'
+													value={
+														page.performanceMetrics.desktop?.firstByte
+															? `${Math.round(page.performanceMetrics.desktop.firstByte)}ms`
+															: '-'
+													}
+													rating={null}
+												/>
+											</div>
+										</div>
+
+										<div className='space-y-2'>
+											<div className='text-[9px] font-bold text-indigo-600 flex items-center gap-1 mb-1 bg-indigo-50 p-1 rounded-md w-fit'>
+												📱 MOBILE
+											</div>
+											<div className='grid grid-cols-2 gap-2'>
+												<PerformanceMetricCard
+													label='Load Time'
+													value={
+														page.performanceMetrics.mobile?.totalLoadTime
+															? `${Math.round(page.performanceMetrics.mobile.totalLoadTime)}ms`
+															: '-'
+													}
+													rating={
+														page.performanceMetrics.mobile?.totalLoadTime &&
+														page.performanceMetrics.mobile.totalLoadTime <= 4000
+															? 'good'
+															: page.performanceMetrics.mobile?.totalLoadTime &&
+																  page.performanceMetrics.mobile
+																		.totalLoadTime <= 7000
+																? 'needs-improvement'
+																: page.performanceMetrics.mobile?.totalLoadTime
+																	? 'poor'
+																	: null
+													}
+												/>
+												<PerformanceMetricCard
+													label='DNS Lookup'
+													value={
+														page.performanceMetrics.mobile?.dns
+															? `${Math.round(page.performanceMetrics.mobile.dns)}ms`
+															: '-'
+													}
+													rating={null}
+												/>
+												<PerformanceMetricCard
+													label='TCP Connect'
+													value={
+														page.performanceMetrics.mobile?.tcp
+															? `${Math.round(page.performanceMetrics.mobile.tcp)}ms`
+															: '-'
+													}
+													rating={null}
+												/>
+												<PerformanceMetricCard
+													label='First Byte'
+													value={
+														page.performanceMetrics.mobile?.firstByte
+															? `${Math.round(page.performanceMetrics.mobile.firstByte)}ms`
+															: '-'
+													}
+													rating={null}
+												/>
+											</div>
+										</div>
+									</div>
+
+									{/* Web Vitals Section */}
+									<div className='mt-4 pt-4 border-t border-dashed border-border/60'>
+										<div className='flex items-center gap-2 mb-3'>
+											<div className='h-3 w-0.5 bg-emerald-500/60 rounded-full' />
+											<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
+												Core Web Vitals (Google)
+											</h4>
+										</div>
+										<div className='grid grid-cols-2 md:grid-cols-4 gap-2'>
+											<PerformanceMetricCard
+												label='First Contentful Paint'
+												value={
+													page.performanceMetrics.fcp
+														? `${(page.performanceMetrics.fcp / 1000).toFixed(1)}s`
+														: '-'
+												}
+												rating={page.performanceMetrics.fcpRating}
+											/>
+											<PerformanceMetricCard
+												label='Largest Contentful Paint'
+												value={
+													page.performanceMetrics.lcp
+														? `${(page.performanceMetrics.lcp / 1000).toFixed(1)}s`
+														: '-'
+												}
+												rating={page.performanceMetrics.lcpRating}
+											/>
+											<PerformanceMetricCard
+												label='Total Blocking Time'
+												value={
+													page.performanceMetrics.tbt
+														? `${Math.round(page.performanceMetrics.tbt)}ms`
+														: '-'
+												}
+												rating={page.performanceMetrics.tbtRating}
+											/>
+											<PerformanceMetricCard
+												label='Layout Shift (CLS)'
+												value={
+													page.performanceMetrics.cls !== null
+														? page.performanceMetrics.cls.toFixed(3)
+														: '-'
+												}
+												rating={page.performanceMetrics.clsRating}
+											/>
+										</div>
+									</div>
+									<div className='mt-4 grid grid-cols-2 gap-2'>
 										<PerformanceMetricCard
-											label='First Contentful Paint'
-											value={page.performanceMetrics.fcp ? `${(page.performanceMetrics.fcp / 1000).toFixed(1)}s` : '-'}
-											rating={page.performanceMetrics.fcpRating}
+											label='Page Size'
+											value={page.performanceMetrics.pageSizeFormatted || '-'}
+											rating={
+												page.performanceMetrics.pageSize &&
+												page.performanceMetrics.pageSize <= 2_000_000
+													? 'good'
+													: page.performanceMetrics.pageSize &&
+														  page.performanceMetrics.pageSize <= 5_000_000
+														? 'needs-improvement'
+														: page.performanceMetrics.pageSize
+															? 'poor'
+															: null
+											}
 										/>
 										<PerformanceMetricCard
-											label='Largest Contentful Paint'
-											value={page.performanceMetrics.lcp ? `${(page.performanceMetrics.lcp / 1000).toFixed(1)}s` : '-'}
-											rating={page.performanceMetrics.lcpRating}
-										/>
-										<PerformanceMetricCard
-											label='Total Blocking Time'
-											value={page.performanceMetrics.tbt ? `${Math.round(page.performanceMetrics.tbt)}ms` : '-'}
-											rating={page.performanceMetrics.tbtRating}
-										/>
-										<PerformanceMetricCard
-											label='Layout Shift (CLS)'
-											value={page.performanceMetrics.cls !== null ? page.performanceMetrics.cls.toFixed(3) : '-'}
-											rating={page.performanceMetrics.clsRating}
+											label='Resource Count'
+											value={`${(page.scripts?.length || 0) + (page.stylesheets?.length || 0)} files`}
+											rating={null}
 										/>
 									</div>
+									<div className='mt-2 text-[9px] text-muted-foreground/60 italic'>
+										Note: Core Web Vitals are fetched in real-time from the
+										Google PageSpeed Insights API.
+									</div>
 								</div>
-								<div className='mt-4 grid grid-cols-2 gap-2'>
-									<PerformanceMetricCard
-										label='Page Size'
-										value={page.performanceMetrics.pageSizeFormatted || '-'}
-										rating={page.performanceMetrics.pageSize && page.performanceMetrics.pageSize <= 2_000_000 ? 'good' : page.performanceMetrics.pageSize && page.performanceMetrics.pageSize <= 5_000_000 ? 'needs-improvement' : page.performanceMetrics.pageSize ? 'poor' : null}
-									/>
-									<PerformanceMetricCard
-										label='Resource Count'
-										value={`${(page.scripts?.length || 0) + (page.stylesheets?.length || 0)} files`}
-										rating={null}
-									/>
-								</div>
-								<div className='mt-2 text-[9px] text-muted-foreground/60 italic'>
-									Note: Core Web Vitals are fetched in real-time from the Google PageSpeed Insights API.
-								</div>
-							</div>
-						)}
+							)}
 					</div>
-					
+
 					{activeDetail && (
 						<SeoDetailView
 							isOpen={!!activeDetail}
@@ -768,24 +1083,88 @@ interface PerformanceMetricCardProps {
 	rating?: 'good' | 'needs-improvement' | 'poor' | null;
 }
 
-function PerformanceMetricCard({ label, value, rating }: PerformanceMetricCardProps) {
-	const bgColor = rating === 'good' ? 'bg-emerald-500/5 border-emerald-500/20' :
-					rating === 'needs-improvement' ? 'bg-yellow-500/5 border-yellow-500/20' :
-					rating === 'poor' ? 'bg-red-500/5 border-red-500/20' :
-					'bg-muted/10 border-border/40';
-	const textColor = rating === 'good' ? 'text-emerald-600' :
-					rating === 'needs-improvement' ? 'text-yellow-600' :
-					rating === 'poor' ? 'text-red-600' :
-					'text-muted-foreground';
+function PerformanceMetricCard({
+	label,
+	value,
+	rating,
+}: PerformanceMetricCardProps) {
+	const bgColor =
+		rating === 'good'
+			? 'bg-emerald-500/5 border-emerald-500/20'
+			: rating === 'needs-improvement'
+				? 'bg-yellow-500/5 border-yellow-500/20'
+				: rating === 'poor'
+					? 'bg-red-500/5 border-red-500/20'
+					: 'bg-muted/10 border-border/40';
+	const textColor =
+		rating === 'good'
+			? 'text-emerald-600'
+			: rating === 'needs-improvement'
+				? 'text-yellow-600'
+				: rating === 'poor'
+					? 'text-red-600'
+					: 'text-muted-foreground';
 
 	return (
 		<div className={`rounded-lg border p-2.5 ${bgColor}`}>
 			<div className='text-[9px] font-bold uppercase tracking-tight text-muted-foreground mb-1'>
 				{label}
 			</div>
-			<div className={`text-sm font-bold ${textColor}`}>
-				{value}
-			</div>
+			<div className={`text-sm font-bold ${textColor}`}>{value}</div>
 		</div>
 	);
+}
+
+function getIssueSuggestion(issue: {
+	message: string;
+	fix?: string;
+	currentValue?: string;
+	section?: string;
+}) {
+	const fix = typeof issue.fix === 'string' ? issue.fix.trim() : '';
+	if (fix) return fix;
+
+	const message = (issue.message || '').toLowerCase();
+
+	if (message.includes('meta title') || message.includes('title tag')) {
+		return 'Add a unique, descriptive <title> tag (about 50–60 characters) that includes your primary keyword.';
+	}
+
+	if (message.includes('meta description')) {
+		return 'Write a compelling meta description (about 120–160 characters) that summarizes the page and includes the primary keyword.';
+	}
+
+	if (message.includes('canonical')) {
+		return 'Add a canonical URL (<link rel="canonical" ...>) pointing to the preferred version of this page.';
+	}
+
+	if (message.includes('robots') && message.includes('noindex')) {
+		return 'Remove the noindex directive if this page should appear in search results (check <meta name="robots"> and X-Robots-Tag headers).';
+	}
+
+	if (message.includes('h1')) {
+		return 'Ensure exactly one clear, descriptive H1 that matches the page intent and includes the primary keyword.';
+	}
+
+	if (message.includes('alt') && (message.includes('image') || message.includes('images'))) {
+		return 'Add descriptive alt text for images (especially above-the-fold and meaningful images). Keep it natural and relevant.';
+	}
+
+	if (message.includes('broken link') || message.includes('broken links')) {
+		return 'Fix or remove broken links (update URLs, add redirects, or replace with working resources).';
+	}
+
+	if (message.includes('https') && (message.includes('not secure') || message.includes('insecure'))) {
+		return 'Serve the page over HTTPS and redirect HTTP → HTTPS using a 301 redirect.';
+	}
+
+	if (message.includes('schema') || message.includes('structured data')) {
+		return 'Add valid JSON-LD structured data for this page type (and fix any validation errors).';
+	}
+
+	if (issue.section === 'performance') {
+		return 'Reduce page weight and improve Core Web Vitals: compress images, defer non-critical JS/CSS, and enable caching.';
+	}
+
+	return 'Follow SEO best practices for this issue: update the page content/markup to meet the audit requirement.';
 }

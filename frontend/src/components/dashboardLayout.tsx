@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { useAuth, useLogout } from '@/query/auth.query';
 import { useUnreadCount } from '@/query/leadMessage.query';
 import SupportModal from './SupportModal';
+import { useDarkMode } from '@/context/DarkModeContext';
 
 /**
  * M3 DESIGN SYSTEM COMPONENTS
@@ -122,7 +123,7 @@ const NAV_ITEMS = [
 
 export default function GoogleModernLayout() {
 	const location = useLocation();
-	const [isDark, setIsDark] = useState(false);
+	const { dark: isDark, toggle: toggleDark } = useDarkMode();
 	const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 	const [openMenus, setOpenMenus] = useState<string[]>([
 		'seo-rocket',
@@ -436,7 +437,7 @@ export default function GoogleModernLayout() {
 							<Button
 								variant='ghost'
 								size='icon'
-								onClick={() => setIsDark(!isDark)}
+								onClick={toggleDark}
 								className='rounded-full'
 							>
 								{isDark ? <Sun size={20} /> : <Moon size={20} />}

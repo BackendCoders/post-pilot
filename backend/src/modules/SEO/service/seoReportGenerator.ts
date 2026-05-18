@@ -120,6 +120,39 @@ export const generateSeoReport = (data: ScrapedPageData): ISeoReport => {
 		});
 	}
 
+	// Meta score (checklist-based) so "present but imperfect" doesn't drop to 0.
+	(() => {
+		let earned = 0;
+		let possible = 0;
+
+		const addCheck = (points: number, ok: boolean) => {
+			possible += points;
+			if (ok) earned += points;
+		};
+
+		addCheck(20, Boolean(data.title));
+		addCheck(10, Boolean(data.title) && data.title.length <= 60);
+
+		addCheck(20, Boolean(data.metaDescription));
+		addCheck(
+			10,
+			Boolean(data.metaDescription) && data.metaDescription.length <= 160,
+		);
+
+		addCheck(10, Boolean(og.title));
+		addCheck(10, Boolean(og.description));
+		addCheck(10, Boolean(og.image));
+
+		addCheck(5, Boolean(tw.card));
+		addCheck(5, Boolean(tw.title));
+		addCheck(5, Boolean(tw.description));
+		addCheck(5, Boolean(tw.image));
+
+		sections.meta.maxScore = possible;
+		sections.meta.score =
+			possible > 0 ? Math.round((earned / possible) * 100) : 0;
+	})();
+
 	// --- 2. Headings Audit ---
 	const h1s = data.headings?.h1 || [];
 	if (h1s.length === 0) {
@@ -492,6 +525,8 @@ export const generateSeoReport = (data: ScrapedPageData): ISeoReport => {
 
 	// Score Calculation
 	Object.values(sections).forEach((section) => {
+		if (section === sections.meta) return;
+
 		const highIssues = section.issues.filter((i) => i.severity === 'high').length;
 		const medIssues = section.issues.filter((i) => i.severity === 'medium').length;
 		const lowIssues = section.issues.filter((i) => i.severity === 'low').length;

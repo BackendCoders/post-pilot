@@ -13,15 +13,26 @@ const DarkModeContext = createContext<DarkModeContextValue | undefined>(
 export const DarkModeProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
-	const [dark, setDark] = useState(false);
+	const [dark, setDark] = useState(() => {
+		const savedTheme = localStorage.getItem('theme');
+		if (savedTheme) {
+			return savedTheme === 'dark';
+		}
+		if (typeof window !== 'undefined') {
+			return window.matchMedia('(prefers-color-scheme: dark)').matches;
+		}
+		return false;
+	});
 
 	// whenever `dark` changes add/remove the `dark` class on the root element
 	useEffect(() => {
 		const root = document.documentElement;
 		if (dark) {
 			root.classList.add('dark');
+			localStorage.setItem('theme', 'dark');
 		} else {
 			root.classList.remove('dark');
+			localStorage.setItem('theme', 'light');
 		}
 	}, [dark]);
 
