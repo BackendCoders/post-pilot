@@ -7,6 +7,7 @@ import {
 	changePassword,
 	googleAuth,
 	completeWalkthrough,
+	getUsage,
 } from '@/service/auth.service';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
@@ -142,5 +143,13 @@ export const useCompleteWalkthrough = function () {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['auth'] });
 		},
+	});
+};
+
+export const useUsage = function () {
+	return useQuery({
+		queryKey: ['usage'],
+		queryFn: getUsage,
+		staleTime: 60 * 1000, // 1 minute stale time is very safe and prevents overfetching
 	});
 };

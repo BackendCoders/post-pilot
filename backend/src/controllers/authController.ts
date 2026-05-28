@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { JWTUtils } from '../utils/jwt';
 import { PasswordUtils } from '../utils/password';
 import User from '../models/User';
+import PricingModel from '../models/PricingModel';
 import { ILoginResponse, IApiResponse } from '../types/index';
 import { logger } from '../utils/logger';
 
@@ -48,11 +49,17 @@ export const register = asyncHandler(
       return;
     }
 
+    // Find lease plan (e.g. Basic) or fallback to default plan (e.g. Free)
+    const leasePlan = await PricingModel.findOne({ isLease: true });
+    const defaultPlan = await PricingModel.findOne({ isDefault: true });
+
     // Create new user
     const user = new User({
       email,
       password,
       userName,
+      pricingModel: leasePlan ? leasePlan._id : (defaultPlan ? defaultPlan._id : undefined),
+      leaseUntil: leasePlan ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : undefined,
     });
 
     await user.save();
@@ -280,7 +287,7 @@ export const logout = asyncHandler(
 
 export const getMe = asyncHandler(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const user = await User.findById((req as any).user!.userId);
+    const user = await User.findById((req as any).user!.userId).populate('pricingModel');
 
     if (!user) {
       res.status(404).json({
@@ -317,6 +324,8 @@ export const getMe = asyncHandler(
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         completedWalkthroughs: user.completedWalkthroughs || [],
+        pricingModel: user.pricingModel,
+        leaseUntil: user.leaseUntil,
       },
     };
 
@@ -433,6 +442,8 @@ export const googleAuth = asyncHandler(
     let user = await User.findOne({ email }).select('+password');
 
     if (!user) {
+      const leasePlan = await PricingModel.findOne({ isLease: true });
+      const defaultPlan = await PricingModel.findOne({ isDefault: true });
       user = new User({
         email,
         userName: displayName,
@@ -441,6 +452,8 @@ export const googleAuth = asyncHandler(
         provider: 'google',
         emailVerified: true,
         isActive: true,
+        pricingModel: leasePlan ? leasePlan._id : (defaultPlan ? defaultPlan._id : undefined),
+        leaseUntil: leasePlan ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : undefined,
       });
     } else {
       if (!user.googleId) {

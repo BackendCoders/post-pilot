@@ -8,6 +8,14 @@ export const connectDB = async (): Promise<void> => {
     console.log('connecting with the database');
     const conn = await mongoose.connect(mongoURI);
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
+    
+    // Seed pricing models
+    const { seedPricingModels } = require('../utils/planSeeder');
+    await seedPricingModels();
+
+    // Seed admin user
+    const { seedAdmin } = require('../utils/adminSeeder');
+    await seedAdmin();
 
     // Handle connection events
     mongoose.connection.on('error', (err) => {

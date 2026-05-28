@@ -28,6 +28,7 @@ interface AnalyzeInput {
   url: string;
   mode?: 'auto' | 'page' | 'site';
   fullSite?: boolean;
+  includePageSpeed?: boolean;
 }
 
 interface AnalyzeResult {
@@ -1239,7 +1240,9 @@ async function analyzeUrl(input: AnalyzeInput): Promise<AnalyzeResult> {
     };
   }
 
-  const pageData = await scrapeWebPage(normalizedUrl);
+  const pageData = await scrapeWebPage(normalizedUrl, {
+    includePageSpeed: input.includePageSpeed ?? true,
+  });
 
   return {
     mode: 'page',

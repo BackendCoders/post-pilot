@@ -58,13 +58,20 @@ export const sendSeoReportEmail = asyncHandler(
       return;
     }
 
+    const allResults = (analysis.results as any[])
+      .filter((r: any) => r.analysisData)
+      .map((r: any) => ({
+        ...r.analysisData,
+        analysisReport: r.analysisReport,
+      }));
+
     try {
       await mailService.sendSeoReport({
         to: recipient,
         userName: user.userName,
         pageUrl,
         report: reportData,
-        allResults: analysis.results as any[],
+        allResults,
       });
 
       res.json({

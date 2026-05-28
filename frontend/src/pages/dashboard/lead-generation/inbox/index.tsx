@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'react-router-dom';
 import { useSocket } from '@/context/SocketContext';
+import { useUsage } from '@/query/auth.query';
 import ReachDialog from '../components/ReachDialog';
 import LeadDetailsPanel from '../components/LeadDetailsPanel';
 
@@ -30,6 +31,9 @@ const LeadInbox = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
+  
+  const { data: usageData } = useUsage();
+  const hasPortalAccess = usageData?.limits?.leadGen?.messagePortalAccess !== false;
   
   const { isConnected } = useSocket();
   const { data: conversations, isLoading: isConversationsLoading } = useConversations();
@@ -91,7 +95,11 @@ const LeadInbox = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] bg-background/50 backdrop-blur-sm rounded-2xl border border-border overflow-hidden shadow-2xl">
+    <div className="relative w-full h-full">
+      <div className={cn(
+        "flex h-[calc(100vh-140px)] bg-background/50 backdrop-blur-sm rounded-2xl border border-border overflow-hidden shadow-2xl transition-all",
+        !hasPortalAccess && "filter blur-[6px] pointer-events-none select-none opacity-40"
+      )}>
       {/* Sidebar */}
       <div className={cn(
         "w-full md:w-80 border-r border-border flex flex-col bg-card/30 transition-all duration-300",
@@ -288,6 +296,25 @@ const LeadInbox = () => {
         onClose={() => setIsReachDialogOpen(false)}
         selectedLeads={selectedConversation ? [selectedConversation.leadInfo as Partial<ILead>] : []}
       />
+      </div>
+
+      {!hasPortalAccess && (
+        <div className='absolute inset-0 flex flex-col items-center justify-center bg-card/60 backdrop-blur-md transition-all duration-300 z-50 p-6 text-center rounded-2xl border border-border'>
+          <div className='p-4 bg-primary/10 rounded-2xl mb-4 text-primary shadow-inner border border-primary/20 animate-pulse'>
+            <MessageSquare className="h-8 w-8" />
+          </div>
+          <h2 className='text-xl font-bold tracking-tight text-foreground'>Message Portal Access</h2>
+          <p className='text-sm text-muted-foreground max-w-md mt-2 mb-6'>
+            The outbound message portal allows you to chat with potential leads in real-time. Upgrade to Premium to unlock full access to the portal!
+          </p>
+          <Button
+            onClick={() => window.open('/pricing', '_blank')}
+            className='rounded-xl shadow-lg shadow-primary/25 bg-primary hover:bg-primary/95 font-semibold px-6 py-2.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200'
+          >
+            Buy Premium Subscription
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

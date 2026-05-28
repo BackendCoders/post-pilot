@@ -23,6 +23,8 @@ import {
 } from '@/query/leads.query';
 import { useGetLeadCategory, useUpdateLeadCategory } from '@/query/leadsCategory.query';
 import { useUnreadCount } from '@/query/leadMessage.query';
+import { useUsage } from '@/query/auth.query';
+import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import LeadWorkspaceToggle from './LeadWorkspaceToggle';
@@ -38,6 +40,7 @@ import ManageCategoriesDialog from './ManageCategoriesDialog';
 export type LeadPanelSection = 'saved' | 'processed' | 'converted' | 'rejected';
 
 export default function LeadPanel({ section }: { section: LeadPanelSection }) {
+	const { data: usageData } = useUsage();
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
@@ -59,6 +62,7 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 	const [isReachDialogOpen, setIsReachDialogOpen] = useState(false);
 	const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
 	const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+	const [hasDefaultedCategory, setHasDefaultedCategory] = useState(false);
 
 	const { data: categoriesResponse, isLoading: isLoadingCategories } =
 		useGetLeadCategory();
@@ -102,6 +106,20 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 			setStatusFilter('all');
 		}
 	}, [searchParams]);
+
+	// Automatically default to the first category if no category query param is present on mount
+	useEffect(() => {
+		if (isLoadingCategories || categories.length === 0) return;
+		if (!hasDefaultedCategory) {
+			const urlCategory = searchParams.get('category');
+			if (!urlCategory) {
+				const firstCatId = categories[0]._id;
+				setSelectedCategoryId(firstCatId);
+				updateCategoryInUrl(firstCatId);
+			}
+			setHasDefaultedCategory(true);
+		}
+	}, [categories, isLoadingCategories, searchParams, hasDefaultedCategory]);
 
 	const leadsByCategory = useMemo(() => {
 		const map = new Map<string, ILead[]>();
@@ -346,6 +364,10 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 	};
 
 	const handleExportCsv = () => {
+		if (usageData?.limits?.leadGen && !usageData.limits.leadGen.reportExportFeature) {
+			toast.error("Your plan does not support report exports. Please upgrade to a premium subscription.");
+			return;
+		}
 		const leadsToExport = filteredLeads.filter((lead) =>
 			lead._id ? selectedLeadIds.has(lead._id) : false,
 		);
@@ -395,6 +417,10 @@ export default function LeadPanel({ section }: { section: LeadPanelSection }) {
 	};
 
 	const handleExportVisibleCsv = () => {
+		if (usageData?.limits?.leadGen && !usageData.limits.leadGen.reportExportFeature) {
+			toast.error("Your plan does not support report exports. Please upgrade to a premium subscription.");
+			return;
+		}
 		const leadsToExport = statusFilteredLeads.filter((lead) =>
 			lead._id ? selectedLeadIds.has(lead._id) : false,
 		);

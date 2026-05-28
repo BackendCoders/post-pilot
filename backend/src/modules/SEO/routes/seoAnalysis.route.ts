@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../../../middleware';
 import {
+  checkSeoHistoryLimit,
+  checkSeoDownloadReportLimit,
+} from '../../../middleware/usageTracker';
+import {
   saveAnalysis,
   updatePageAnalysis,
   getAnalysisHistory,
@@ -19,7 +23,7 @@ const router = Router();
 
 router.use(authenticate);
 
-router.post('/', saveAnalysis);
+router.post('/', checkSeoHistoryLimit, saveAnalysis);
 router.post('/page', updatePageAnalysis);
 router.get('/history', getAnalysisHistory);
 router.get('/history/deleted', getDeletedAnalyses);
@@ -30,6 +34,7 @@ router.get('/:id', getAnalysisById);
 router.delete('/:id', softDeleteAnalysis);
 router.post('/:id/restore', restoreAnalysis);
 router.delete('/:id/permanent', hardDeleteAnalysis);
-router.post('/:id/email', sendEmailReport);
+router.post('/:id/email', checkSeoDownloadReportLimit, sendEmailReport);
 
 export default router;
+

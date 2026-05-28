@@ -521,7 +521,22 @@ export const getGoogleMapScrappedData = asyncHandler(
     });
 
     if (response.status === 200) {
-      res.status(200).json(response.data.places);
+      let places = response.data.places || [];
+      const plan = (req as any).userPlan;
+      if (plan && plan.metrics && plan.metrics.totalLeadInOneExecutionLimit) {
+        const limit = plan.metrics.totalLeadInOneExecutionLimit;
+        if (places.length > limit) {
+          places = places.slice(0, limit);
+        }
+      }
+
+      // Increment scrape page usage and log leads count
+      if (req.user && req.user.userId) {
+        const { incrementLeadGenScrape } = require('../../../middleware/usageTracker');
+        await incrementLeadGenScrape(req.user.userId, places.length);
+      }
+
+      res.status(200).json(places);
     }
   }
 );

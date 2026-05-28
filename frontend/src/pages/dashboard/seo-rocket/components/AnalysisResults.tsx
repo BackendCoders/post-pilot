@@ -19,6 +19,16 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import PageAnalysisCard from './PageAnalysisCard';
 import ShareViaWhatsApp from './ShareViaWhatsApp';
 import {
@@ -27,6 +37,7 @@ import {
 } from '@/utils/pdf.generator';
 import { useWhatsAppStatus } from '@/query/whatsapp.query';
 import { useSendEmailReport } from '@/query/seo-analysis.query';
+import { useUsage } from '@/query/auth.query';
 import type { ScrapedPageData, SeoReport } from '@/types/seo.types';
 
 interface AnalysisResultsProps {
@@ -52,6 +63,7 @@ export default function AnalysisResults({
 	jobStatus = 'idle',
 	jobProgress = 0,
 }: AnalysisResultsProps) {
+	const { data: usageData } = useUsage();
 	const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
 	const [reportData, setReportData] = useState<{
 		base64: string;
@@ -59,6 +71,13 @@ export default function AnalysisResults({
 	} | null>(null);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [visualProgress, setVisualProgress] = useState(jobProgress);
+	const [showEmailDialog, setShowEmailDialog] = useState(false);
+	const [emailInput, setEmailInput] = useState('');
+	const [emailError, setEmailError] = useState('');
+
+	const isValidEmail = (email: string) => {
+		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+	};
 
 	// Smart Progress Logic: Increment randomly while processing
 	useEffect(() => {
@@ -91,6 +110,12 @@ export default function AnalysisResults({
 	const { mutate: sendEmail, isPending: isSendingEmail } = useSendEmailReport();
 
 	const handleDownloadPdf = () => {
+		if (usageData?.limits?.seo && !usageData.limits.seo.downloadReport) {
+			toast.error("Your plan does not support downloading PDF reports. Please upgrade to a premium plan.", {
+				description: "Unlock beautiful PDF generation by upgrading.",
+			});
+			return;
+		}
 		generateSeoReport(results, reports);
 	};
 
@@ -101,14 +126,32 @@ export default function AnalysisResults({
 			});
 			return;
 		}
+		setEmailInput('');
+		setEmailError('');
+		setShowEmailDialog(true);
+	};
 
+	const handleSendEmail = () => {
+		const trimmed = emailInput.trim();
+		if (!trimmed) {
+			setEmailError('Email is required');
+			return;
+		}
+		if (!isValidEmail(trimmed)) {
+			setEmailError('Please enter a valid email address');
+			return;
+		}
+
+		setEmailError('');
 		sendEmail(
-			{ analysisId },
+			{ analysisId: analysisId!, targetEmail: trimmed },
 			{
 				onSuccess: () => {
 					toast.success('Report emailed successfully', {
-						description: 'The PDF report has been sent to your email address.',
+						description: `The PDF report has been sent to ${trimmed}.`,
 					});
+					setShowEmailDialog(false);
+					setEmailInput('');
 				},
 				onError: (error: any) => {
 					toast.error('Failed to send email', {
@@ -131,7 +174,7 @@ export default function AnalysisResults({
 							size='sm'
 							className='w-full'
 							onClick={() => {
-								window.open('/dashboard/profile?section=whatsapp', '_blank');
+								window.open('/dashboard/profile/whatsapp', '_blank');
 							}}
 						>
 							<ExternalLink className='h-3 w-3 mr-2' />
@@ -798,6 +841,101 @@ export default function AnalysisResults({
 					</div>
 				);
 			})()}
+
+			{/* Offpage & Backlinks Coming Soon */}
+			<div className='rounded-xl border border-dashed border-primary/30 bg-primary/[0.03] p-6 text-center'>
+				<div className='mx-auto flex max-w-md flex-col items-center gap-2'>
+					<div className='rounded-lg bg-primary/10 p-2.5'>
+						<LinkIcon className='h-5 w-5 text-primary' />
+					</div>
+					<h3 className='text-sm font-bold text-foreground'>
+						Off-Page & Backlinks Analysis
+					</h3>
+					<p className='text-xs text-muted-foreground'>
+						We're building something powerful. Off-page and backlink analysis
+						features are coming soon — stay tuned for updates.
+					</p>
+					<Badge
+						variant='secondary'
+						className='mt-1 rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider'
+					>
+						Coming Soon
+					</Badge>
+				</div>
+			</div>
+
+			{/* Email Report Dialog */}
+			<Dialog
+				open={showEmailDialog}
+				onOpenChange={(open) => {
+					if (!open) {
+						setShowEmailDialog(false);
+						setEmailError('');
+					}
+				}}
+			>
+				<DialogContent className='sm:max-w-md'>
+					<DialogHeader>
+						<DialogTitle className='flex items-center gap-2'>
+							<Mail className='h-5 w-5 text-primary' />
+							Email SEO Report
+						</DialogTitle>
+						<DialogDescription>
+							Enter the email address where you'd like to receive the PDF
+							report.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className='space-y-4 py-4'>
+						<div className='space-y-2'>
+							<Label htmlFor='email'>Email Address</Label>
+							<Input
+								id='email'
+								type='email'
+								placeholder='you@example.com'
+								value={emailInput}
+								onChange={(e) => {
+									setEmailInput(e.target.value);
+									if (emailError) setEmailError('');
+								}}
+								className={emailError ? 'border-destructive' : ''}
+							/>
+							{emailError && (
+								<p className='text-xs text-destructive'>{emailError}</p>
+							)}
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button
+							variant='outline'
+							onClick={() => {
+								setShowEmailDialog(false);
+								setEmailError('');
+							}}
+							disabled={isSendingEmail}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleSendEmail}
+							disabled={isSendingEmail}
+						>
+							{isSendingEmail ? (
+								<>
+									<Loader2 className='h-4 w-4 animate-spin mr-2' />
+									Sending...
+								</>
+							) : (
+								<>
+									<Mail className='h-4 w-4 mr-2' />
+									Send Report
+								</>
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			{reportData && (
 				<ShareViaWhatsApp

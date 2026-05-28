@@ -22,6 +22,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import RouteErrorPage from './pages/ErrorPage';
 
 import DashboardHome from './pages/dashboard';
+import AdminDashboard from './pages/dashboard/admin/AdminDashboard';
 import SavedLead from './pages/dashboard/lead-generation/savedLeads';
 import ProcessedLeads from './pages/dashboard/lead-generation/processedLeads';
 import ConvertedLeads from './pages/dashboard/lead-generation/convertedLeads';
@@ -121,6 +122,7 @@ const router = createBrowserRouter([
 						),
 					},
 					{ path: 'home', element: <DashboardHome /> },
+					{ path: 'admin', element: <AdminDashboard /> },
 					{
 						path: 'post-pilot',
 						children: [

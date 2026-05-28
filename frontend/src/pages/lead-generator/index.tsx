@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAuth, useCompleteWalkthrough } from '@/query/auth.query';
+import { useAuth, useCompleteWalkthrough, useUsage } from '@/query/auth.query';
 import Walkthrough from '@/components/Walkthrough';
 import {
 	useScrapMapData,
@@ -39,6 +39,7 @@ export default function LeadGeneratorPage() {
 	const [newCategoryDescription, setNewCategoryDescription] = useState('');
 
 	const { data: user } = useAuth();
+	const { data: usageData } = useUsage();
 	const { data: scrapedLeadsState } = useScrapedLeadsState();
 	const { setState: setScrapedLeadsState, resetState: resetScrapedLeadsState } =
 		useScrapedLeadsStateActions();
@@ -94,6 +95,11 @@ export default function LeadGeneratorPage() {
 
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault();
+		if (usageData?.limits?.leadGen && usageData.limits.leadGen.pageScrapesRemaining <= 0) {
+			toast.error("Your plan's page scrape limit has been reached. Please upgrade to run more scrapes.");
+			return;
+		}
+
 		const queryBusiness = business.trim();
 		const queryLocation = location.trim();
 
@@ -142,6 +148,10 @@ export default function LeadGeneratorPage() {
 	};
 
 	const handleLoadMore = () => {
+		if (usageData?.limits?.leadGen && usageData.limits.leadGen.pageScrapesRemaining <= 0) {
+			toast.error("Your plan's page scrape limit has been reached. Please upgrade to run more scrapes.");
+			return;
+		}
 		if (page >= 4 || avgLat === null || avgLng === null) return;
 
 		const nextPage = page + 1;
@@ -381,124 +391,193 @@ export default function LeadGeneratorPage() {
 							</div>
 
 							<div className='divide-y divide-border'>
-								{leads.map((lead, idx) => {
-									const isAlreadySaved = savedTitles.has(lead.title);
-									const isSelected = selectedIndices.has(idx) || isAlreadySaved;
-									return (
-										<div
-											key={idx}
-											className={cn(
-												'flex items-start gap-4 p-4 hover:bg-accent/20 transition-colors',
-												isSelected &&
-													!isAlreadySaved &&
-													'bg-primary/5 hover:bg-primary/10',
-												isAlreadySaved && 'opacity-50 grayscale bg-muted/30',
-											)}
-										>
-											<button
-												className={cn(
-													'mt-1 shrink-0 hover:text-foreground transition-colors',
-													isAlreadySaved
-														? 'cursor-not-allowed'
-														: 'text-muted-foreground',
-												)}
-												onClick={() => toggleSelection(idx, isAlreadySaved)}
-											>
-												{isSelected ? (
-													<CheckSquare
-														className={cn(
-															'w-5 h-5',
-															isAlreadySaved
-																? 'text-muted-foreground'
-																: 'text-primary',
-														)}
-													/>
-												) : (
-													<Square className='w-5 h-5' />
-												)}
-											</button>
-
-											{lead.thumbnailUrl && (
-												<img
-													src={lead.thumbnailUrl}
-													alt={lead.title}
-													referrerPolicy='no-referrer'
-													className='w-16 h-16 rounded-lg object-cover border border-border shrink-0 bg-muted hidden sm:block'
-												/>
-											)}
-
-											<div className='flex-1 min-w-0'>
-												<div className='flex justify-between items-start gap-4'>
-													<div>
+								{(() => {
+									const executionLimit = usageData?.limits?.leadGen?.totalLeadInOneExecutionLimit ?? Infinity;
+									return leads.map((lead, idx) => {
+										const isBlurred = idx >= executionLimit;
+										if (isBlurred) {
+											return (
+												<div
+													key={idx}
+													className='flex items-start gap-4 p-4 filter blur-[4px] pointer-events-none select-none opacity-40 relative'
+												>
+													<div className='mt-1 shrink-0 text-muted-foreground'>
+														<Square className='w-5 h-5' />
+													</div>
+													{lead.thumbnailUrl && (
+														<div className='w-16 h-16 rounded-lg border border-border shrink-0 bg-muted hidden sm:block' />
+													)}
+													<div className='flex-1 min-w-0 text-left'>
 														<h3 className='font-medium text-foreground text-base tracking-tight truncate'>
-															{lead.title}
+															••••••••••••••
 														</h3>
 														<div className='flex items-center gap-2 mt-1 text-xs text-muted-foreground'>
 															<span className='flex items-center gap-1 text-yellow-500 font-medium'>
 																<Star className='w-3.5 h-3.5 fill-current' />
-																{lead.rating}
+																4.5
 															</span>
-															<span>({lead.ratingCount} reviews)</span>
-															{lead.type && (
-																<>
-																	<span className='opacity-50'>&bull;</span>
-																	<span className='truncate'>{lead.type}</span>
-																</>
-															)}
-															{lead.priceLevel && (
-																<>
-																	<span className='opacity-50'>&bull;</span>
-																	<span>{lead.priceLevel}</span>
-																</>
-															)}
+															<span>(•• reviews)</span>
 														</div>
-													</div>
-
-													<div className='flex items-center gap-2 shrink-0'>
-														{lead.website && (
-															<a
-																href={lead.website}
-																target='_blank'
-																rel='noreferrer'
-																className='p-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors'
-																title='Visit Website'
-															>
-																<Globe className='w-4 h-4' />
-															</a>
-														)}
-														{lead.placeId && (
-															<a
-																href={`https://www.google.com/maps/place/?q=place_id:${lead.placeId}`}
-																target='_blank'
-																rel='noreferrer'
-																className='p-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors'
-																title='View on Google Maps'
-															>
-																<Navigation className='w-4 h-4' />
-															</a>
-														)}
+														<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-sm text-foreground/80'>
+															<div className='flex items-center gap-2'>
+																<MapPin className='w-4 h-4 text-muted-foreground shrink-0' />
+																<span>••••••••••••••••••••••••</span>
+															</div>
+															<div className='flex items-center gap-2'>
+																<Phone className='w-4 h-4 text-muted-foreground shrink-0' />
+																<span>••••••••••••</span>
+															</div>
+														</div>
 													</div>
 												</div>
+											);
+										}
 
-												<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-sm text-foreground/80'>
-													<div className='flex items-center gap-2'>
-														<MapPin className='w-4 h-4 text-muted-foreground shrink-0' />
-														<span className='truncate'>{lead.address}</span>
-													</div>
-													{lead.phoneNumber && (
-														<div className='flex items-center gap-2'>
-															<Phone className='w-4 h-4 text-muted-foreground shrink-0' />
-															<span>{lead.phoneNumber}</span>
-														</div>
+										const isAlreadySaved = savedTitles.has(lead.title);
+										const isSelected = selectedIndices.has(idx) || isAlreadySaved;
+										return (
+											<div
+												key={idx}
+												className={cn(
+													'flex items-start gap-4 p-4 hover:bg-accent/20 transition-colors',
+													isSelected &&
+														!isAlreadySaved &&
+														'bg-primary/5 hover:bg-primary/10',
+													isAlreadySaved && 'opacity-50 grayscale bg-muted/30',
+												)}
+											>
+												<button
+													className={cn(
+														'mt-1 shrink-0 hover:text-foreground transition-colors',
+														isAlreadySaved
+															? 'cursor-not-allowed'
+															: 'text-muted-foreground',
 													)}
+													onClick={() => toggleSelection(idx, isAlreadySaved)}
+												>
+													{isSelected ? (
+														<CheckSquare
+															className={cn(
+																'w-5 h-5',
+																isAlreadySaved
+																	? 'text-muted-foreground'
+																	: 'text-primary',
+															)}
+														/>
+													) : (
+														<Square className='w-5 h-5' />
+													)}
+												</button>
+
+												{lead.thumbnailUrl && (
+													<img
+														src={lead.thumbnailUrl}
+														alt={lead.title}
+														referrerPolicy='no-referrer'
+														className='w-16 h-16 rounded-lg object-cover border border-border shrink-0 bg-muted hidden sm:block'
+													/>
+												)}
+
+												<div className='flex-1 min-w-0'>
+													<div className='flex justify-between items-start gap-4'>
+														<div>
+															<h3 className='font-medium text-foreground text-base tracking-tight truncate text-left'>
+																{lead.title}
+															</h3>
+															<div className='flex items-center gap-2 mt-1 text-xs text-muted-foreground'>
+																<span className='flex items-center gap-1 text-yellow-500 font-medium'>
+																	<Star className='w-3.5 h-3.5 fill-current' />
+																	{lead.rating}
+																</span>
+																<span>({lead.ratingCount} reviews)</span>
+																{lead.type && (
+																	<>
+																		<span className='opacity-50'>&bull;</span>
+																		<span className='truncate'>{lead.type}</span>
+																	</>
+																)}
+																{lead.priceLevel && (
+																	<>
+																		<span className='opacity-50'>&bull;</span>
+																		<span>{lead.priceLevel}</span>
+																	</>
+																)}
+															</div>
+														</div>
+
+														<div className='flex items-center gap-2 shrink-0'>
+															{lead.website && (
+																<a
+																	href={lead.website}
+																	target='_blank'
+																	rel='noreferrer'
+																	className='p-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors'
+																	title='Visit Website'
+																>
+																	<Globe className='w-4 h-4' />
+																</a>
+															)}
+															{lead.placeId && (
+																<a
+																	href={`https://www.google.com/maps/place/?q=place_id:${lead.placeId}`}
+																	target='_blank'
+																	rel='noreferrer'
+																	className='p-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors'
+																	title='View on Google Maps'
+																>
+																	<Navigation className='w-4 h-4' />
+																</a>
+															)}
+														</div>
+													</div>
+
+													<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-sm text-foreground/80 text-left'>
+														<div className='flex items-center gap-2'>
+															<MapPin className='w-4 h-4 text-muted-foreground shrink-0' />
+															<span className='truncate'>{lead.address}</span>
+														</div>
+														{lead.phoneNumber && (
+															<div className='flex items-center gap-2'>
+																<Phone className='w-4 h-4 text-muted-foreground shrink-0' />
+																<span>{lead.phoneNumber}</span>
+															</div>
+														)}
+													</div>
 												</div>
 											</div>
-										</div>
-									);
-								})}
+										);
+									});
+								})()}
 							</div>
 
-							{leads.length > 0 && page < 4 && (
+							{(() => {
+								const executionLimit = usageData?.limits?.leadGen?.totalLeadInOneExecutionLimit ?? Infinity;
+								return leads.length > executionLimit && (
+									<div className='p-6 bg-gradient-to-r from-orange-500/5 via-orange-500/10 to-orange-500/5 border-t border-orange-500/20 text-center relative z-20'>
+										<div className='max-w-md mx-auto flex flex-col items-center justify-center space-y-3'>
+											<div className='p-3 bg-orange-500/10 rounded-full text-orange-500 shadow-inner border border-orange-500/20'>
+												<Building2 className='h-6 w-6' />
+											</div>
+											<h4 className='text-sm font-bold tracking-tight text-foreground'>
+												More Leads Discovered!
+											</h4>
+											<p className='text-xs text-muted-foreground'>
+												Your subscription plan limits you to {executionLimit} leads per execution. Buy a premium subscription to see and save all {leads.length} discovered leads!
+											</p>
+											<button
+												onClick={() => window.open('/pricing', '_blank')}
+												className='rounded-xl shadow-lg shadow-orange-500/25 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200'
+											>
+												Buy Premium Subscription
+											</button>
+										</div>
+									</div>
+								);
+							})()}
+
+							{(() => {
+								const executionLimit = usageData?.limits?.leadGen?.totalLeadInOneExecutionLimit ?? Infinity;
+								return leads.length > 0 && leads.length < executionLimit && page < 4 && (
 								<div className='flex justify-center p-6 border-t border-border bg-card/30'>
 									<button
 										onClick={handleLoadMore}
@@ -515,7 +594,8 @@ export default function LeadGeneratorPage() {
 										)}
 									</button>
 								</div>
-							)}
+								);
+							})()}
 						</div>
 					) : (
 						!isScraping && (

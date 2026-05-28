@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validateRequest, authenticate } from '../../middleware';
+import { checkSeoLimit, checkBulkSeoLimit } from '../../middleware/usageTracker';
 import {
   countSeoPages,
   scrapeSeoBulkUrls,
@@ -16,6 +17,7 @@ const scrapeSeoSchema = z.object({
     url: z.string().min(1, 'URL is required'),
     mode: z.enum(['auto', 'page', 'site']).optional(),
     fullSite: z.boolean().optional(),
+    includePageSpeed: z.boolean().optional(),
   }),
 });
 
@@ -33,13 +35,14 @@ const scrapeSeoBulkSchema = z.object({
   }),
 });
 
-router.post('/scrape', validateRequest(scrapeSeoSchema), scrapeSeoTarget);
+router.post('/scrape', authenticate, checkSeoLimit, validateRequest(scrapeSeoSchema), scrapeSeoTarget);
 router.post(
   '/count-pages',
+  authenticate,
   validateRequest(countSeoPagesSchema),
   countSeoPages
 );
-router.post('/bulk-scrape', authenticate, validateRequest(scrapeSeoBulkSchema), scrapeSeoBulkUrls);
+router.post('/bulk-scrape', authenticate, checkBulkSeoLimit, validateRequest(scrapeSeoBulkSchema), scrapeSeoBulkUrls);
 router.get('/job/:id', authenticate, getSeoJobStatus);
 
 router.use('/analysis', seoAnalysisRoutes);

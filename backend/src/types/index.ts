@@ -21,6 +21,8 @@ export interface IUser {
   language: 'en' | 'es' | 'fr' | 'de' | 'pt' | 'zh' | 'ja' | '';
   emailNotifications: boolean;
   subscriptionPlan: 'free' | 'pro' | 'enterprise';
+  pricingModel?: any;
+  leaseUntil?: Date;
   emailVerified: boolean;
   twoFactorEnabled: boolean;
   whatsappConnected: boolean;

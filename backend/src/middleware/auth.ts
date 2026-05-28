@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { JWTUtils } from '../utils/jwt';
 import { ITokenPayload, UserRole } from '../types/index';
 import User from '../models/User';
@@ -34,6 +35,14 @@ export const authenticate = async (
         error: 'User not found or inactive',
       });
       return;
+    }
+
+    // Auto-expiration of lease plan
+    if (user.leaseUntil && new Date() > user.leaseUntil) {
+      const defaultPlan = await mongoose.model('PricingModel').findOne({ isDefault: true });
+      user.pricingModel = defaultPlan ? defaultPlan._id : undefined;
+      user.leaseUntil = undefined;
+      await user.save();
     }
 
     next();

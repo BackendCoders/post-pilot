@@ -2,6 +2,7 @@ import NavBar from '@/components/navbar';
 import Footer from '@/components/footer';
 import { Check, Zap, Rocket, Shield, Globe, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 const plans = [
   {
@@ -124,7 +125,10 @@ const PricingPage = () => {
                     ))}
                  </ul>
 
-                 <button className={`w-full py-4 rounded-xl font-bold text-sm transition-all active:scale-[0.98] ${plan.popular ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:opacity-90' : 'bg-muted hover:bg-muted/80 text-foreground'}`}>
+                 <button 
+                    onClick={() => toast.info("This would be available soon", { description: "We are currently setting up our payment gateways. Thank you for your patience!" })}
+                    className={`w-full py-4 rounded-xl font-bold text-sm transition-all active:scale-[0.98] ${plan.popular ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:opacity-90' : 'bg-muted hover:bg-muted/80 text-foreground'}`}
+                 >
                     {plan.cta}
                  </button>
               </div>

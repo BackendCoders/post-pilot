@@ -54,9 +54,11 @@ const templateIdSchema = z.object({
     }),
 });
 
+import { checkTemplateLimit } from '../../../middleware/usageTracker';
+
 router.use(authenticate);
 
-router.post('/', validateRequest(createTemplateSchema), createMessageTemplate);
+router.post('/', checkTemplateLimit, validateRequest(createTemplateSchema), createMessageTemplate);
 router.get('/', validateRequest(listTemplatesSchema), listMessageTemplates);
 router.get('/:id', validateRequest(templateIdSchema), getMessageTemplate);
 router.patch('/:id', validateRequest(updateTemplateSchema), updateMessageTemplate);

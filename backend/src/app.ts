@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
 import { connectDB } from './config/database';
-import { errorHandler, notFound } from './middleware';
+import { errorHandler, notFound, authenticate, authorize } from './middleware';
 import { logger } from './utils/logger';
 
 // Import routes
@@ -19,6 +19,9 @@ import seoRoutes from './modules/SEO/route';
 import leadGenerationRoutes from './modules/LeadGeneration/route';
 import whatsappRoutes from './modules/WhatsApp';
 import supportRoutes from './routes/support';
+import adminRoutes from './routes/admin';
+import usageRoutes from './routes/usage';
+import { UserRole } from './types/index';
 import { whatsappService } from './modules/WhatsApp/service';
 import { socketService } from './services/socket.service';
 
@@ -108,6 +111,8 @@ app.use('/api/seo', seoRoutes);
 app.use('/api/leads', leadGenerationRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/usage', usageRoutes);
+app.use('/api/admin', authenticate, authorize(UserRole.ADMIN), adminRoutes);
 
 // 404 handler
 app.use(notFound);

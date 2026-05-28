@@ -15,9 +15,8 @@ import SitemapView from './components/SitemapView';
 import AnalysisResults from './components/AnalysisResults';
 import Walkthrough from '@/components/Walkthrough';
 import { useSeoAnalysis, useRescrape } from '@/query/seo.query';
-import { useCompleteWalkthrough, useAuth } from '@/query/auth.query';
+import { useCompleteWalkthrough, useAuth, useUsage } from '@/query/auth.query';
 import {
-	useSaveAnalysis,
 	useUpdatePageAnalysis,
 	useGetAnalysis,
 } from '@/query/seo-analysis.query';
@@ -29,7 +28,7 @@ import type {
 	SeoReport,
 } from '@/types/seo.types';
 
-type ViewType = 'input' | 'sitemap' | 'results' | 'single';
+type ViewType = 'input' | 'sitemap' | 'results';
 
 type RerunState = {
 	rerun?: {
@@ -42,24 +41,23 @@ type RerunState = {
 
 export default function SEORocketPage() {
 	const { data: user } = useAuth();
+	const { data: usageData } = useUsage();
 	const { mutate: completeWalkthrough } = useCompleteWalkthrough();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [searchParams] = useSearchParams();
 	const [rescrapingUrl, setRescrapingUrl] = useState<string | null>(null);
-	const [isScrapingSingle, setIsScrapingSingle] = useState(false);
 	const [currentResults, setCurrentResults] = useState<ScrapedPageData[]>([]);
 	const [currentReports, setCurrentReports] = useState<
 		Record<string, SeoReport>
 	>({});
 	const [resultsPage, setResultsPage] = useState(1);
-	const isScrapingSingleRef = useRef(false);
-	const urlParamRef = useRef<string | null>(null);
 	const rerunStartedRef = useRef<string | null>(null);
 
 	const currentView: ViewType = useMemo(() => {
 		const pathname = location.pathname;
-		if (pathname.includes('/single')) return 'single';
+		// `/single` is a legacy route; treat it exactly like `/results` so the UI is consistent.
+		if (pathname.includes('/single')) return 'results';
 		if (pathname.includes('/sitemap')) return 'sitemap';
 		if (pathname.includes('/results')) return 'results';
 		return 'input';
@@ -89,7 +87,6 @@ export default function SEORocketPage() {
 		lastAnalysisId,
 	} = useSeoAnalysis();
 
-	const { mutate: saveAnalysis } = useSaveAnalysis();
 	const { mutate: updatePageAnalysis } = useUpdatePageAnalysis();
 	const { data: savedAnalysis, isLoading: isLoadingAnalysis } = useGetAnalysis(
 		currentView === 'results' ? analysisIdParam : null,
@@ -107,19 +104,43 @@ export default function SEORocketPage() {
 		// Only auto-start reruns from the Results page so the user sees live progress.
 		if (currentView !== 'results') return;
 
+		// If limits are loaded and exhausted, cancel the rerun!
+		if (usageData?.limits?.seo && usageData.limits.seo.webpageAnalysisRemaining <= 0) {
+			toast.error("Your plan's SEO page analysis limit has been reached. Please upgrade to run more audits.");
+			navigate(location.pathname + location.search, { replace: true });
+			return;
+		}
+
 		rerunStartedRef.current = rerun.id;
 		reset();
 
-		const urls =
-			Array.isArray(rerun.analyzedUrls) && rerun.analyzedUrls.length > 0
-				? rerun.analyzedUrls
-				: [rerun.requestedUrl];
+		if (rerun.analysisType === 'single_page') {
+			seoService
+				.scrapeUrl(rerun.requestedUrl, 'page', false, false)
+				.then((res) => {
+					if (res.success && res.mode === 'page' && res.data) {
+						setCurrentResults([res.data as ScrapedPageData]);
+					} else {
+						toast.error(res.message || 'Failed to scrape page');
+						setCurrentResults([]);
+					}
+				})
+				.catch(() => {
+					toast.error('Failed to scrape page');
+					setCurrentResults([]);
+				});
+		} else {
+			const urls =
+				Array.isArray(rerun.analyzedUrls) && rerun.analyzedUrls.length > 0
+					? rerun.analyzedUrls
+					: [rerun.requestedUrl];
 
-		analyzeSelected(
-			urls,
-			rerun.requestedUrl,
-			rerun.analysisType === 'full_site',
-		);
+			analyzeSelected(
+				urls,
+				rerun.requestedUrl,
+				rerun.analysisType === 'full_site',
+			);
+		}
 
 		// Clear the navigation state so refresh/back won't re-trigger rerun.
 		navigate(location.pathname + location.search, { replace: true });
@@ -244,57 +265,20 @@ export default function SEORocketPage() {
 	}, [currentView, urlParam]);
 
 	useEffect(() => {
-		if (currentView !== 'single' || !urlParam || isScrapingSingleRef.current) {
-			return;
-		}
-
-		if (urlParamRef.current === urlParam && currentResults.length > 0) {
-			return;
-		}
-
-		urlParamRef.current = urlParam;
-		isScrapingSingleRef.current = true;
-		setIsScrapingSingle(true);
-		setCurrentResults([]);
-
-		seoService
-			.scrapeUrl(urlParam, 'page')
-			.then((res) => {
-				if (res.success && res.data) {
-					const pageData = res.data as ScrapedPageData;
-					setCurrentResults([pageData]);
-					saveAnalysis(
-						{
-							requestedUrl: urlParam,
-							analysisType: 'single_page',
-							analyzedUrls: [urlParam],
-							results: [pageData],
-						},
-						{
-							onSuccess: (data) => {
-								navigate(
-									`/dashboard/seo-rocket/results?id=${data.data.analysisId}`,
-								);
-							},
-						},
-					);
-				} else {
-					toast.error(res.message || 'Failed to scrape page');
-					setCurrentResults([]);
-				}
-			})
-			.catch(() => {
-				toast.error('Failed to scrape page');
-				setCurrentResults([]);
-			})
-			.finally(() => {
-				isScrapingSingleRef.current = false;
-				setIsScrapingSingle(false);
-			});
-	}, [currentView, urlParam]);
+		// If someone lands on `/single?url=...`, start a normal analysis run and show `/results` UI.
+		if (currentView !== 'results' || !location.pathname.includes('/single') || !urlParam) return;
+		navigate(`/dashboard/seo-rocket/results?url=${encodeURIComponent(urlParam)}`, { replace: true });
+		analyzeSelected([urlParam], urlParam, false);
+	}, [currentView, location.pathname, urlParam, navigate, analyzeSelected]);
 
 	const handleAnalyze = useCallback(
 		async (urls: string[]) => {
+			const webpageAnalysisRemaining = usageData?.limits?.seo?.webpageAnalysisRemaining ?? Infinity;
+			if (usageData?.limits?.seo && urls.length > webpageAnalysisRemaining) {
+				toast.error(`Your plan's SEO page analysis limit has been reached. You have only ${webpageAnalysisRemaining} pages remaining.`);
+				return;
+			}
+
 			const limitedUrls = urls.slice(0, 3);
 			setSelectedUrls(limitedUrls);
 
@@ -311,7 +295,7 @@ export default function SEORocketPage() {
 			navigate(`/dashboard/seo-rocket/results?url=${encodeURIComponent(requestedUrl)}`);
 			await analyzeSelected(limitedUrls, requestedUrl, isFullSite);
 		},
-		[urlParam, sitemap, analyzeSelected, setSelectedUrls],
+		[urlParam, sitemap, analyzeSelected, setSelectedUrls, usageData],
 	);
 
 	const handleRescrapeComplete = useCallback((updatedPage: ScrapedPageData) => {
@@ -332,16 +316,26 @@ export default function SEORocketPage() {
 
 	const handleRescrape = useCallback(
 		(url: string) => {
+			if (usageData?.limits?.seo && usageData.limits.seo.webpageAnalysisRemaining <= 0) {
+				toast.error("Your plan's SEO page analysis limit has been reached. Please upgrade to run more audits.");
+				return;
+			}
 			setRescrapingUrl(url);
 			rescrapeUrl(url);
 		},
-		[rescrapeUrl],
+		[rescrapeUrl, usageData],
 	);
 
-	const handleDiscover = (url: string, mode: SeoAnalysisMode) => {
+	const handleDiscover = async (url: string, mode: SeoAnalysisMode) => {
 		reset(); // Force clear everything for a fresh search
+		if (usageData?.limits?.seo && usageData.limits.seo.webpageAnalysisRemaining <= 0) {
+			toast.error("Your plan's SEO page analysis limit has been reached. Please upgrade to run more audits.");
+			return;
+		}
 		if (mode === 'page') {
-			navigate(`/dashboard/seo-rocket/single?url=${encodeURIComponent(url)}`);
+			// Run the exact same analysis UI/flow as multi-page runs (Results screen + job progress).
+			navigate(`/dashboard/seo-rocket/results?url=${encodeURIComponent(url)}`);
+			await analyzeSelected([url], url, false);
 		} else {
 			navigate(`/dashboard/seo-rocket/sitemap?url=${encodeURIComponent(url)}`);
 		}
@@ -401,63 +395,6 @@ export default function SEORocketPage() {
 								/>
 							</div>
 						)}
-
-						{currentView === 'single' && !urlParam && (
-							<div className='flex flex-col items-center justify-center py-16 px-4'>
-								<div className='p-3 bg-muted rounded-full mb-4'>
-									<Rocket className='h-6 w-6 text-muted-foreground' />
-								</div>
-								<p className='text-sm font-medium text-muted-foreground'>
-									Enter a URL to analyze the page
-								</p>
-							</div>
-						)}
-
-						{currentView === 'single' && isScrapingSingle && (
-							<div className='flex flex-col items-center justify-center py-16 px-4'>
-								<div className='p-3 bg-primary/10 rounded-full mb-4'>
-									<Loader2 className='h-6 w-6 text-primary animate-spin' />
-								</div>
-								<p className='text-sm font-medium text-muted-foreground'>
-									Analyzing page...
-								</p>
-							</div>
-						)}
-
-						{currentView === 'single' &&
-							!isScrapingSingle &&
-							currentResults.length === 0 && (
-								<div className='flex flex-col items-center justify-center py-16 px-4'>
-									<div className='p-3 bg-destructive/10 rounded-full mb-4'>
-										<AlertCircle className='h-6 w-6 text-destructive' />
-									</div>
-									<h3 className='text-base font-semibold mb-2'>
-										Failed to Analyze Page
-									</h3>
-									<p className='text-sm text-muted-foreground text-center max-w-md mb-6'>
-										We couldn't analyze the provided URL. Please check if the
-										URL is valid and accessible.
-									</p>
-									<button
-										onClick={handleGoBackToInput}
-										className='inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors'
-									>
-										<ArrowLeft className='h-4 w-4' />
-										Try Another URL
-									</button>
-								</div>
-							)}
-
-						{currentView === 'single' &&
-							!isScrapingSingle &&
-							currentResults.length > 0 && (
-								<AnalysisResults
-									results={currentResults}
-									onRescrape={handleRescrape}
-									rescrapingUrl={rescrapingUrl}
-									analysisId={analysisIdParam || savedAnalysis?._id}
-								/>
-							)}
 
 						{currentView === 'sitemap' && !urlParam && (
 							<div className='flex flex-col items-center justify-center py-16 px-4'>
@@ -560,15 +497,12 @@ export default function SEORocketPage() {
 
 					{(isFetchingSitemap ||
 						isAnalyzing ||
-						isScrapingSingle ||
 						(currentView === 'results' && isLoadingAnalysis)) && currentView !== 'results' && (
 						<div className='flex items-center justify-center py-8 animate-in fade-in slide-in-from-bottom-2'>
 							<div className='flex flex-col items-center gap-3'>
 								<Loader2 className='h-6 w-6 text-primary animate-spin' />
 								<p className='text-sm font-medium text-muted-foreground tracking-tight'>
-									{isScrapingSingle
-										? 'Analyzing page...'
-										: isFetchingSitemap
+									{isFetchingSitemap
 											? 'Discovering sitemap...'
 											: 'Starting analysis...'}
 								</p>

@@ -7,7 +7,12 @@ export const seoService = {
 		return response.data;
 	},
 
-	scrapeUrl: async (url: string, mode?: 'auto' | 'page' | 'site', fullSite?: boolean) => {
+	scrapeUrl: async (
+		url: string,
+		mode?: 'auto' | 'page' | 'site',
+		fullSite?: boolean,
+		includePageSpeed?: boolean,
+	) => {
 		const response = await api.post<{
 			success: boolean;
 			mode: 'page' | 'site';
@@ -19,6 +24,7 @@ export const seoService = {
 			url,
 			mode,
 			fullSite,
+			includePageSpeed,
 		});
 		return response.data;
 	},
@@ -49,14 +55,15 @@ export const seoService = {
 	},
 
 	rescrapeSingle: async (url: string) => {
+		// Fast path: skip PageSpeed/extra perf work and just re-scrape the page.
 		const response = await api.post<{
 			success: boolean;
-			requestedCount: number;
-			scrapedCount: number;
-			failedCount: number;
-			data: ScrapedPageData[];
+			mode: 'page' | 'site';
+			requestedUrl: string;
+			normalizedUrl: string;
+			data: ScrapedPageData | SiteScrapeResult;
 			message: string;
-		}>('/api/seo/bulk-scrape', { urls: [url] });
+		}>('/api/seo/scrape', { url, mode: 'page', includePageSpeed: false });
 		return response.data;
 	},
 

@@ -66,8 +66,8 @@ export const useRescrape = (
 	return useMutation({
 		mutationFn: (url: string) => seoService.rescrapeSingle(url),
 		onSuccess: (data) => {
-			if (data.data && data.data.length > 0) {
-				onSuccess?.(data.data[0]);
+			if (data.success && data.mode === 'page' && data.data) {
+				onSuccess?.(data.data as ScrapedPageData);
 			}
 		},
 		onError: (err) => {

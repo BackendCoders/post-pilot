@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ScrapedPageData, SeoReport } from '@/types/seo.types';
 import { SeoScoreBadge, SeoSectionScore } from './SeoScoreBadge';
 import SeoDetailView from './SeoDetailView';
+import { useUsage } from '@/query/auth.query';
 
 interface PageAnalysisCardProps {
 	page: ScrapedPageData;
@@ -41,6 +42,8 @@ export default function PageAnalysisCard({
 	isRescraping,
 }: PageAnalysisCardProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
+	const { data: usageData } = useUsage();
+	const hasPageSpeedAccess = usageData?.limits?.seo?.pageSpeedAndLoadtime !== false;
 	const [activeDetail, setActiveDetail] = useState<{
 		type: any;
 		title: string;
@@ -860,7 +863,60 @@ export default function PageAnalysisCard({
 						)}
 
 						{/* Performance Metrics Details */}
-						{page.performanceMetrics &&
+						{!hasPageSpeedAccess && (
+							<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40 relative overflow-hidden'>
+								<div className='flex items-center gap-2 mb-3'>
+									<div className='h-3 w-0.5 bg-amber-500/60 rounded-full' />
+									<h4 className='text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80'>
+										Performance Metrics
+									</h4>
+								</div>
+								{/* Blurred dummy layout */}
+								<div className='grid grid-cols-1 md:grid-cols-2 gap-4 filter blur-[4px] pointer-events-none select-none opacity-40'>
+									<div className='space-y-2'>
+										<div className='text-[9px] font-bold text-primary flex items-center gap-1 mb-1 bg-primary/5 p-1 rounded-md w-fit'>
+											💻 DESKTOP
+										</div>
+										<div className='grid grid-cols-2 gap-2'>
+											<div className='h-14 bg-muted rounded-xl' />
+											<div className='h-14 bg-muted rounded-xl' />
+											<div className='h-14 bg-muted rounded-xl' />
+											<div className='h-14 bg-muted rounded-xl' />
+										</div>
+									</div>
+									<div className='space-y-2'>
+										<div className='text-[9px] font-bold text-indigo-600 flex items-center gap-1 mb-1 bg-indigo-50 p-1 rounded-md w-fit'>
+											📱 MOBILE
+										</div>
+										<div className='grid grid-cols-2 gap-2'>
+											<div className='h-14 bg-muted rounded-xl' />
+											<div className='h-14 bg-muted rounded-xl' />
+											<div className='h-14 bg-muted rounded-xl' />
+											<div className='h-14 bg-muted rounded-xl' />
+										</div>
+									</div>
+								</div>
+								{/* Premium Lock Overlay */}
+								<div className='absolute inset-0 flex flex-col items-center justify-center bg-card/60 backdrop-blur-sm transition-all duration-300 z-10 p-4 text-center'>
+									<div className='p-3 bg-primary/10 rounded-2xl mb-2 text-primary shadow-inner border border-primary/20 animate-pulse'>
+										<LockKeyhole className='h-6 w-6' />
+									</div>
+									<h5 className='text-sm font-bold tracking-tight text-foreground'>Google PageSpeed & Core Web Vitals</h5>
+									<p className='text-xs text-muted-foreground max-w-sm mt-1 mb-3'>
+										Upgrade to Premium to check load performance times and mobile vitals in real-time.
+									</p>
+									<Button
+										size='sm'
+										onClick={() => window.open('/pricing', '_blank')}
+										className='rounded-xl shadow-lg shadow-primary/25 bg-primary hover:bg-primary/95 text-xs font-semibold px-4 py-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200'
+									>
+										Buy Premium
+									</Button>
+								</div>
+							</div>
+						)}
+
+						{hasPageSpeedAccess && page.performanceMetrics &&
 							(page.performanceMetrics.fcp ||
 								page.performanceMetrics.overallPerformanceScore) && (
 								<div className='lg:col-span-12 mt-4 pt-4 border-t border-border/40'>

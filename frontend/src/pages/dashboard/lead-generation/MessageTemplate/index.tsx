@@ -6,7 +6,8 @@ import {
 	useMessageTemplates,
 	useUpdateMessageTemplate,
 } from '@/query/messageTemplate.query';
-import { useAuth } from '@/query/auth.query';
+import { useAuth, useUsage } from '@/query/auth.query';
+import { toast } from 'sonner';
 
 const KEYWORD_GROUPS = {
 	LEAD: {
@@ -68,6 +69,7 @@ export default function TemplateManager() {
 	const { data: templatesResponse, isFetching: loadingTemplate } =
 		useMessageTemplates();
 	const { data: authUser } = useAuth();
+	const { data: usageData } = useUsage();
 	const { mutate: createMessageTemplate } = useCreateMessageTemplate();
 	const { mutate: updateMessageTemplate } = useUpdateMessageTemplate();
 	const { mutate: deleteMessageTemplate } = useDeleteMessageTemplate();
@@ -178,6 +180,12 @@ export default function TemplateManager() {
 		));
 	};
 
+	const isLimitExceeded = useMemo(() => {
+		if (!usageData?.limits?.leadGen) return false;
+		const currentCount = templates?.length || 0;
+		return currentCount >= usageData.limits.leadGen.messageTemplateCreationLimit;
+	}, [usageData, templates]);
+
 	const handleSave = () => {
 		if (!currentTemplate.title || !currentTemplate.content) return;
 		if (currentTemplate._id) {
@@ -209,7 +217,15 @@ export default function TemplateManager() {
 						</p>
 					</div>
 					<button
-						onClick={() => setIsDialogOpen(true)}
+						onClick={() => {
+							if (isLimitExceeded) {
+								toast.error("Your template creation limit has been reached.", {
+									description: `Your plan allows up to ${usageData?.limits?.leadGen?.messageTemplateCreationLimit} custom templates. Please upgrade to create more custom templates.`,
+								});
+								return;
+							}
+							setIsDialogOpen(true);
+						}}
 						className='bg-primary text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium hover:opacity-90 active:scale-95 transition-all flex items-center gap-2'
 					>
 						<Plus size={18} /> Create Template
@@ -280,7 +296,7 @@ export default function TemplateManager() {
 				{/* Create/Edit Dialog */}
 				{isDialogOpen && (
 					<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm'>
-						<div className='bg-card w-full max-w-xl rounded-[28px] shadow-2xl border border-border overflow-hidden'>
+						<div className='bg-card w-full max-w-xl rounded-[28px] shadow-2xl border border-border overflow-auto max-h-[90vh] '>
 							<div className='px-8 pt-8 pb-4 flex justify-between items-center'>
 								<h2 className='text-xl font-semibold tracking-tight'>
 									{currentTemplate._id ? 'Edit Template' : 'New Template'}

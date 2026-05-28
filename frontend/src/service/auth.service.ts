@@ -128,3 +128,55 @@ export const completeWalkthrough = async function (walkthroughKey: string) {
 	});
 	return res.data;
 };
+
+export const getUsage = async function () {
+	const res = await api.get<{
+		success: boolean;
+		data: {
+			plan: {
+				id: string;
+				name: string;
+				price: number;
+				interval: string;
+				isDefault: boolean;
+				isLease: boolean;
+				metrics: any;
+			} | null;
+			usage: {
+				billingPeriodStart: string;
+				billingPeriodEnd: string;
+				seoWebpageAnalysisCount: number;
+				seoPageSpeedCount: number;
+				leadGenTemplatesCreated: number;
+				leadGenPagesScraped: number;
+				leadGenLeadsScraped: number;
+				leadGenSystemTemplatesUpdated: number;
+			};
+			limits: {
+				seo: {
+					webpageAnalysisLimit: number;
+					webpageAnalysisUsed: number;
+					webpageAnalysisRemaining: number;
+					downloadReport: boolean;
+					trackHistory: boolean;
+					maxHistoryCount: number;
+					pageSpeedAndLoadtime: boolean;
+					aiFixSuggestion: boolean;
+					whatsappIntegration: boolean;
+				};
+				leadGen: {
+					pageScrapeLimit: number;
+					pageScrapesUsed: number;
+					pageScrapesRemaining: number;
+					totalLeadInOneExecutionLimit: number;
+					messageTemplateCreationLimit: number;
+					systemMessageTemplateUpdateLimit: boolean;
+					messageTemplateAccessLimit: boolean;
+					messagePortalAccess: boolean;
+					reportExportFeature: boolean;
+				};
+			} | null;
+		};
+	}>('/api/usage/me');
+	return res.data.data;
+};

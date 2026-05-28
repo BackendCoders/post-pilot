@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, validateRequest } from '../../../middleware';
+import { checkLeadGenScrapeLimit, checkBulkLeadCreateLimit } from '../../../middleware/usageTracker';
 import {
   bulkCreateLeads,
   bulkUpdateLeads,
@@ -137,12 +138,13 @@ router.use(authenticate);
 
 router.post(
   '/scrap-map-data',
+  checkLeadGenScrapeLimit,
   validateRequest(mapScrapperPayload),
   getGoogleMapScrappedData
 );
 
 router.post('/', validateRequest(createLeadSchema), createLead);
-router.post('/bulk', validateRequest(bulkCreateLeadSchema), bulkCreateLeads);
+router.post('/bulk', checkBulkLeadCreateLimit, validateRequest(bulkCreateLeadSchema), bulkCreateLeads);
 router.patch('/bulk', validateRequest(bulkUpdateLeadSchema), bulkUpdateLeads);
 router.patch(
   '/bulk/status',

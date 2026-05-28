@@ -7,6 +7,7 @@ import {
 	ChevronsUpDown,
 	PanelLeftClose,
 	PanelLeftOpen,
+	Shield,
 	Rocket,
 	Home,
 	Search,
@@ -24,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth, useLogout } from '@/query/auth.query';
 import { useUnreadCount } from '@/query/leadMessage.query';
+import { useGetLeadCategory } from '@/query/leadsCategory.query';
 import SupportModal from './SupportModal';
 import { useDarkMode } from '@/context/DarkModeContext';
 
@@ -36,7 +38,7 @@ const Button = React.forwardRef<
 		variant?: 'primary' | 'outline' | 'ghost' | 'secondary';
 		size?: 'default' | 'sm' | 'icon';
 	}
->(({ className, variant = 'primary', size = 'default', ...props }, ref) => {
+>((({ className, variant = 'primary', size = 'default', ...props }, ref) => {
 	const variants = {
 		primary:
 			'bg-primary text-primary-foreground shadow-md hover:brightness-110 active:scale-95',
@@ -63,7 +65,7 @@ const Button = React.forwardRef<
 			{...props}
 		/>
 	);
-});
+}));
 Button.displayName = 'Button';
 
 /**
@@ -138,6 +140,30 @@ export default function GoogleModernLayout() {
 	>('feedback');
 	const { data: unreadData } = useUnreadCount();
 	const unreadCount = unreadData?.unreadCount || 0;
+
+	// Fetch categories dynamically to redirect the Saved Leads link
+	const { data: categoriesResponse } = useGetLeadCategory();
+	const firstCategoryId = categoriesResponse?.data?.[0]?._id;
+
+	const dynamicNavItems = React.useMemo(() => {
+		return NAV_ITEMS.map((item) => {
+			if (item.id === 'lead-generation' && item.subItems) {
+				return {
+					...item,
+					subItems: item.subItems.map((sub) => {
+						if (sub.path === '/dashboard/lead-generation/manage-saved-leads' && firstCategoryId) {
+							return {
+								...sub,
+								path: `/dashboard/lead-generation/manage-saved-leads?category=${firstCategoryId}`,
+							};
+						}
+						return sub;
+					}),
+				};
+			}
+			return item;
+		});
+	}, [firstCategoryId]);
 
 	// Dynamic Breadcrumb Logic
 	const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -216,7 +242,12 @@ export default function GoogleModernLayout() {
 						isSidebarCollapsed ? 'px-2' : 'px-4',
 					)}
 				>
-					{NAV_ITEMS.map((item) => {
+					{[...dynamicNavItems, ...(user?.role === 'admin' ? [{
+						id: 'admin',
+						label: 'Admin Panel',
+						icon: <Shield size={18} />,
+						path: '/dashboard/admin',
+					}] : [])].map((item) => {
 						const hasSub = !!item.subItems;
 						const isOpen = openMenus.includes(item.id);
 						const isActive = location.pathname.includes(item.id);
@@ -282,14 +313,13 @@ export default function GoogleModernLayout() {
 												data-walkthrough={
 													sub.path === '/dashboard/seo-rocket/history'
 														? 'seo-history-link'
-														: sub.path ===
-															  '/dashboard/lead-generation/manage-saved-leads'
+														: sub.path.startsWith('/dashboard/lead-generation/manage-saved-leads')
 															? 'lead-history-link'
 															: undefined
 												}
 												className={cn(
 													'block py-2 px-3 text-sm rounded-lg transition-all',
-													location.pathname === sub.path
+													location.pathname === sub.path.split('?')[0]
 														? 'text-primary font-semibold bg-primary/5'
 														: 'text-muted-foreground hover:text-foreground hover:bg-muted/30',
 												)}

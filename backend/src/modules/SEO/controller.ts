@@ -5,13 +5,20 @@ import { seoAnalysisService } from './service/seoAnalysis.service';
 
 export const scrapeSeoTarget = asyncHandler(
   async (req: Request, res: Response) => {
-    const { url, mode, fullSite } = req.body as {
+    const { url, mode, fullSite, includePageSpeed } = req.body as {
       url: string;
       mode?: 'auto' | 'page' | 'site';
       fullSite?: boolean;
+      includePageSpeed?: boolean;
     };
 
-    const result = await analyzeUrl({ url, mode, fullSite });
+    const result = await analyzeUrl({ url, mode, fullSite, includePageSpeed });
+
+    // Increment SEO Analysis usage counter
+    if (req.user && req.user.userId) {
+      const { incrementSeoUsage } = require('../../middleware/usageTracker');
+      await incrementSeoUsage(req.user.userId, 1);
+    }
 
     res.status(200).json({
       success: true,
@@ -64,6 +71,10 @@ export const scrapeSeoBulkUrls = asyncHandler(
 
     // Use Job system for bulk scrape
     const jobId = await seoAnalysisService.createJob(userId, requestedUrl || urls[0] || '', urls);
+
+    // Increment SEO Analysis usage counter by bulk count
+    const { incrementSeoUsage } = require('../../middleware/usageTracker');
+    await incrementSeoUsage(userId, urls.length);
 
     res.status(202).json({
       success: true,

@@ -96,6 +96,13 @@ password: {
       enum: ['free', 'pro', 'enterprise'],
       default: 'free',
     },
+    pricingModel: {
+      type: Schema.Types.ObjectId,
+      ref: 'PricingModel',
+    },
+    leaseUntil: {
+      type: Date,
+    },
     emailVerified: {
       type: Boolean,
       default: false,
