@@ -42,7 +42,7 @@ export const register = async function ({
 	password: string;
 	userName: string;
 }) {
-	const res = await api.post<IApiResponse<ILoginResponse>>(
+	const res = await api.post<IApiResponse>(
 		'/api/auth/register',
 		{
 			email,
@@ -50,7 +50,7 @@ export const register = async function ({
 			userName,
 		},
 	);
-	return res.data.data;
+	return res.data;
 };
 
 export const refresh = async function (refreshToken: string | null = null) {
@@ -179,4 +179,60 @@ export const getUsage = async function () {
 		};
 	}>('/api/usage/me');
 	return res.data.data;
+};
+
+export const getAvailablePlans = async function () {
+	const res = await api.get<{
+		success: boolean;
+		data: Array<{
+			id: string;
+			name: string;
+			price: number;
+			interval: string;
+			isDefault: boolean;
+			isLease: boolean;
+			metrics: any;
+		}>;
+	}>('/api/usage/plans');
+	return res.data.data;
+};
+
+export const verifyOtp = async function ({ email, otp }: { email: string; otp: string }) {
+	const res = await api.post<IApiResponse<ILoginResponse>>('/api/auth/verify-otp', { email, otp });
+	return res.data.data;
+};
+
+export const resendOtp = async function (email: string) {
+	const res = await api.post<IApiResponse>('/api/auth/resend-otp', { email });
+	return res.data;
+};
+
+export const forgotPassword = async function (email: string) {
+	const res = await api.post<IApiResponse>('/api/auth/forgot-password', { email });
+	return res.data;
+};
+
+export const resetPasswordWithOtp = async function ({
+	email,
+	otp,
+	newPassword,
+}: {
+	email: string;
+	otp: string;
+	newPassword: string;
+}) {
+	const res = await api.post<IApiResponse>('/api/auth/reset-password-otp', {
+		email,
+		otp,
+		newPassword,
+	});
+	return res.data;
+};
+
+export const subscribeToPlan = async function (planId: string) {
+	const res = await api.post<{
+		success: boolean;
+		message: string;
+	}>('/api/usage/subscribe/' + planId);
+	return res.data;
 };

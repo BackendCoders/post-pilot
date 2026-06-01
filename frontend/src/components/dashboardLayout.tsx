@@ -10,6 +10,7 @@ import {
 	Shield,
 	Rocket,
 	Home,
+	CreditCard,
 	Search,
 	GalleryVerticalEnd,
 	Bell,
@@ -77,6 +78,12 @@ const NAV_ITEMS = [
 		label: 'Home',
 		icon: <Home size={18} />,
 		path: '/dashboard/home',
+	},
+	{
+		id: 'plan',
+		label: 'My Plan',
+		icon: <CreditCard size={18} />,
+		path: '/dashboard/plan',
 	},
 	{
 		id: 'seo-rocket',

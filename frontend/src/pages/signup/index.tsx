@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth, useGoogleSignIn, useSignUp } from '@/query/auth.query';
+import { useAuth, useGoogleSignIn, useResendOtp, useSignUp, useVerifyOtp } from '@/query/auth.query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { requestGoogleAccessToken } from '@/utils/googleOAuth';
@@ -25,6 +25,8 @@ const emailPattern = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
 
 export default function SignUpScreen() {
 	const { mutate: signUp, isPending } = useSignUp();
+	const { mutate: verifyOtp, isPending: isVerifyingOtp } = useVerifyOtp();
+	const { mutate: resendOtp, isPending: isResendingOtp } = useResendOtp();
 	const { mutateAsync: googleSignIn, isPending: isGooglePending } =
 		useGoogleSignIn();
 	const { data } = useAuth();
@@ -33,9 +35,26 @@ export default function SignUpScreen() {
 	const [errors, setErrors] = useState<
 		Partial<Record<keyof SignUpFormData, string>>
 	>({});
+	const [otp, setOtp] = useState('');
+	const [otpStep, setOtpStep] = useState(false);
+	const [pendingEmail, setPendingEmail] = useState('');
+	const [otpCooldown, setOtpCooldown] = useState(0);
+	const otpStorageKey = 'otp_cooldown_global';
 
 	useEffect(() => {
-		if (data) navigate('/');
+		const until = Number(localStorage.getItem(otpStorageKey) || '0');
+		const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+		setOtpCooldown(left);
+	}, [otpStorageKey]);
+
+	useEffect(() => {
+		if (otpCooldown <= 0) return;
+		const t = setInterval(() => setOtpCooldown((s) => Math.max(0, s - 1)), 1000);
+		return () => clearInterval(t);
+	}, [otpCooldown]);
+
+	useEffect(() => {
+		if (data) navigate('/dashboard/home');
 	}, [data, navigate]);
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,11 +99,12 @@ export default function SignUpScreen() {
 
 		if (!validateForm()) return;
 
+		const email = formData.email.trim().toLowerCase();
 		signUp({
 			userName: formData.userName.trim(),
-			email: formData.email.trim().toLowerCase(),
+			email,
 			password: formData.password,
-		});
+		}, { onSuccess: () => { setOtpStep(true); setPendingEmail(email); } });
 	};
 
 	const handleGoogleSignUp = async () => {
@@ -151,7 +171,7 @@ export default function SignUpScreen() {
 							</p>
 						</div>
 
-						<form
+						{!otpStep ? <form
 							onSubmit={handleSubmit}
 							className='space-y-5'
 						>
@@ -234,7 +254,48 @@ export default function SignUpScreen() {
 							>
 								{isPending ? 'Creating account...' : 'Create account'}
 							</Button>
-						</form>
+						</form> : (
+							<div className='space-y-4'>
+								<p className='text-sm text-muted-foreground'>Enter OTP sent to {pendingEmail}</p>
+								<p className='text-xs text-muted-foreground'>OTP expires in 10 minutes.</p>
+								<div className='space-y-2'>
+									<Label htmlFor='pendingEmail'>Change email</Label>
+									<Input
+										id='pendingEmail'
+										type='email'
+										value={pendingEmail}
+										onChange={(e) => setPendingEmail(e.target.value.trim().toLowerCase())}
+										className='h-11 rounded-xl'
+									/>
+								</div>
+								<Input value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} placeholder='6-digit OTP' className='h-11 rounded-xl' />
+								<Button className='h-11 w-full rounded-xl' disabled={isVerifyingOtp} onClick={() => verifyOtp({ email: pendingEmail, otp })}>
+									{isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
+								</Button>
+								<Button variant='outline' className='h-11 w-full rounded-xl' disabled={isResendingOtp || otpCooldown > 0} onClick={() => {
+									resendOtp(pendingEmail, {
+										onSuccess: () => {
+											const until = Date.now() + 60 * 1000;
+											localStorage.setItem(otpStorageKey, String(until));
+											setOtpCooldown(60);
+										}
+									});
+								}}>
+									{isResendingOtp ? 'Resending...' : otpCooldown > 0 ? `Wait ${otpCooldown}s` : 'Resend OTP'}
+								</Button>
+								<Button
+									variant='ghost'
+									className='h-11 w-full rounded-xl'
+									onClick={() => {
+										setOtpStep(false);
+										setOtp('');
+										setPendingEmail('');
+									}}
+								>
+									Back to signup form
+								</Button>
+							</div>
+						)}
 
 						<div className='relative my-6'>
 							<div className='absolute inset-0 flex items-center'>

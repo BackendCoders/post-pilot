@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input'; // Assuming standard Shadcn Input
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth, useGoogleSignIn, useSignIn } from '@/query/auth.query';
+import { useResendOtp, useVerifyOtp } from '@/query/auth.query';
+import { useForgotPassword, useResetPasswordWithOtp } from '@/query/auth.query';
 import { Link, useNavigate } from 'react-router-dom';
 import { requestGoogleAccessToken } from '@/utils/googleOAuth';
 import { toast } from 'sonner';
@@ -16,10 +18,44 @@ const userData = {
 
 export default function LoginScreen() {
 	const { mutate: login, isPending } = useSignIn();
+	const { mutate: verifyOtp, isPending: isVerifyingOtp } = useVerifyOtp();
+	const { mutate: resendOtp, isPending: isResendingOtp } = useResendOtp();
 	const { mutateAsync: googleSignIn, isPending: isGooglePending } =
 		useGoogleSignIn();
+	const { mutate: forgotPassword, isPending: isForgotPending } = useForgotPassword();
+	const { mutate: resetPasswordWithOtp, isPending: isResetPending } = useResetPasswordWithOtp();
 	const { data } = useAuth();
 	const [formData, setFormData] = useState(userData);
+	const [otpStep, setOtpStep] = useState(false);
+	const [pendingEmail, setPendingEmail] = useState('');
+	const [otp, setOtp] = useState('');
+	const [forgotStep, setForgotStep] = useState(false);
+	const [forgotEmail, setForgotEmail] = useState('');
+	const [forgotOtp, setForgotOtp] = useState('');
+	const [newPassword, setNewPassword] = useState('');
+	const [otpCooldown, setOtpCooldown] = useState(0);
+	const [forgotCooldown, setForgotCooldown] = useState(0);
+	const otpStorageKey = 'otp_cooldown_global';
+	const forgotStorageKey = 'otp_cooldown_global';
+
+	useEffect(() => {
+		const until = Number(localStorage.getItem(otpStorageKey) || '0');
+		setOtpCooldown(Math.max(0, Math.ceil((until - Date.now()) / 1000)));
+	}, [otpStorageKey]);
+
+	useEffect(() => {
+		const until = Number(localStorage.getItem(forgotStorageKey) || '0');
+		setForgotCooldown(Math.max(0, Math.ceil((until - Date.now()) / 1000)));
+	}, [forgotStorageKey]);
+
+	useEffect(() => {
+		if (otpCooldown <= 0 && forgotCooldown <= 0) return;
+		const t = setInterval(() => {
+			setOtpCooldown((s) => Math.max(0, s - 1));
+			setForgotCooldown((s) => Math.max(0, s - 1));
+		}, 1000);
+		return () => clearInterval(t);
+	}, [otpCooldown, forgotCooldown]);
 	const navigation = useNavigate();
 
 	useEffect(() => {
@@ -33,9 +69,18 @@ export default function LoginScreen() {
 
 	const handleLogin = (e: React.FormEvent) => {
 		e.preventDefault();
+		const email = formData.email.trim().toLowerCase();
 		login({
-			email: formData.email.trim().toLowerCase(),
+			email,
 			password: formData.password,
+		}, {
+			onError: (err: any) => {
+				const msg = err?.response?.data?.error || '';
+				if (msg.toLowerCase().includes('email not verified')) {
+					setPendingEmail(email);
+					setOtpStep(true);
+				}
+			},
 		});
 	};
 
@@ -80,7 +125,7 @@ export default function LoginScreen() {
 
 				{/* Login Card */}
 				<div className='bg-card border border-border/40 shadow-sm rounded-3xl p-8'>
-					<form
+					{!otpStep ? <form
 						onSubmit={handleLogin}
 						className='space-y-5'
 					>
@@ -101,12 +146,16 @@ export default function LoginScreen() {
 						<div className='space-y-2'>
 							<div className='flex justify-between items-center'>
 								<Label htmlFor='password'>Password</Label>
-								<a
-									href='#'
+								<button
+									type='button'
+									onClick={() => {
+										setForgotStep(true);
+										setForgotEmail(formData.email.trim().toLowerCase());
+									}}
 									className='text-xs font-medium text-primary hover:text-primary/80'
 								>
 									Forgot password?
-								</a>
+								</button>
 							</div>
 							<Input
 								id='password'
@@ -143,7 +192,84 @@ export default function LoginScreen() {
 						>
 							{isPending ? 'Signing in...' : 'Sign in'}
 						</Button>
-					</form>
+					</form> : (
+						<div className='space-y-4'>
+							<p className='text-sm text-muted-foreground'>Your email is not verified. Enter OTP sent to {pendingEmail}.</p>
+							<p className='text-xs text-muted-foreground'>OTP expires in 10 minutes.</p>
+							<div className='space-y-2'>
+								<Label htmlFor='pendingEmail'>Change email</Label>
+								<Input
+									id='pendingEmail'
+									type='email'
+									value={pendingEmail}
+									onChange={(e) => setPendingEmail(e.target.value.trim().toLowerCase())}
+									className='h-11 rounded-xl'
+								/>
+							</div>
+							<Input value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} placeholder='6-digit OTP' className='h-11 rounded-xl' />
+							<Button className='w-full h-11 rounded-xl' disabled={isVerifyingOtp} onClick={() => verifyOtp({ email: pendingEmail, otp })}>
+								{isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
+							</Button>
+							<Button variant='outline' className='w-full h-11 rounded-xl' disabled={isResendingOtp || otpCooldown > 0} onClick={() => resendOtp(pendingEmail, {
+								onSuccess: () => {
+									const until = Date.now() + 60 * 1000;
+									localStorage.setItem(otpStorageKey, String(until));
+									setOtpCooldown(60);
+								}
+							})}>
+								{isResendingOtp ? 'Resending...' : otpCooldown > 0 ? `Wait ${otpCooldown}s` : 'Resend OTP'}
+							</Button>
+							<Button
+								variant='ghost'
+								className='w-full h-11 rounded-xl'
+								onClick={() => {
+									setOtpStep(false);
+									setOtp('');
+									setPendingEmail('');
+								}}
+							>
+								Back to login
+							</Button>
+						</div>
+					)}
+
+					{forgotStep && (
+						<div className='mt-5 border border-border rounded-xl p-4 space-y-3'>
+							<p className='text-xs font-semibold'>Reset password with OTP</p>
+							<p className='text-xs text-muted-foreground'>OTP expires in 10 minutes.</p>
+							<Input placeholder='Email' type='email' value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value.trim().toLowerCase())} />
+							<Button type='button' variant='outline' className='w-full' disabled={isForgotPending || forgotCooldown > 0} onClick={() => forgotPassword(forgotEmail, {
+								onSuccess: () => {
+									const until = Date.now() + 60 * 1000;
+									localStorage.setItem(forgotStorageKey, String(until));
+									setForgotCooldown(60);
+								}
+							})}>
+								{isForgotPending ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send OTP'}
+							</Button>
+							<Input placeholder='6-digit OTP' value={forgotOtp} onChange={(e) => setForgotOtp(e.target.value)} maxLength={6} />
+							<Input placeholder='New password' type='password' value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+							<Button
+								type='button'
+								disabled={isResetPending}
+								onClick={() =>
+									resetPasswordWithOtp(
+										{ email: forgotEmail, otp: forgotOtp, newPassword },
+										{
+											onSuccess: () => {
+												setForgotStep(false);
+												setForgotOtp('');
+												setNewPassword('');
+											},
+										},
+									)
+								}
+								className='w-full'
+							>
+								{isResetPending ? 'Resetting...' : 'Reset Password'}
+							</Button>
+						</div>
+					)}
 
 					<div className='relative my-8'>
 						<div className='absolute inset-0 flex items-center'>

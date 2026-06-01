@@ -91,6 +91,23 @@ export default function AdminDashboard() {
   const [targetPlanId, setTargetPlanId] = useState('');
   const [isLeaseAssign, setIsLeaseAssign] = useState(false);
   const [leaseUntilAssign, setLeaseUntilAssign] = useState('');
+  const [editCurrentPlanConfig, setEditCurrentPlanConfig] = useState(false);
+  const [assignPlanMetrics, setAssignPlanMetrics] = useState<MetricConfig>({
+    webpageAnalysisLimit: 0,
+    downloadReport: false,
+    trackHistory: false,
+    maxHistoryCount: 0,
+    pageSpeedAndLoadtime: false,
+    aiFixSuggestion: false,
+    whatsappIntegration: false,
+    messageTemplateCreationLimit: 0,
+    systemMessageTemplateUpdateLimit: false,
+    messageTemplateAccessLimit: false,
+    messagePortalAccess: false,
+    pageScrapeLimit: 0,
+    totalLeadInOneExecutionLimit: 0,
+    reportExportFeature: false,
+  });
 
   // User edit forms
   const [editUserName, setEditUserName] = useState('');
@@ -166,6 +183,20 @@ export default function AdminDashboard() {
     if (!selectedUser) return;
 
     try {
+      if (editCurrentPlanConfig && targetPlanId) {
+        const targetPlan = plans.find((plan) => plan._id === targetPlanId);
+        if (targetPlan) {
+          await api.put(`/api/admin/plans/${targetPlanId}`, {
+            name: targetPlan.name,
+            price: targetPlan.price,
+            interval: targetPlan.interval,
+            isDefault: targetPlan.isDefault,
+            isLease: targetPlan.isLease,
+            metrics: assignPlanMetrics,
+          });
+        }
+      }
+
       await api.put(`/api/admin/users/${selectedUser.id}/assign-plan`, {
         pricingModelId: targetPlanId || null,
         isLease: isLeaseAssign,
@@ -226,13 +257,34 @@ export default function AdminDashboard() {
   };
 
   const openAssignPlan = (user: AdminUser) => {
+    const currentPlanId = user.pricingModel?._id || '';
+    const currentPlan = plans.find((plan) => plan._id === currentPlanId);
     setSelectedUser(user);
-    setTargetPlanId(user.pricingModel?._id || '');
+    setTargetPlanId(currentPlanId);
     setIsLeaseAssign(!!user.leaseUntil);
     setLeaseUntilAssign(
       user.leaseUntil 
         ? new Date(user.leaseUntil).toISOString().split('T')[0] 
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    );
+    setEditCurrentPlanConfig(false);
+    setAssignPlanMetrics(
+      currentPlan?.metrics || {
+        webpageAnalysisLimit: 0,
+        downloadReport: false,
+        trackHistory: false,
+        maxHistoryCount: 0,
+        pageSpeedAndLoadtime: false,
+        aiFixSuggestion: false,
+        whatsappIntegration: false,
+        messageTemplateCreationLimit: 0,
+        systemMessageTemplateUpdateLimit: false,
+        messageTemplateAccessLimit: false,
+        messagePortalAccess: false,
+        pageScrapeLimit: 0,
+        totalLeadInOneExecutionLimit: 0,
+        reportExportFeature: false,
+      }
     );
     setIsAssignPlanOpen(true);
   };
@@ -612,7 +664,14 @@ export default function AdminDashboard() {
                 <label className="text-xs font-bold text-muted-foreground uppercase block mb-1">Select Plan</label>
                 <select
                   value={targetPlanId}
-                  onChange={(e) => setTargetPlanId(e.target.value)}
+                  onChange={(e) => {
+                    const nextPlanId = e.target.value;
+                    setTargetPlanId(nextPlanId);
+                    const selected = plans.find((plan) => plan._id === nextPlanId);
+                    if (selected?.metrics) {
+                      setAssignPlanMetrics({ ...selected.metrics });
+                    }
+                  }}
                   className="w-full bg-muted border border-border rounded-xl p-2 text-sm outline-none"
                 >
                   <option value="">No Active Plan (Free Default)</option>
@@ -633,6 +692,12 @@ export default function AdminDashboard() {
                 <label htmlFor="isLease" className="text-sm font-semibold text-foreground">Designate as Lease plan</label>
               </div>
 
+              {selectedUser?.leaseUntil && (
+                <p className="text-xs text-amber-500 font-semibold">
+                  Current plan expires on {new Date(selectedUser.leaseUntil).toLocaleDateString()}
+                </p>
+              )}
+
               {isLeaseAssign && (
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase block mb-1 font-semibold">Lease Ends Date</label>
@@ -642,6 +707,55 @@ export default function AdminDashboard() {
                     onChange={(e) => setLeaseUntilAssign(e.target.value)}
                     className="w-full bg-muted border border-border rounded-xl p-2 text-sm outline-none"
                   />
+                </div>
+              )}
+
+              {targetPlanId && (
+                <div className="border-t border-border pt-3 space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={editCurrentPlanConfig}
+                      onChange={(e) => setEditCurrentPlanConfig(e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    Edit current running plan limits/features
+                  </label>
+
+                  {editCurrentPlanConfig && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] text-muted-foreground font-semibold">Webpages Audit Limit</label>
+                          <input type="number" value={assignPlanMetrics.webpageAnalysisLimit} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, webpageAnalysisLimit: Number(e.target.value) })} className="w-full bg-muted border border-border rounded-xl p-2 text-xs outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground font-semibold">Max Kept History</label>
+                          <input type="number" value={assignPlanMetrics.maxHistoryCount} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, maxHistoryCount: Number(e.target.value) })} className="w-full bg-muted border border-border rounded-xl p-2 text-xs outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground font-semibold">Page Scrapes Limit</label>
+                          <input type="number" value={assignPlanMetrics.pageScrapeLimit} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, pageScrapeLimit: Number(e.target.value) })} className="w-full bg-muted border border-border rounded-xl p-2 text-xs outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground font-semibold">Load More restriction (execution limit)</label>
+                          <input type="number" value={assignPlanMetrics.totalLeadInOneExecutionLimit} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, totalLeadInOneExecutionLimit: Number(e.target.value) })} className="w-full bg-muted border border-border rounded-xl p-2 text-xs outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground font-semibold">Custom Templates Limit</label>
+                          <input type="number" value={assignPlanMetrics.messageTemplateCreationLimit} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, messageTemplateCreationLimit: Number(e.target.value) })} className="w-full bg-muted border border-border rounded-xl p-2 text-xs outline-none" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={assignPlanMetrics.downloadReport} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, downloadReport: e.target.checked })} className="rounded border-border" /> Enable Download Report</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={assignPlanMetrics.pageSpeedAndLoadtime} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, pageSpeedAndLoadtime: e.target.checked })} className="rounded border-border" /> Enable Page Speed Calculation</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={assignPlanMetrics.aiFixSuggestion} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, aiFixSuggestion: e.target.checked })} className="rounded border-border" /> Enable AI Suggestions</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={assignPlanMetrics.whatsappIntegration} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, whatsappIntegration: e.target.checked })} className="rounded border-border" /> Enable WhatsApp Sharing</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={assignPlanMetrics.messagePortalAccess} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, messagePortalAccess: e.target.checked })} className="rounded border-border" /> Enable Message Inbox Portal Access</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" checked={assignPlanMetrics.reportExportFeature} onChange={(e) => setAssignPlanMetrics({ ...assignPlanMetrics, reportExportFeature: e.target.checked })} className="rounded border-border" /> Enable CSV Report Export Feature</label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

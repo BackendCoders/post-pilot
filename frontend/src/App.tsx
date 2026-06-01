@@ -34,6 +34,7 @@ import ProfilePage from '@/pages/dashboard/profile';
 import SEORocketHistory from './pages/dashboard/seo-rocket/history';
 import SeoOverview from './pages/dashboard/seo-rocket/overview';
 import LeadInbox from './pages/dashboard/lead-generation/inbox';
+import UserPlanPage from './pages/dashboard/plan';
 
 import AboutPage from './pages/about/page';
 import ContactPage from './pages/contact/page';
@@ -122,6 +123,7 @@ const router = createBrowserRouter([
 						),
 					},
 					{ path: 'home', element: <DashboardHome /> },
+					{ path: 'plan', element: <UserPlanPage /> },
 					{ path: 'admin', element: <AdminDashboard /> },
 					{
 						path: 'post-pilot',
