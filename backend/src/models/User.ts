@@ -148,6 +148,18 @@ password: {
       type: [String],
       default: [],
     },
+    emailOtp: {
+      code: { type: String, default: '' },
+      expiresAt: { type: Date },
+      attempts: { type: Number, default: 0 },
+      lastSentAt: { type: Date },
+    },
+    passwordResetOtp: {
+      code: { type: String, default: '' },
+      expiresAt: { type: Date },
+      attempts: { type: Number, default: 0 },
+      lastSentAt: { type: Date },
+    },
   },
   {
     timestamps: true,

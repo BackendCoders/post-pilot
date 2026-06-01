@@ -207,6 +207,20 @@ class MailService {
 
     return this.sendMail(to, subject, html, attachments);
   }
+
+  async sendEmailOtp(data: { to: string; userName: string; otp: string }) {
+    const subject = 'Your verification code';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px;">
+        <h2 style="margin: 0 0 10px 0;">Verify your email</h2>
+        <p>Hello ${data.userName},</p>
+        <p>Your OTP verification code is:</p>
+        <div style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${data.otp}</div>
+        <p><strong>This code will expire in 10 minutes.</strong></p>
+      </div>
+    `;
+    return this.sendMail(data.to, subject, html);
+  }
 }
 
 export const mailService = new MailService();

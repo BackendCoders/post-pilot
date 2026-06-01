@@ -40,6 +40,33 @@ export const refreshTokenSchema = z.object({
   }),
 });
 
+export const verifyOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Invalid email format').min(1, 'Email is required'),
+    otp: z.string().length(6, 'OTP must be 6 digits'),
+  }),
+});
+
+export const resendOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Invalid email format').min(1, 'Email is required'),
+  }),
+});
+
+export const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.email('Invalid email format').min(1, 'Email is required'),
+  }),
+});
+
+export const resetPasswordWithOtpSchema = z.object({
+  body: z.object({
+    email: z.email('Invalid email format').min(1, 'Email is required'),
+    otp: z.string().length(6, 'OTP must be 6 digits'),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters long'),
+  }),
+});
+
 export const updateProfileSchema = z.object({
   body: z.object({
     firstName: z

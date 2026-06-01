@@ -35,6 +35,18 @@ export interface IUser {
   googleId?: string | null;
   provider?: 'local' | 'google' | null;
   completedWalkthroughs: string[];
+  emailOtp?: {
+    code: string;
+    expiresAt?: Date;
+    attempts: number;
+    lastSentAt?: Date;
+  };
+  passwordResetOtp?: {
+    code: string;
+    expiresAt?: Date;
+    attempts: number;
+    lastSentAt?: Date;
+  };
 }
 
 export interface IAuthRequest {

@@ -8,6 +8,8 @@ import User from '../models/User';
 import PricingModel from '../models/PricingModel';
 import { ILoginResponse, IApiResponse } from '../types/index';
 import { logger } from '../utils/logger';
+import { mailService } from '../services/mailService';
+const OTP_COOLDOWN_MS = 60 * 1000;
 
 interface IGoogleTokenInfo {
   sub: string;
@@ -62,39 +64,21 @@ export const register = asyncHandler(
       leaseUntil: leasePlan ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : undefined,
     });
 
-    await user.save();
-
-    // Generate tokens
-    const tokenPayload = {
-      userId: user._id,
-      email: user.email,
-      role: user.role,
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    user.emailVerified = false;
+    (user as any).emailOtp = {
+      code: otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      attempts: 0,
+      lastSentAt: new Date(),
     };
 
-    const { accessToken, refreshToken } =
-      JWTUtils.generateTokenPair(tokenPayload);
+    await user.save();
+    await mailService.sendEmailOtp({ to: user.email, userName: user.userName, otp });
 
-    // Set refresh token as httpOnly cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    const response: IApiResponse<ILoginResponse> = {
+    const response: IApiResponse = {
       success: true,
-      data: {
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          userName: user.userName,
-          role: user.role,
-        },
-        token: accessToken,
-        refreshToken,
-      },
-      message: 'User registered successfully',
+      message: 'User registered. OTP sent to email. Verify to continue.',
     };
 
     logger.info('User registered successfully', {
@@ -476,6 +460,13 @@ export const googleAuth = asyncHandler(
       });
       return;
     }
+    if (!user.emailVerified) {
+      res.status(403).json({
+        success: false,
+        error: 'Email not verified. Please verify OTP sent to your email.',
+      });
+      return;
+    }
 
     user.lastLogin = new Date();
     user.lastActiveAt = new Date();
@@ -521,3 +512,135 @@ export const googleAuth = asyncHandler(
     res.status(200).json(response);
   }
 );
+
+export const verifyOtp = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const otpData = (user as any).emailOtp;
+    if (!otpData?.code || !otpData?.expiresAt) {
+      res.status(400).json({ success: false, error: 'No OTP found. Please resend OTP.' });
+      return;
+    }
+    if (new Date() > new Date(otpData.expiresAt)) {
+      res.status(400).json({ success: false, error: 'OTP expired. Please resend OTP.' });
+      return;
+    }
+    if (otpData.code !== otp) {
+      (user as any).emailOtp.attempts = (otpData.attempts || 0) + 1;
+      await user.save();
+      res.status(400).json({ success: false, error: 'Invalid OTP' });
+      return;
+    }
+
+    user.emailVerified = true;
+    (user as any).emailOtp = { code: '', expiresAt: undefined, attempts: 0 };
+    user.lastLogin = new Date();
+    user.lastActiveAt = new Date();
+    user.loginCount = (user.loginCount || 0) + 1;
+    await user.save();
+
+    const tokenPayload = { userId: user._id, email: user.email, role: user.role };
+    const { accessToken, refreshToken } = JWTUtils.generateTokenPair(tokenPayload);
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: { id: user._id.toString(), email: user.email, userName: user.userName, role: user.role },
+        token: accessToken,
+        refreshToken,
+      },
+      message: 'Email verified successfully',
+    });
+  }
+);
+
+export const resendOtp = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+    if (user.emailVerified) {
+      res.status(200).json({ success: true, message: 'Email already verified' });
+      return;
+    }
+    const lastSentAt = (user as any).emailOtp?.lastSentAt ? new Date((user as any).emailOtp.lastSentAt).getTime() : 0;
+    const wait = OTP_COOLDOWN_MS - (Date.now() - lastSentAt);
+    if (wait > 0) {
+      res.status(429).json({ success: false, error: `Please wait ${Math.ceil(wait / 1000)} seconds before requesting OTP again.` });
+      return;
+    }
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    (user as any).emailOtp = { code: otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000), attempts: 0, lastSentAt: new Date() };
+    await user.save();
+    await mailService.sendEmailOtp({ to: user.email, userName: user.userName, otp });
+    res.status(200).json({ success: true, message: 'OTP resent successfully' });
+  }
+);
+
+export const forgotPassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    res.status(200).json({ success: true, message: 'If account exists, OTP is sent.' });
+    return;
+  }
+  const lastSentAt = (user as any).passwordResetOtp?.lastSentAt ? new Date((user as any).passwordResetOtp.lastSentAt).getTime() : 0;
+  const wait = OTP_COOLDOWN_MS - (Date.now() - lastSentAt);
+  if (wait > 0) {
+    res.status(429).json({ success: false, error: `Please wait ${Math.ceil(wait / 1000)} seconds before requesting OTP again.` });
+    return;
+  }
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  (user as any).passwordResetOtp = { code: otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000), attempts: 0, lastSentAt: new Date() };
+  await user.save();
+  await mailService.sendEmailOtp({ to: user.email, userName: user.userName, otp });
+  res.status(200).json({ success: true, message: 'Password reset OTP sent to your email.' });
+});
+
+export const resetPasswordWithOtp = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { email, otp, newPassword } = req.body;
+  const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+  if (!user) {
+    res.status(404).json({ success: false, error: 'User not found' });
+    return;
+  }
+  const otpData = (user as any).passwordResetOtp;
+  if (!otpData?.code || !otpData?.expiresAt) {
+    res.status(400).json({ success: false, error: 'No reset OTP found. Please request again.' });
+    return;
+  }
+  if (new Date() > new Date(otpData.expiresAt)) {
+    res.status(400).json({ success: false, error: 'OTP expired. Please request again.' });
+    return;
+  }
+  if (otpData.code !== otp) {
+    (user as any).passwordResetOtp.attempts = (otpData.attempts || 0) + 1;
+    await user.save();
+    res.status(400).json({ success: false, error: 'Invalid OTP' });
+    return;
+  }
+  const passwordValidation = PasswordUtils.validatePassword(newPassword);
+  if (!passwordValidation.isValid) {
+    res.status(400).json({ success: false, error: 'Password validation failed', errors: { password: passwordValidation.errors } });
+    return;
+  }
+  user.password = newPassword;
+  (user as any).passwordResetOtp = { code: '', expiresAt: undefined, attempts: 0 };
+  await user.save();
+  res.status(200).json({ success: true, message: 'Password reset successful. Please login.' });
+});
